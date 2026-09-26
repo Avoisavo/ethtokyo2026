@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getAgentConfig } from "@/lib/world-agent/config";
-import { startDeviceAuthorization } from "@/lib/world-agent/oidc";
-import { TASK, newAttemptId, publicAttempt, saveAttempt } from "@/lib/world-agent/store";
+import { getAgentConfig } from "@/lib/world/agent/config";
+import { startDeviceAuthorization } from "@/lib/world/agent/oidc";
+import { TASK, newAttemptId, publicAttempt, saveAttempt } from "@/lib/world/agent/store";
 
 /**
  * The agent asks for human approval before running its task.
