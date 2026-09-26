@@ -162,13 +162,13 @@ export interface PetriExport {
  * Building it
  * ------------------------------------------------------------------ */
 
-/** What the wire message says about a report, and the log says about nothing else. */
+/** What the log message says about a report, and the log says about nothing else. */
 interface WireFacts {
   clean: boolean;
   spreadBp: number;
 }
 
-/** Read the log once for the head hash and for the two wire-only report fields. */
+/** Read the log once for the head hash and for the two log-only report fields. */
 async function readLogFacts(ctx: Ctx): Promise<{
   lastSeq: number;
   headHash: string;
@@ -260,7 +260,7 @@ function verificationsOf(
       ignoredWhy: decided.get(checked.id)?.why ?? 'this report is not in the counted set',
       mode: r.mode,
       runs: r.runs,
-      // `clean` exists only on the wire message, so an unpublished report has no
+      // `clean` exists only in the log message, so an unpublished report has no
       // honest value for it. Absent from the log reads as not clean, never as clean.
       clean: facts?.clean ?? false,
       spreadBp: facts?.spreadBp ?? spreadBpOf(r.candidate),
