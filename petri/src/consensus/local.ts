@@ -284,10 +284,6 @@ export class LocalLog implements ConsensusLog {
     return generate();
   }
 
-  trustLabel(): string {
-    return `local log ${this.path}  —  UNVERIFIED`;
-  }
-
   async close(): Promise<void> {
     // Nothing to release. The lock is taken and dropped inside publish.
   }

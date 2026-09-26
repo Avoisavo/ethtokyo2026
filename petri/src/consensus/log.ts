@@ -54,8 +54,6 @@ export interface ConsensusLog {
   readonly topic: string;
   publish(body: PetriMessage): Promise<PublishReceipt>;
   read(afterSeq?: number): AsyncIterable<LogEntry>;
-  /** The honest one-line trust label. The CLI MUST print this. */
-  trustLabel(): string;
   close(): Promise<void>;
 }
 
