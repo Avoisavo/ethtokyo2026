@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { ENS_CHAIN_ID, type EnsLookup, type EnsRecordsResponse } from "@/lib/ens-records";
-import { parseNamesParam, resolveRecords } from "@/lib/ens-resolve";
+import { ENS_CHAIN_ID, type EnsLookup, type EnsRecordsResponse } from "@/lib/ens/records";
+import { parseNamesParam, resolveRecords } from "@/lib/ens/resolve";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ const TTL_MS = 15_000;
 const cache = new Map<string, { at: number; lookup: Promise<EnsLookup> }>();
 
 /**
- * GET /api/ens-records?names=a.petri.eth,b.petri.eth
+ * GET /api/ens/records?names=a.petri.eth,b.petri.eth
  *
  * The text records each version name holds on Sepolia ENSv2, read through the
  * Universal Resolver. Only names under petri.eth are looked up. A failed
