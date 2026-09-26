@@ -24,10 +24,15 @@ import { addressVerdict, payerCheck, type Check } from "../intercepta/decision";
 import { paymentKeyOf } from "./authorization";
 import type { VerifierConfig } from "./config";
 import { SEPOLIA } from "./network";
-import type { VerifierProfile } from "./types";
+import type { Product, VerifierProfile } from "./types";
 
 /**
- * The verifier's side of x402: it sells a `petri verify` run for USDC.
+ * The seller's side of x402. It sells two things for USDC:
+ *
+ *   POST /api/verifier/verify/:versionId   a `petri verify` run by the verifier's key
+ *   GET  /api/versions/:versionId/markdown  a version's record as a markdown file
+ *
+ * Both share one x402 server, one payer screen and one set of spent authorizations.
  *
  * The facilitator runs in this process. x402.org serves only Base Sepolia,
  * and settling here means no third party touches the money. The relayer key
@@ -39,6 +44,7 @@ import type { VerifierProfile } from "./types";
  */
 
 export const ROUTE = "POST /api/verifier/verify/[versionId]";
+export const MARKDOWN_ROUTE = "GET /api/versions/[versionId]/markdown";
 
 export type PayerScreen = { check: Check; call: InterceptaCall<QuickScan> | null };
 
@@ -68,15 +74,16 @@ export function profileOf(value: string | string[] | null | undefined): Verifier
   return v === "rogue" || v === "greedy" ? v : "honest";
 }
 
-/** Where each profile is paid, and how much. Only `honest` accepts money (see the route). */
-export function offer(cfg: VerifierConfig, profile: VerifierProfile) {
-  if (profile === "rogue") return { payTo: cfg.rogue.payTo, amountAtomic: cfg.feeAtomic };
+/** Where each profile is paid, and how much. Only `honest` accepts money (see the routes). */
+export function offer(cfg: VerifierConfig, profile: VerifierProfile, product: Product = "verification") {
+  const fee = product === "markdown" ? cfg.markdownFeeAtomic : cfg.feeAtomic;
+  if (profile === "rogue") return { payTo: cfg.rogue.payTo, amountAtomic: fee };
   if (profile === "greedy") return { payTo: cfg.payTo, amountAtomic: cfg.greedy.feeAtomic };
-  return { payTo: cfg.payTo, amountAtomic: cfg.feeAtomic };
+  return { payTo: cfg.payTo, amountAtomic: fee };
 }
 
 export function getVerifierServer(cfg: VerifierConfig): Server {
-  const key = JSON.stringify([cfg.relayerAddress, cfg.payTo, cfg.feeAtomic.toString(), cfg.rogue.payTo, cfg.greedy.feeAtomic.toString(), cfg.timeoutSeconds, cfg.screenPayer, cfg.rpcUrl]);
+  const key = JSON.stringify([cfg.relayerAddress, cfg.payTo, cfg.feeAtomic.toString(), cfg.markdownFeeAtomic.toString(), cfg.rogue.payTo, cfg.greedy.feeAtomic.toString(), cfg.timeoutSeconds, cfg.screenPayer, cfg.rpcUrl]);
   if (g.__petriVerifier?.key === key && g.__petriVerifier.module === MODULE) return g.__petriVerifier.server;
 
   const relayer = privateKeyToAccount(cfg.relayerKey);
@@ -135,21 +142,28 @@ export function getVerifierServer(cfg: VerifierConfig): Server {
     }
   });
 
-  const profile = (c: HTTPRequestContext) => profileOf(c.adapter.getQueryParam?.("verifier"));
+  // The verify route names its seller ?verifier=, the markdown route ?seller=.
+  const profile = (c: HTTPRequestContext) => profileOf(c.adapter.getQueryParam?.("verifier") ?? c.adapter.getQueryParam?.("seller"));
+  const accepts = (product: Product) => ({
+    scheme: "exact",
+    network: SEPOLIA.caip2,
+    maxTimeoutSeconds: cfg.timeoutSeconds,
+    payTo: (c: HTTPRequestContext) => offer(cfg, profile(c), product).payTo,
+    price: (c: HTTPRequestContext) => ({
+      amount: offer(cfg, profile(c), product).amountAtomic.toString(),
+      asset: SEPOLIA.usdc,
+      extra: { ...SEPOLIA.usdcDomain },
+    }),
+  });
   const server = new x402HTTPResourceServer(resource, {
     [ROUTE]: {
-      accepts: {
-        scheme: "exact",
-        network: SEPOLIA.caip2,
-        maxTimeoutSeconds: cfg.timeoutSeconds,
-        payTo: (c) => offer(cfg, profile(c)).payTo,
-        price: (c) => ({
-          amount: offer(cfg, profile(c)).amountAtomic.toString(),
-          asset: SEPOLIA.usdc,
-          extra: { ...SEPOLIA.usdcDomain },
-        }),
-      },
+      accepts: accepts("verification"),
       description: "Petri verification run: replay mode, 5 runs a side, a report signed by the verifier's key",
+      mimeType: "application/json",
+    },
+    [MARKDOWN_ROUTE]: {
+      accepts: accepts("markdown"),
+      description: "A Petri version's record as markdown: hypothesis, status, re-runs by other keys, the change",
       mimeType: "application/json",
     },
   });
