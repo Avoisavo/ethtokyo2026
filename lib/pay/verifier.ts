@@ -46,6 +46,9 @@ import type { Product, VerifierProfile } from "./types";
 export const ROUTE = "POST /api/verifier/verify/[versionId]";
 export const MARKDOWN_ROUTE = "GET /api/versions/[versionId]/markdown";
 
+/** The query parameter that names the demo seller on each route. The route handlers read the same one. */
+export const PROFILE_PARAM: Record<Product, string> = { verification: "verifier", markdown: "seller" };
+
 export type PayerScreen = { check: Check; call: InterceptaCall<QuickScan> | null };
 
 type Server = {
@@ -142,15 +145,17 @@ export function getVerifierServer(cfg: VerifierConfig): Server {
     }
   });
 
-  // The verify route names its seller ?verifier=, the markdown route ?seller=.
-  const profile = (c: HTTPRequestContext) => profileOf(c.adapter.getQueryParam?.("verifier") ?? c.adapter.getQueryParam?.("seller"));
+  // Each route reads exactly the one parameter its handler reads (PROFILE_PARAM). If the price
+  // and the handler read different ones, ?seller=honest&verifier=rogue would let the "honest"
+  // handler accept a payment made to the rogue wallet.
+  const profile = (c: HTTPRequestContext, product: Product) => profileOf(c.adapter.getQueryParam?.(PROFILE_PARAM[product]));
   const accepts = (product: Product) => ({
     scheme: "exact",
     network: SEPOLIA.caip2,
     maxTimeoutSeconds: cfg.timeoutSeconds,
-    payTo: (c: HTTPRequestContext) => offer(cfg, profile(c), product).payTo,
+    payTo: (c: HTTPRequestContext) => offer(cfg, profile(c, product), product).payTo,
     price: (c: HTTPRequestContext) => ({
-      amount: offer(cfg, profile(c), product).amountAtomic.toString(),
+      amount: offer(cfg, profile(c, product), product).amountAtomic.toString(),
       asset: SEPOLIA.usdc,
       extra: { ...SEPOLIA.usdcDomain },
     }),
