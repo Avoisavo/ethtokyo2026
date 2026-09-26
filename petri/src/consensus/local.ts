@@ -1,17 +1,16 @@
 /**
- * The offline append-only log. SPEC.md sections 7.3, 8.6 and 8.10.
+ * The append-only log. SPEC.md sections 7.3, 8.6 and 8.10.
  *
- * It implements the SAME `ConsensusLog` interface as the Hedera topic, so no
- * other module ever branches on which ledger is active.
+ * It implements the `ConsensusLog` interface of src/consensus/log.ts, so no
+ * other module ever touches the file directly.
  *
  * What it proves:   authorship (the signature is real) and integrity (the hash chain).
  * What it does NOT: time, non-deletion, or independence.
  *
  * Delete this file and history restarts. The `chain` field lets anyone holding an
  * earlier copy prove a line was removed, and `read` refuses to continue on a
- * break. A fresh reader with no earlier copy cannot tell. Only a real topic fixes
- * this. Every `publish` therefore returns `unverified: true` and a warning the
- * CLI must print.
+ * break. A fresh reader with no earlier copy cannot tell. Every `publish`
+ * therefore returns `unverified: true` and a warning the CLI must print.
  */
 
 import {
@@ -39,8 +38,7 @@ import { PetriMessage } from './messages.js';
 /** The one-line warning every local publish carries. SPEC.md section 8.9. */
 export const LOCAL_LEDGER_WARNING =
   'LOCAL LOG ONLY — this result proves nothing about independence. ' +
-  'One person can hold every key in it, and the file can be edited or deleted. ' +
-  'Run `petri topic create` to publish to a real Hedera topic.';
+  'One person can hold every key in it, and the file can be edited or deleted.';
 
 /** A stale lock is stolen after this long. A publish never holds it this long. */
 const LOCK_STALE_MS = 30_000;
@@ -48,7 +46,7 @@ const LOCK_STALE_MS = 30_000;
 const LOCK_TIMEOUT_MS = 10_000;
 const LOCK_POLL_MS = 20;
 
-/** The local analogue of the Hedera running hash. It makes a deletion detectable. */
+/** The seed of the running hash chain. The chain makes a deletion detectable. */
 const chainSeed = (treeId: string): string => sha256Hex(`petri/chain/1|${treeId}`);
 
 const nextChain = (prevChain: string, seq: number, consensusNanos: string, envelope: Canon): string =>
