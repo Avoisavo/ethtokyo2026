@@ -99,7 +99,7 @@ async function checkPayment(txHash: string, usdc: number): Promise<Address> {
  * Encrypts a version's documents with its file key and writes them to its
  * name, once. Returns the file key. A later call only checks the records.
  */
-async function ensureDocs(node: { id: string; hypothesis: string }, name: string, extra: Record<string, string> = {}): Promise<string> {
+async function ensureDocs(node: { id: string; hypothesis: string }, name: string, extra: Record<string, string> = {}, onTxs?: (txs: Hex[], published: boolean) => void): Promise<string> {
   const fileKey = readState().fileKeys[node.id] ?? newFileKey();
   updateState((s) => (s.fileKeys[node.id] = fileKey));
   const have = await readTexts(name, [VERSION_KEYS.docHash]);
@@ -112,7 +112,9 @@ async function ensureDocs(node: { id: string; hypothesis: string }, name: string
     records[VERSION_KEYS.price] = String(PRICE_USDC);
     for (const [file, text] of Object.entries(docs)) records[docKey(file)] = encryptText(fileKey, text);
   }
-  if (Object.keys(records).length > 0) await writeTexts(name, records);
+  const published = have[VERSION_KEYS.docHash] !== hash;
+  const txs = Object.keys(records).length > 0 ? await writeTexts(name, records) : [];
+  onTxs?.(txs, published);
   return fileKey;
 }
 
@@ -305,21 +307,44 @@ export async function closeRound(id: string, force = false) {
 }
 
 /** A paid buyer gets a subname, owned by their wallet, with the sealed file key. Accepted versions only. */
-export async function buyVersion(id: string, input: { wallet: string; accessKey: string; signature: string; txHash: string }) {
+/** One step of a purchase, as the buy route streams it to the browser. */
+export type BuyStep =
+  | { step: "check" | "files" | "name" | "key"; state: "run" | "done"; detail?: string; tx?: string }
+  | { step: "done"; name: string; version: string };
+
+export async function buyVersion(
+  id: string,
+  input: { wallet: string; accessKey: string; signature: string; txHash: string },
+  onStep: (s: BuyStep) => void = () => {},
+) {
   const { node, name: version, folder } = await findVersion(id);
   if (folder !== "accepted" && readState().moved[node.id] !== "accepted") throw new MarketError("Only an accepted version can be bought.", 409);
+  const at = moveName(version, "accepted");
+
+  onStep({ step: "check", state: "run", detail: "the signature and the 1 USDC transfer" });
   const wallet = await checkAccessKey(input.wallet, input.accessKey, input.signature);
   const payer = await checkPayment(input.txHash, PRICE_USDC);
   if (payer.toLowerCase() !== wallet.toLowerCase()) throw new MarketError("The payment came from another wallet.");
+  onStep({ step: "check", state: "done", detail: `1 USDC from ${wallet.slice(0, 6)}…${wallet.slice(-4)}` });
+
   // The first buyer of a version makes the platform publish its encrypted files.
-  const fileKey = await ensureDocs(node, moveName(version, "accepted"));
+  onStep({ step: "files", state: "run", detail: `the encrypted files on ${at}` });
+  const fileKey = await ensureDocs(node, at, {}, (txs, published) =>
+    onStep({ step: "files", state: "done", detail: published ? `published on ${at}` : `already on ${at}`, tx: txs[0] }));
+
   const i = updateState((s) => (s.buyers[node.id] = (s.buyers[node.id] ?? 0) + 1));
-  const name = buyerName(moveName(version, "accepted"), i);
-  await registerSubname(name, BigInt(now() + BUYER_DAYS * 86400), wallet);
+  const name = buyerName(at, i);
+  onStep({ step: "name", state: "run", detail: name });
+  const nameTx = await registerSubname(name, BigInt(now() + BUYER_DAYS * 86400), wallet);
+  onStep({ step: "name", state: "done", detail: name, tx: nameTx ?? undefined });
+
+  onStep({ step: "key", state: "run", detail: "petri.key on your name" });
   const tx = await writeTexts(name, {
     [ACCESS_KEYS.wallet]: wallet,
     [ACCESS_KEYS.accessKey]: input.accessKey,
     [ACCESS_KEYS.key]: sealFileKey(fileKey, input.accessKey),
   });
-  return { name, version: moveName(version, "accepted"), tx };
+  onStep({ step: "key", state: "done", detail: "the file key, sealed to this browser", tx: tx[0] });
+  onStep({ step: "done", name, version: at });
+  return { name, version: at, tx };
 }
