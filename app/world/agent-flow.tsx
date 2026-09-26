@@ -17,7 +17,7 @@ import s from "./world.module.css";
  *   11. Integration debrief
  *
  * The browser never sees the client secret, the device code or the ID token.
- * It only renders what /api/agent/* decided.
+ * It only renders what /api/world/agent/* decided.
  */
 
 export type AgentPageConfig =
@@ -72,7 +72,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
   const runPreflight = useCallback(async () => {
     setPreBusy(true);
     try {
-      const res = await fetch("/api/agent/preflight", { cache: "no-store" });
+      const res = await fetch("/api/world/agent/preflight", { cache: "no-store" });
       const data = (await res.json()) as { checks: PreCheck[]; owner: typeof owner };
       setPre(data.checks);
       setOwner(data.owner);
@@ -106,7 +106,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
     const id = attempt.id;
     const t = setInterval(async () => {
       setNow(Date.now());
-      const res = await fetch("/api/agent/poll", {
+      const res = await fetch("/api/world/agent/poll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -126,7 +126,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
     setBusy("start");
     setStartError(null);
     try {
-      const res = await fetch("/api/agent/start", {
+      const res = await fetch("/api/world/agent/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timeoutSeconds: timeout || undefined }),
@@ -145,7 +145,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
 
   const cancel = useCallback(async () => {
     if (!attempt) return;
-    const res = await fetch("/api/agent/cancel", {
+    const res = await fetch("/api/world/agent/cancel", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: attempt.id }),
@@ -160,7 +160,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
   const forged = useCallback(async () => {
     setBusy("forged");
     try {
-      const res = await fetch("/api/agent/forged", { method: "POST" });
+      const res = await fetch("/api/world/agent/forged", { method: "POST" });
       const data = (await res.json()) as { ok: boolean; accepted?: boolean; checks?: Check[]; detail?: string };
       const failed = data.checks?.find((c) => c.status === "fail");
       setLog((prev) => [
@@ -181,7 +181,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
   const resetOwner = useCallback(async () => {
     setBusy("reset");
     try {
-      await fetch("/api/agent/reset", { method: "POST" });
+      await fetch("/api/world/agent/reset", { method: "POST" });
       await runPreflight();
       setResetMsg(
         `Owner cleared at ${new Date().toLocaleTimeString()}. The next approval binds a new owner. To test a different human, bind one World ID first, then approve the next request with another.`,
