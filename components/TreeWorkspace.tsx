@@ -8,7 +8,7 @@ import type { ExportNode } from "@/lib/types";
 import { BuyTab } from "./BuyTab";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
-import { LineageHero } from "./LineageHero";
+import { LineageHero, TradeIcon } from "./LineageHero";
 import { NodePanel } from "./NodePanel";
 import { Panels, type PanelDef } from "./Panels";
 import { TreeView } from "./TreeView";
@@ -167,7 +167,11 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="rejected" cx={7} cy={7} r={5} /></svg>Rejected — kept, with the reason</span>
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="pending" cx={7} cy={7} r={5} /></svg>Pending — waiting for keys</span>
               <span><svg width="22" height="14" aria-hidden="true"><line className="h-edge restore" x1="1" x2="21" y1="7" y2="7" /></svg>Runs the same harness as that version again</span>
-              <span className="legend-note">On each line: perf, tokens and speed against the parent. + is better on all three.</span>
+              <span className="legend-trade">
+                <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="perf" x={6} y={6} /></svg>performance
+                <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="tokens" x={6} y={6} /></svg>token savings
+                <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="speed" x={6} y={6} /></svg>speed · against the parent, + is better
+              </span>
             </div>
             <LineageHero {...shared} layoutNodes={recorded} />
             <TreeView {...shared} />
