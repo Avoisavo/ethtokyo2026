@@ -1,5 +1,5 @@
 /**
- * The append-only log. SPEC.md sections 7.3, 8.6 and 8.10.
+ * The append-only log. SPEC.md sections 7.3, 8.6 and 8.8.
  *
  * It implements the `ConsensusLog` interface of src/consensus/log.ts, so no
  * other module ever touches the file directly.
@@ -35,7 +35,7 @@ import { PetriMessage } from './messages.js';
  * not own.
  */
 
-/** The one-line warning every local publish carries. SPEC.md section 8.9. */
+/** The one-line warning every local publish carries. SPEC.md section 8.7. */
 export const LOCAL_LEDGER_WARNING =
   'LOCAL LOG ONLY — this result proves nothing about independence. ' +
   'One person can hold every key in it, and the file can be edited or deleted.';
