@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, fmtPct, metricOf, tradeOffOf } from "@/lib/metrics";
+import { changesOf, estimateTradeOff, fmtEst, fmtPct, tradeOffOf } from "@/lib/metrics";
 import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -137,11 +137,10 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
           // direction it aimed for.
           const t = tradeOffOf(n, nodes, benchTotal);
           const claimed = t === null;
-          // Never measured: the author's claimed gain on its own direction, and nothing for the other two.
-          const claim = claimed ? changesOf(n, nodes).local : null;
-          const rows: [TradeKind, number | null][] = t
-            ? [["perf", t.perf], ["tokens", t.tokens], ["speed", t.speed]]
-            : [["perf", metricOf(objectiveOf(n)) === "score" ? claim : null], ["tokens", metricOf(objectiveOf(n)) === "tokens" ? claim : null], ["speed", metricOf(objectiveOf(n)) === "time" ? claim : null]];
+          // Never measured: a mock, marked as an estimate everywhere it shows (see estimateTradeOff).
+          const est = claimed ? estimateTradeOff(n, nodes) : null;
+          const shown = (t ?? est)!;
+          const rows: [TradeKind, number][] = [["perf", shown.perf], ["tokens", shown.tokens], ["speed", shown.speed]];
           const w = 64;
           const h = rows.length * 13 + 6;
           const x0 = b.x - R - 10 - w;
@@ -150,14 +149,14 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
             <g key={`o-${n.id}`} className={`objective tradeoff${claimed ? " claimed" : ""}`}>
               <title>{t
                 ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent`
-                : `claimed by the author, never measured: ${objectiveOf(n)} ${fmtPct(claim)}`}</title>
+                : `estimate, never measured: performance ${fmtEst(shown.perf)} · token savings ${fmtEst(shown.tokens)} · speed ${fmtEst(shown.speed)}`}</title>
               <rect x={x0} y={y0} width={w} height={h} rx={7} />
               {rows.map(([kind, v], i) => {
                 const cy = y0 + 9.5 + i * 13;
                 return (
-                  <g key={kind} className={claimed || v === null ? "flat" : v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
+                  <g key={kind} className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
                     <TradeIcon kind={kind} x={x0 + 10} y={cy} />
-                    <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{fmtPct(v)}</text>
+                    <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{claimed ? fmtEst(v) : fmtPct(v)}</text>
                   </g>
                 );
               })}

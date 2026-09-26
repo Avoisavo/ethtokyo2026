@@ -92,3 +92,23 @@ export function tradeOffOf(n: ExportNode, nodes: ExportNode[], benchTotal: numbe
 
 /** "perf +280% · tokens −32% · speed +4%": every number, + is better. */
 export const fmtTradeOff = (t: TradeOff): string => `perf ${fmtPct(t.perf)} · tokens ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}`;
+
+/**
+ * A MOCK trade-off for a change that was never measured, so the tree reads the
+ * same everywhere. It is not data: performance is the author's claim on their
+ * own direction, and the other two are placeholders from the version id, in
+ * the range −15% to +15%. Every place that shows it marks it as an estimate.
+ */
+export function estimateTradeOff(n: ExportNode, nodes: ExportNode[]): TradeOff {
+  const claim = changesOf(n, nodes).local ?? 0;
+  const metric = metricOf(objectiveOf(n));
+  const seed = (i: number) => (parseInt(n.id.slice(i * 4, i * 4 + 4), 16) % 31) - 15;
+  return {
+    perf: metric === "score" ? claim : seed(0),
+    tokens: metric === "tokens" ? claim : seed(1),
+    speed: metric === "time" ? claim : seed(2),
+  };
+}
+
+/** A mocked value: "~+5%". */
+export const fmtEst = (p: number): string => `~${fmtPct(p)}`;

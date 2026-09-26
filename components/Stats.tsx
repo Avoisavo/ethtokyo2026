@@ -1,5 +1,5 @@
 import { claimBp, isBlocked, isRoot, rootRerunBp, signedBp, STATUS_WORD, tasks, tasksOf } from "@/lib/format";
-import { fmtPct, tradeOffOf } from "@/lib/metrics";
+import { estimateTradeOff, fmtEst, fmtPct, tradeOffOf } from "@/lib/metrics";
 import type { ExportNode, PetriExport } from "@/lib/types";
 
 /** The score a node was measured at by other keys. Falls back to the author claim. */
@@ -144,17 +144,20 @@ export function Stats({ d }: { d: PetriExport }) {
         </figcaption>
         <div className="tradeoffs">
           <h3>Every change is a trade-off</h3>
-          <p className="muted">Each change against its parent, on three results. + is better on all three. A gain on one often costs another.</p>
+          <p className="muted">Each change against its parent, on three results. + is better on all three. A gain on one often costs another. Rows marked est. are mock values for changes that never ran, not measurements.</p>
           <table>
-            <thead><tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Token savings</th><th scope="col">Speed</th></tr></thead>
+            <thead><tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Token savings</th><th scope="col">Speed</th><th scope="col">Source</th></tr></thead>
             <tbody>
               {nodes.filter((n) => !isRoot(n, ids)).map((n) => {
-                const t = tradeOffOf(n, nodes, total);
-                const cell = (v: number | null) => <td className={v === null ? "" : v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>{fmtPct(v)}</td>;
+                const measured = tradeOffOf(n, nodes, total);
+                const t = measured ?? estimateTradeOff(n, nodes);
+                const cls = (v: number) => (v > 0.5 ? "up" : v < -0.5 ? "down" : "flat");
+                const cell = (v: number) => <td className={`${cls(v)}${measured ? "" : " est"}`}>{measured ? fmtPct(v) : fmtEst(v)}</td>;
                 return (
                   <tr key={n.id}>
                     <td><code>{n.short}</code></td><td>{STATUS_WORD[n.status]}</td>
-                    {t ? <>{cell(t.perf)}{cell(t.tokens)}{cell(t.speed)}</> : <td colSpan={3} className="muted">{isBlocked(n) ? "stopped before scoring" : "not measured yet"}</td>}
+                    {cell(t.perf)}{cell(t.tokens)}{cell(t.speed)}
+                    <td className="muted">{measured ? "measured" : isBlocked(n) ? "est. · stopped before scoring" : "est. · not measured yet"}</td>
                   </tr>
                 );
               })}
