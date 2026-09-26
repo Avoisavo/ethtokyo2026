@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { getAgentConfig } from "@/lib/world-agent/config";
-import { discover, probeClient } from "@/lib/world-agent/oidc";
-import { getOwner, shortSub } from "@/lib/world-agent/store";
+import { getAgentConfig } from "@/lib/world/agent/config";
+import { discover, probeClient } from "@/lib/world/agent/oidc";
+import { getOwner, shortSub } from "@/lib/world/agent/store";
 
 type Check = { id: string; label: string; status: "ok" | "blocked"; detail: string; fix?: string };
 
