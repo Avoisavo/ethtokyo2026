@@ -63,6 +63,10 @@ export async function quickScanAddress(address: string, o: ClientOptions): Promi
   // Always the hex address. Intercepta resolves mainnet ENS, and Petri's names live on Sepolia.
   const subject = address.toLowerCase();
   const now = (o.now ?? Date.now)();
+  // A crafted payTo like "0xbad…/../0xclean…" would otherwise get a different address scanned.
+  if (!/^0x[0-9a-f]{40}$/.test(subject)) {
+    return { endpoint: "quick-scan", subject, at: now, latencyMs: 0, cached: false, ok: false, status: null, error: "not an EVM address" };
+  }
   const hit = cache.get(subject);
   if (hit && hit.ok && now - hit.at < (o.cacheTtlMs ?? 300_000)) return { ...hit, cached: true };
 
