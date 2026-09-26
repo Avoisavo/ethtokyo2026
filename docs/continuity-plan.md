@@ -55,7 +55,7 @@ a plain label.
 | `petri.eth` | the platform | |
 | `petriharnessv1-claudesonnet5-coding.petri.eth` | the tree "Petri harness v1 × Claude Sonnet 5 (Coding)" | `petri.tree`, `petri.v1` = the root version id, so anyone can see which version `v1` is |
 | `v3.petriharnessv1-claudesonnet5-coding.petri.eth` | one version. `v1` is the root. Numbers follow log order. | the 20 records in `lib/ens/records.ts`, plus `petri.doc.<file>` (encrypted), `petri.doc.hash`, `petri.submit` (`free` or `stake:USDC:5`), `petri.access` (`open` or `closed`) |
-| `v3-1.v3.petriharnessv1-claudesonnet5-coding.petri.eth` | the verify round of `v3` (`v3.1` in the UI) | `petri.round.until`, `petri.round.status`, `petri.round.pool` |
+| `v3-1.v3.petriharnessv1-claudesonnet5-coding.petri.eth` | the verify round of `v3` (`v3.1` in the UI) | `petri.round.until`, `petri.round.status`, `petri.round.pool`, `petri.round.seed` |
 | `k3.v3-1.v3.petriharnessv1-claudesonnet5-coding.petri.eth` | one chosen verifier. Non-transferable (roleBitmap 0). Expires at `round.until`. | `petri.key` (file key encrypted to their wallet, the platform writes it), `petri.vote` (only this verifier can write it, through a key-scoped EAC role) |
 | `buyer-1.v3.….petri.eth` | one buyer | `petri.key` |
 
@@ -72,7 +72,7 @@ records stop resolving through the parent resolver. Set `petri.access` = `closed
 ## Known limits to write in the README
 
 1. The encrypted files stay on Sepolia forever. A verifier or buyer who leaks the key leaks the files. Pay-per-use is a promise, not an enforcement.
-2. The random pick runs on our server, not on chain. The seed and the pool are logged to the Hedera topic, so anyone can replay it.
+2. The random pick runs on our server, not on chain. The server writes the seed and the pool to the round's text records, so anyone can replay it.
 3. Selfie Check works only on protocol 3.0 today (see FEEDBACK.md).
 
 ## State right now
