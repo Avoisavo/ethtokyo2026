@@ -455,7 +455,7 @@ export async function runCandidateDetailed(
     verifiedDeltaBp: verdict.deltaBp,
     disputed: false,
     mode: input.mode,
-    trust: deps.config.ledger === 'hcs' ? 'hcs' : 'local-unverified',
+    trust: 'local-unverified',
     seq,
     consensusNanos: String(BigInt(deps.now()) * 1_000_000n).padStart(19, '0'),
   };
