@@ -15,7 +15,10 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "petri": "tsx src/cli/index.ts",
-    "test": "node --test --import tsx test/*.test.ts"
+    "test": "node --test --import tsx test/*.test.ts",
+    "demo:propose": "tsx demo/propose.ts",
+    "demo:verify": "tsx demo/verify.ts",
+    "demo:vote": "tsx demo/vote.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
