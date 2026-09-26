@@ -22,6 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/">Trees</Link>
               <Link href="/world">World ID</Link>
               <Link href="/ens">ENS</Link>
+              <Link href="/intercepta">Intercepta</Link>
               <a href="https://github.com/Avoisavo/ethonline2026/tree/petri">GitHub</a>
             </nav>
           </div>
