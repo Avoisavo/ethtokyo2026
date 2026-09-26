@@ -45,3 +45,19 @@ export function authorizationProblems(
 export function jsonSafe<T>(value: T): T {
   return JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === "bigint" ? v.toString() : v)));
 }
+
+/**
+ * "from:nonce", lower-cased, for a payload that is exactly one EIP-3009
+ * authorization. Null for anything else: a Permit2 payload, a payload that
+ * carries both, or a malformed one. The case is normalised because the
+ * signature recovers the same for 0xab… and 0xAB…, so a raw-string key would
+ * let one authorization buy two runs.
+ */
+export function paymentKeyOf(payload: unknown): string | null {
+  const p = payload as { authorization?: { from?: unknown; nonce?: unknown }; permit2Authorization?: unknown } | null;
+  if (!p || typeof p !== "object" || "permit2Authorization" in p) return null;
+  const { from, nonce } = p.authorization ?? {};
+  if (typeof from !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(from)) return null;
+  if (typeof nonce !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(nonce)) return null;
+  return `${from.toLowerCase()}:${nonce.toLowerCase()}`;
+}
