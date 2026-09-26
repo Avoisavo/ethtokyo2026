@@ -14,14 +14,16 @@ interface Props {
   onSelect: (id: string) => void;
   benchTotal: number;
   minVerifications: number;
+  /** Names the root in ENS-style names. */
+  harness?: string;
 }
 
 const DEAD = new Set(["rejected", "withdrawn", "superseded"]);
 
 /** The same lineage as a vertical list, for narrow screens. */
-export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVerifications }: Props) {
+export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVerifications, harness }: Props) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const names = ensNames(nodes);
+  const names = ensNames(nodes, harness);
 
   // A render function, not a nested component, so rows keep focus across renders.
   const branch = (id: string): ReactNode => {
