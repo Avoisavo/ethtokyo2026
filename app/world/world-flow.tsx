@@ -14,7 +14,7 @@ import s from "./world.module.css";
  *
  *   1. IDKit integration     — package + config + live preflight
  *   2. World ID credential   — Selfie Check via the real IDKit widget
- *   3. Server verification   — /api/selfie-check/verify → Developer Portal v4
+ *   3. Server verification   — /api/world/selfie-check/verify → Developer Portal v4
  *   4. Alternative path      — cancel, World App errors, and server rejections
  *   5. Integration debrief
  *
@@ -130,7 +130,7 @@ export default function WorldFlow({ config }: { config: Config }) {
   const runPreflight = useCallback(async () => {
     setPreBusy(true);
     try {
-      const res = await fetch("/api/selfie-check/preflight", { cache: "no-store" });
+      const res = await fetch("/api/world/selfie-check/preflight", { cache: "no-store" });
       const data = (await res.json()) as { checks: PreflightCheck[] };
       setPre(data.checks);
     } finally {
@@ -141,7 +141,7 @@ export default function WorldFlow({ config }: { config: Config }) {
   /* ------------------------------------------------------ 2. open the widget */
 
   const mintContext = useCallback(async (): Promise<LiveContext | null> => {
-    const res = await fetch("/api/selfie-check/context", { method: "POST" });
+    const res = await fetch("/api/world/selfie-check/context", { method: "POST" });
     const ctx = (await res.json()) as
       | ({ ok: true } & LiveContext)
       | { ok: false; problems: { name: string }[] };
@@ -176,7 +176,7 @@ export default function WorldFlow({ config }: { config: Config }) {
 
   const submit = useCallback(
     async (result: unknown, kind: string): Promise<VerifyResponse> => {
-      const res = await fetch("/api/selfie-check/verify", {
+      const res = await fetch("/api/world/selfie-check/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ result, intent: INTENT }),
@@ -398,7 +398,7 @@ export default function WorldFlow({ config }: { config: Config }) {
       <Section n={1} title="IDKit integration" status={s1} statusText={statusText[1][s1]}>
         <p>
           <code>@worldcoin/idkit</code> renders the World ID request. The server signs each request with the RP key
-          (<code>/api/selfie-check/context</code>), so the key never reaches the browser.
+          (<code>/api/world/selfie-check/context</code>), so the key never reaches the browser.
         </p>
         {config.ok ? (
           <dl className={s.fields}>
@@ -490,7 +490,7 @@ export default function WorldFlow({ config }: { config: Config }) {
       {/* ------------------------------------------------------------ 3 */}
       <Section n={3} title="Verify the result on the server" status={s3} statusText={statusText[3][s3]}>
         <p>
-          The widget&apos;s result is only forwarded to <code>/api/selfie-check/verify</code>. The server checks the
+          The widget&apos;s result is only forwarded to <code>/api/world/selfie-check/verify</code>. The server checks the
           protocol version, the credential, the account binding (<code>signal_hash</code>) and the nonce, then calls{" "}
           <code>POST developer.world.org/api/v4/verify/&#123;rp_id&#125;</code>. The withdrawal runs only if the server
           allows it.
