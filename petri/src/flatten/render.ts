@@ -161,9 +161,7 @@ function header(d: Digest): string[] {
     d.mode === 'replay'
       ? 'mode REPLAY (deterministic, no API key). REPLAY never compares against LIVE.'
       : 'mode LIVE (real model calls). LIVE never compares against REPLAY.',
-    d.ledger === 'local'
-      ? 'ledger LOCAL — UNVERIFIED. See the trust banner.'
-      : 'ledger HCS — PUBLIC. Anyone can rebuild this tree from the topic.',
+    'ledger LOCAL — UNVERIFIED. See the trust banner.',
     `totals: ${t.accepted} accepted | ${t.rejected} rejected | ${t.pending} pending `
       + `| ${t.contested} contested`,
   ];
