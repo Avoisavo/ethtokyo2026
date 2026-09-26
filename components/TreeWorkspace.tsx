@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import { ONCHAIN_TREES, ensNames } from "@/lib/ens/name";
+import { ONCHAIN_TREES, REAL_TREE, ensNames } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
+import { BuyTab } from "./BuyTab";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
 import { LineageHero } from "./LineageHero";
 import { NodePanel } from "./NodePanel";
+import { Panels, type PanelDef } from "./Panels";
 import { TreeView } from "./TreeView";
 import { useEnsRecords } from "./useEnsRecords";
 
@@ -18,8 +20,8 @@ interface Props {
   initial: string;
   minVerifications: number;
   benchTotal: number;
-  /** Rendered beside the full record. */
-  info: ReactNode;
+  /** The tree's tabs, shown beside the full record. */
+  panels: PanelDef[];
   /** The Stats view. */
   stats: ReactNode;
   /** Which view opens first. `?view=stats` or `?view=compare` sets it. */
@@ -92,7 +94,7 @@ function simulateAccepted(nodes: ExportNode[], targetId: string): ExportNode[] {
   });
 }
 
-export function TreeWorkspace({ nodes: given, forest, initial, minVerifications, benchTotal, info, stats, initialView = "tree", harness }: Props) {
+export function TreeWorkspace({ nodes: given, forest, initial, minVerifications, benchTotal, panels, stats, initialView = "tree", harness }: Props) {
   // The root is the baseline: drawn as accepted, because everything is measured against it.
   const recorded = useMemo(
     () => given.map((n) => (n.parent === "root" ? { ...n, status: "accepted" as const, statusCode: "BASELINE" } : n)),
@@ -141,6 +143,11 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
     || (beforeUpdate && DEMO_PENDING.length > 0 && node.id.startsWith(DEMO_PENDING)
       && recorded.find((n) => n.id === node.id)?.status === "accepted");
   const shared = { forest, nodes, selected: node.id, onSelect: setSelected, benchTotal, minVerifications, harness };
+  // An accepted version of the real tree can be bought. It gets a Buy tab.
+  const name = names.get(node.id)!;
+  const buy: PanelDef | null = harness === REAL_TREE && name.split(".")[1] === "accepted"
+    ? { id: "buy", label: "Buy", hint: "1 USDC, then the files", content: <BuyTab key={node.id} id={node.id} name={name} /> }
+    : null;
 
   return (
     <>
@@ -189,7 +196,7 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
             const target = node.id;
             window.setTimeout(() => setSimulatedId((current) => current ?? target), 1200);
           }} />
-        <div className="record-info">{info}</div>
+        <div className="record-info"><Panels panels={panels} lead={buy} /></div>
       </section>
     </>
   );

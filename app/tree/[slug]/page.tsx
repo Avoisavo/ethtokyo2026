@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buildPanels } from "@/components/InfoPanels";
-import { Panels } from "@/components/Panels";
 import { Stats } from "@/components/Stats";
 import { TreeWorkspace } from "@/components/TreeWorkspace";
 import { LiveRefresh } from "@/components/LiveRefresh";
@@ -76,7 +75,7 @@ export default async function TreePage({ params, searchParams }: {
                 benchTotal={d.bench.total}
                 initialView={view === "stats" || view === "compare" ? view : "tree"}
                 stats={<Stats d={d} />}
-                info={<Panels panels={buildPanels(d, load.digest)} />}
+                panels={buildPanels(d, load.digest)}
               />
               </>
             )}
