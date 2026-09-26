@@ -547,3 +547,8 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .tradeoff .up text { fill: var(--pass); font-weight: 600; }
 .tradeoff.claimed > rect { stroke-dasharray: 3 3; }
 .tradeoff .down text { fill: var(--fail); font-weight: 600; }
+
+.rd-trade { display: inline-flex; gap: 6px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--rule); font-family: var(--f-mono), monospace; font-size: 11px; }
+.rd-trade-one { display: inline-flex; align-items: center; gap: 2px; }
+.rd-trade-one.up { color: var(--pass); } .rd-trade-one.down { color: var(--fail); } .rd-trade-one.flat { color: var(--ink-faint); }
+.rd-node.est { border-style: dashed; }

@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Keyboa
 import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
 import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
-import { fmtPct, tradeOffOf } from "@/lib/metrics";
+import { estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { TradeIcon } from "./LineageHero";
 import { withVersionLabels } from "@/lib/ens/name";
 import { Glyph } from "./Glyph";
 
@@ -308,7 +309,7 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
 
       <figure className="cmp-figure">
         <div className="plate compare-plate">
-          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} />
+          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
           <Axes3D {...shared} links={links} lineage={lineage} />
           <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
         </div>
@@ -448,7 +449,7 @@ function Chip({ x, y, text, axis }: { x: number; y: number; text: string; axis: 
  * shape filled in its status colour, its parent drawn dashed behind it. Above it, the
  * version's place in the tree: the path from the start and the children, all selectable.
  */
-function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, ComparePoint>; nodes: ExportNode[]; selected: string; onSelect: (id: string) => void }) {
+function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<string, ComparePoint>; nodes: ExportNode[]; selected: string; onSelect: (id: string) => void; benchTotal: number }) {
   const all = new Map(nodes.map((n) => [n.id, n]));
   const node = all.get(selected) ?? nodes[0]!;
   const p = byId.get(node.id);
@@ -463,13 +464,33 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
     path.unshift(cur);
   }
   const children = nodes.filter((n) => n.parent === node.id);
-  const chip = (n: ExportNode) => (
-    <button key={n.id} type="button" className="rd-node" aria-pressed={n.id === node.id} onClick={() => onSelect(n.id)}
-      title={byId.has(n.id) ? clip(n.hypothesis, 90) : `${clip(n.hypothesis, 70)} (not measured)`}>
-      <svg width="12" height="12" aria-hidden="true"><Glyph status={n.status} cx={6} cy={6} r={4.2} blocked={isBlocked(n)} /></svg>
-      {n.short}
-    </button>
-  );
+  // Each chip also shows the change's three results against its parent, with the tree's icons.
+  // A change that never ran shows the estimate, in a dashed chip.
+  const chip = (n: ExportNode) => {
+    const measured = tradeOffOf(n, nodes, benchTotal);
+    const root = !all.has(n.parent);
+    const t = root ? null : (measured ?? estimateTradeOff(n, nodes));
+    const trade = t
+      ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent${measured ? "" : " (estimate, never measured)"}`
+      : "the baseline: everything is measured against it";
+    return (
+      <button key={n.id} type="button" className={`rd-node${t && !measured ? " est" : ""}`} aria-pressed={n.id === node.id} onClick={() => onSelect(n.id)}
+        title={`${clip(n.hypothesis, 90)}\n${trade}`}>
+        <svg width="12" height="12" aria-hidden="true"><Glyph status={n.status} cx={6} cy={6} r={4.2} blocked={isBlocked(n)} /></svg>
+        {n.short}
+        {t && (
+          <span className="rd-trade">
+            {([["perf", t.perf], ["tokens", t.tokens], ["speed", t.speed]] as const).map(([kind, v]) => (
+              <span key={kind} className={`tradeoff rd-trade-one ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}>
+                <svg width="11" height="11" aria-hidden="true"><g className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}><TradeIcon kind={kind} x={5.5} y={5.5} /></g></svg>
+                {fmtPct(v)}
+              </span>
+            ))}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const rings = [0.25, 0.5, 0.75];
   const tone = node.status === "accepted" ? "pass" : node.status === "rejected" ? "fail" : "wait";
