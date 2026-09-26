@@ -228,13 +228,13 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
     rec.sent = true;
     const raw2 = (await r2.json().catch(() => null)) as (VerifierReply & { markdown?: unknown }) | null;
     // The file goes to `delivered`, once, not into the reply as well.
-    const { markdown, ...body2 } = raw2 ?? {};
+    const { markdown, ...body2 } = (raw2 ?? {}) as Partial<VerifierReply> & { markdown?: unknown };
     if (typeof markdown === "string") {
       rec.delivered = { file: body2.file ?? `petri-${p.versionId.slice(0, 8)}.md`, bytes: Buffer.byteLength(markdown), markdown };
     }
     rec.verifierReply = { ok: r2.ok, ...body2, status: r2.status };
     // 202 settlement_pending is 2xx too: paid means the verifier itself says ok.
-    if (r2.ok && body2?.ok !== false) {
+    if (r2.ok && body2.ok !== false) {
       rec.outcome = "paid";
       if (!rec.verifierReply.settlement) {
         try {
@@ -252,7 +252,7 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
       if (!raw2) rec.error = `The verifier failed with HTTP ${r2.status} and settled nothing. The authorization expires unused at its validBefore.`;
       if (r2.status === 402) {
         try {
-          rec.refusedReason = hc.getPaymentRequiredResponse((n) => r2.headers.get(n), body2 ?? undefined).error;
+          rec.refusedReason = hc.getPaymentRequiredResponse((n) => r2.headers.get(n), raw2 ?? undefined).error;
         } catch {
           // No PAYMENT-REQUIRED header: the body's code says why.
         }
