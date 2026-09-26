@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { STATUS_WORD, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import { ensNames } from "@/lib/ens-name";
+import { ensNames } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
