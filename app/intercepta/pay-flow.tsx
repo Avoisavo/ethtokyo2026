@@ -44,9 +44,13 @@ const OUTCOME: Record<PaymentRecord["outcome"], { text: string; status: Status }
   held: { text: "Held before signing", status: "info" },
   rejected: { text: "Rejected before signing", status: "fail" },
   previewed: { text: "Preview: built, not signed", status: "info" },
+  pending: { text: "Paid, settlement not confirmed yet", status: "info" },
   refused: { text: "Signed, refused by the verifier", status: "fail" },
   error: { text: "Error", status: "fail" },
 };
+
+/** Formats atomic USDC from verifier data without trusting its shape: a bad value never crashes the page. */
+const usdc = (atomic: unknown): string => (typeof atomic === "string" && /^\d+$/.test(atomic) ? formatUsdc(BigInt(atomic)) : String(atomic));
 
 const checkStatus = (c: Check | undefined): Status =>
   !c ? "idle" : c.status === "pass" ? "pass" : c.status === "fail" ? "fail" : c.status === "hold" ? "info" : "idle";
@@ -151,9 +155,20 @@ export default function PayFlow({
   const authC = find("authorization");
   const msgC = find("message");
   const s6: Status =
-    !r || !r.typedData ? "idle" : r.mode === "preview" ? "info" : authC?.status === "fail" || msgC?.status === "fail" ? "fail" : msgC?.status === "hold" ? "info" : authC ? "pass" : "idle";
+    !r || !r.typedData
+      ? "idle"
+      : r.mode === "preview"
+        ? "info"
+        : authC?.status === "fail" || msgC?.status === "fail"
+          ? "fail"
+          : msgC?.status === "hold" || (authC?.status === "pass" && (!msgC || msgC.status === "skipped"))
+            ? "info"
+            : authC
+              ? "pass"
+              : "idle";
   const s7: Status = !r ? "idle" : r.mode === "preview" ? "info" : !r.decision ? "fail" : { pay: "pass", hold: "info", reject: "fail" }[r.decision.action] as Status;
-  const s8: Status = !r?.sent ? "idle" : r.outcome === "paid" ? "pass" : "fail";
+  const settlement = r?.verifierReply?.settlement;
+  const s8: Status = !r?.sent ? "idle" : r.outcome === "paid" ? "pass" : r.outcome === "pending" ? "info" : "fail";
   const stopped = records.filter((p) => p.outcome === "held" || p.outcome === "rejected" || p.outcome === "refused");
   const s9: Status = stopped.length ? "pass" : "idle";
 
@@ -285,7 +300,7 @@ export default function PayFlow({
           <dl className={s.fields}>
             <Row k="Scheme" v={`${r.requirements.scheme} (x402 v2)`} />
             <Row k="Network" v={r.requirements.network} />
-            <Row k="Amount" v={formatUsdc(BigInt(r.requirements.amount))} />
+            <Row k="Amount" v={usdc(r.requirements.amount)} />
             <Row k="Token" v={r.requirements.asset} />
             <Row k="payTo" v={r.requirements.payTo} />
             <Row k="Valid for" v={`${r.requirements.maxTimeoutSeconds} s`} />
@@ -326,29 +341,31 @@ export default function PayFlow({
         n={6}
         title="The payment authorization and Intercepta Scan Message"
         status={s6}
-        statusText={{ pass: "Matches, clear", fail: "Refused", info: r?.mode === "preview" ? "Built, not signed" : "Held", idle: "Not built" }[s6]}
+        statusText={{ pass: "Matches, clear", fail: "Refused", info: r?.mode === "preview" ? "Built, not signed" : msgC?.status === "hold" ? "Held" : "Matches; Scan Message off", idle: "Not built" }[s6]}
       >
         <p>
           The x402 scheme builds an EIP-3009 <code>TransferWithAuthorization</code> and hands it to Petri&apos;s signer. The
           signer checks it against the 402 and sends the exact typed data to Scan Message, under mainnet chain id 1. It
           signs only after both pass.
         </p>
-        {td?.message ? (
+        {td?.message && td.primaryType === "TransferWithAuthorization" ? (
           <dl className={s.fields}>
             <Row k="Type" v={td.primaryType ?? "—"} />
             <Row k="from" v={td.message.from} />
             <Row k="to" v={td.message.to} />
-            <Row k="value" v={formatUsdc(BigInt(td.message.value))} />
+            <Row k="value" v={usdc(td.message.value)} />
             <Row k="validBefore" v={new Date(Number(td.message.validBefore) * 1000).toLocaleTimeString()} />
             <Row k="nonce" v={short(td.message.nonce)} />
             <Row k="Token (domain)" v={`${String(td.domain?.name)} v${String(td.domain?.version)} · chain ${String(td.domain?.chainId)}`} />
           </dl>
+        ) : td ? (
+          <pre className={x.raw}>{JSON.stringify(td, null, 2)}</pre>
         ) : (
           <p className="muted">{r && r.mode === "screened" ? "Not built: an earlier check stopped the payment." : "Not built yet."}</p>
         )}
         {r?.mode === "preview" && r.typedData ? (
           <div className={s.locked}>
-            <strong>Without screening, the agent signs this now</strong>, sending {td?.message ? formatUsdc(BigInt(td.message.value)) : "the fee"} to{" "}
+            <strong>Without screening, the agent signs this now</strong>, sending {td?.message?.value ? usdc(td.message.value) : "the fee"} to{" "}
             <code>{td?.message?.to}</code>. The preview stopped here. Nothing was signed.
           </div>
         ) : null}
@@ -377,7 +394,12 @@ export default function PayFlow({
           <div className={r.signed ? s.unlocked : s.locked}>
             {r.signed ? (
               <>
-                <strong>Signed and sent</strong> to the verifier. {r.outcome === "paid" ? "It settled on Sepolia." : "The verifier did not settle it. An unsettled authorization stays valid until its validBefore."}
+                <strong>Signed and sent</strong> to the verifier.{" "}
+                {r.outcome === "paid"
+                  ? "It settled on Sepolia."
+                  : r.outcome === "pending"
+                    ? "The transfer was broadcast and is not confirmed yet. Check the transaction below."
+                    : "The verifier did not settle it. An unsettled authorization stays valid until its validBefore."}
               </>
             ) : (
               <>
@@ -408,15 +430,15 @@ export default function PayFlow({
                 <Row k="Version status" v={`${r.verifierReply.verification.status} (${r.verifierReply.verification.statusCode})`} />
               </dl>
             ) : null}
-            {r.verifierReply?.settlement?.transaction ? (
-              <div className={s.unlocked}>
-                <strong>Settled on Sepolia:</strong>{" "}
-                <a href={`${EXPLORER}/tx/${r.verifierReply.settlement.transaction}`} target="_blank" rel="noreferrer">
-                  {short(r.verifierReply.settlement.transaction)} ↗
+            {settlement?.transaction ? (
+              <div className={settlement.success ? s.unlocked : s.locked}>
+                <strong>{settlement.success ? "Settled on Sepolia:" : `Not confirmed (${settlement.errorReason ?? "unknown"}):`}</strong>{" "}
+                <a href={`${EXPLORER}/tx/${settlement.transaction}`} target="_blank" rel="noreferrer">
+                  {short(settlement.transaction)} ↗
                 </a>
               </div>
             ) : null}
-            {r.outcome !== "paid" ? (
+            {r.outcome !== "paid" && r.outcome !== "pending" ? (
               <div className={s.error}>
                 <code>{r.verifierReply?.code ?? r.verifierReply?.status}</code> {r.refusedReason ? `(${r.refusedReason}) ` : ""}
                 {r.verifierReply?.detail ?? ""}
@@ -456,7 +478,7 @@ export default function PayFlow({
                       <code>{p.outcome === "refused" ? (p.refusedReason ?? p.verifierReply?.code) : (p.decision?.code ?? p.outcome)}</code>
                     </td>
                     <td>{p.signed ? "Yes" : "No"}</td>
-                    <td>No</td>
+                    <td>{p.verifierReply?.settlement?.transaction ? "Maybe: see the transaction" : "No"}</td>
                   </tr>
                 );
               })}
