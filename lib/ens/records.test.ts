@@ -3,17 +3,17 @@ import { test } from "node:test";
 
 import { type Hex, decodeFunctionData, encodeErrorResult, encodeFunctionResult } from "viem";
 
-import { UniversalResolverV2Abi } from "../app/ens/_lib/ens/abis/UniversalResolverV2";
-import { dnsEncode } from "../app/ens/_lib/ens/names";
-import { resolverProfileAbi } from "../app/ens/_lib/ens/universal-resolver-v2";
-import { ENS_SUFFIX, ensNames } from "./ens-name";
+import { UniversalResolverV2Abi } from "../../app/ens/_lib/ens/abis/UniversalResolverV2";
+import { dnsEncode } from "../../app/ens/_lib/ens/names";
+import { resolverProfileAbi } from "../../app/ens/_lib/ens/universal-resolver-v2";
+import { ENS_SUFFIX, ensNames } from "./name";
 import {
   ALL_RECORD_KEYS, RECORD_KEYS, changedKeys, displayScore, nodeRecords, parseChecks, readRecords, treePlan,
-} from "./ens-records";
-import { parseNamesParam, resolveRecords } from "./ens-resolve";
-import { isBlocked, isRoot, rootRerunBp } from "./format";
-import snapshot from "./snapshot/petri-export.json";
-import type { PetriExport } from "./types";
+} from "./records";
+import { parseNamesParam, resolveRecords } from "./resolve";
+import { isBlocked, isRoot, rootRerunBp } from "../format";
+import snapshot from "../snapshot/petri-export.json";
+import type { PetriExport } from "../types";
 
 const data = snapshot as unknown as PetriExport;
 const HARNESS = "petri-harness-v1";
