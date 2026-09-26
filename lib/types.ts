@@ -28,6 +28,13 @@ export interface ExportNode {
   showcase?: boolean;
   /** The direction this change aims for, e.g. "speed". Showcase trees set it. */
   objective?: string;
+  /** The author's claimed trade-offs in percent, for a version proposed from the web app. Not measured. */
+  claim?: { perf: number; tokens: number; speed: number };
+  /**
+   * A World ID human took part: submitted it, or verified it. `real` is true
+   * only for a real World ID proof. The other badges are examples on the page.
+   */
+  worldId?: { kind: "submitted" | "verified"; real: boolean };
   id: string;
   short: string;
   label: string;

@@ -22,10 +22,19 @@ export interface MarketState {
   usedApprovals: string[];
   /** Version id → the folder the market moved it to, before the log catches up. */
   moved: Record<string, "accepted" | "rejected">;
+  /** Versions proposed from the page, with a demo CLI run. They are on ENS, not in the engine log. */
+  proposals: {
+    id: string; label: string; parent: string; name: string; at: number;
+    change?: string; perf?: number; tokens?: number; speed?: number; diff?: string;
+    /** Removed from the tree by its author. The ENS name stays. */
+    hidden?: boolean;
+    /** `free` (a real World ID proof), `free:demo`, or `stake:USDC:5`. */
+    submit?: string;
+  }[];
 }
 
 const FILE = path.join(process.cwd(), ".market", "state.json");
-const EMPTY: MarketState = { fileKeys: {}, freeSubmits: {}, buyers: {}, usedPayments: [], usedApprovals: [], moved: {} };
+const EMPTY: MarketState = { fileKeys: {}, freeSubmits: {}, buyers: {}, usedPayments: [], usedApprovals: [], moved: {}, proposals: [] };
 
 export function readState(): MarketState {
   if (!existsSync(FILE)) return structuredClone(EMPTY);

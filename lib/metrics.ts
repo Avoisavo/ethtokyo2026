@@ -100,6 +100,8 @@ export const fmtTradeOff = (t: TradeOff): string => `perf ${fmtPct(t.perf)} · t
  * the range −15% to +15%. The tree draws it in a dashed box, with "estimate, never measured" on hover, and Stats lists its source.
  */
 export function estimateTradeOff(n: ExportNode, nodes: ExportNode[]): TradeOff {
+  // A version proposed from the web app carries the author's own 3 numbers.
+  if (n.claim) return { ...n.claim };
   const claim = changesOf(n, nodes).local ?? 0;
   const metric = metricOf(objectiveOf(n));
   const seed = (i: number) => (parseInt(n.id.slice(i * 4, i * 4 + 4), 16) % 31) - 15;

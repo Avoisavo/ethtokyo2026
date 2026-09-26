@@ -43,8 +43,19 @@ export type LoadResult =
  * The UI never reads .petri/ itself and never recomputes a verdict:
  * evaluate() in src/policy/acceptance.ts stays the one source of truth.
  */
-export async function loadTree(): Promise<LoadResult> {
-  if (snapshotMode()) return { ok: true, data: snapshotExport as unknown as PetriExport };
+export async function loadTree(opts: { live?: boolean } = {}): Promise<LoadResult> {
+  const snapshot: LoadResult = { ok: true, data: snapshotExport as unknown as PetriExport };
+  // `live` reads the log even with PETRI_SNAPSHOT=1, so the market sees the newest
+  // versions of the log. It falls back to the snapshot when the engine fails.
+  if (opts.live && existsSync(TSX)) {
+    const got = await exportLive();
+    return got.ok ? got : snapshot;
+  }
+  if (snapshotMode()) return snapshot;
+  return exportLive();
+}
+
+async function exportLive(): Promise<LoadResult> {
   const out = path.join(os.tmpdir(), `petri-ui-${process.pid}-${Date.now()}.json`);
   try {
     await petri(["export", "--out", out]);

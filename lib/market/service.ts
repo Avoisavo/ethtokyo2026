@@ -23,9 +23,9 @@ import { type Address, type Hex, createPublicClient, decodeEventLog, erc20Abi, h
 import { sepolia } from "viem/chains";
 
 import { addresses } from "@/app/ens/_lib/ens/contracts";
-import { RECORD_KEYS } from "@/lib/ens/records";
+import { RECORD_KEYS, nodeRecords, summaryLine, withExplorerKeys } from "@/lib/ens/records";
 import { SEPOLIA_RPC_URL } from "@/lib/ens/resolve";
-import { REAL_TREE, ensNames, moveName } from "@/lib/ens/name";
+import { REAL_TREE, ensNames, moveName, versionName } from "@/lib/ens/name";
 import { loadTree } from "@/lib/tree";
 
 import { grantTextKey, loadDeployment, readTexts, registerSubname, revokeSubname, revokeTextKey, stateOf, writeTexts } from "./chain";
@@ -51,7 +51,7 @@ export const accessMessage = (accessKey: string): string => `Petri access key ${
 
 /** A version of the real tree by id or short id, with its current ENS name. */
 export async function findVersion(id: string) {
-  const tree = await loadTree();
+  const tree = await loadTree({ live: true });
   if (!tree.ok) throw new MarketError(`The tree did not load: ${tree.error}`, 500);
   const node = tree.data.nodes.find((n) => n.id === id || n.id.startsWith(id));
   if (!node) throw new MarketError(`No version ${id}.`, 404);
@@ -118,35 +118,205 @@ async function ensureDocs(node: { id: string; hypothesis: string }, name: string
   return fileKey;
 }
 
-export type SubmitMode = { kind: "free"; nullifier: string } | { kind: "stake"; txHash: string };
+/**
+ * How a version pays for its round. `demo` is the World ID step without a
+ * phone scan, for a rehearsal. The server takes it only when
+ * PETRI_DEMO_WORLD_ID=1, and the name records `free:demo`, so it never
+ * claims a real check.
+ */
+export type SubmitMode = { kind: "free"; nullifier: string } | { kind: "stake"; txHash: string } | { kind: "demo" };
 
-/** Encrypts the version's docs, writes them to its name, and opens the round. Pending versions only. */
-export async function submitVersion(id: string, mode: SubmitMode) {
-  const { node, name, folder } = await findVersion(id);
-  if (folder !== "pending") throw new MarketError(`${name.split(".")[0]} is already ${folder}. Only a pending version can be submitted.`, 409);
-  let submit: string;
-  let submitter: string;
-  if (mode.kind === "free") {
-    const day = now() - 24 * 3600;
-    const used = updateState((s) => {
-      const times = (s.freeSubmits[mode.nullifier] ?? []).filter((t) => t > day);
-      if (times.length >= FREE_SUBMITS_PER_DAY) return times.length;
-      times.push(now());
-      s.freeSubmits[mode.nullifier] = times;
-      return -1;
-    });
-    if (used >= 0) throw new MarketError(`This human already used ${used} free submits today. Stake ${STAKE_USDC} USDC, or wait.`, 429);
-    submit = "free";
-    submitter = mode.nullifier;
-  } else {
-    submitter = await checkPayment(mode.txHash, STAKE_USDC);
-    submit = `stake:USDC:${STAKE_USDC}`;
+export const demoWorldId = (): boolean => process.env.PETRI_DEMO_WORLD_ID === "1";
+
+/** The author's claim for a new version: what changed, and the 3 trade-offs in percent against the parent. */
+export type Claim = { change: string; perf: number; tokens: number; speed: number };
+
+const pct = (n: number): string => `${n > 0 ? "+" : ""}${n}%`;
+/** `perf +10% · tokens +5% · speed -3% · Adds a repair turn`. */
+export const claimText = (c: Claim): string =>
+  `perf ${pct(c.perf)} · tokens ${pct(c.tokens)} · speed ${pct(c.speed)}${c.change.trim() ? ` · ${c.change.trim()}` : ""}`;
+
+export type SubmitStep =
+  | { step: "check" | "screen" | "name" | "records" | "files" | "round"; state: "run" | "done"; detail?: string; tx?: string }
+  | { step: "done"; name: string; round: string; until: number };
+
+function checkClaim(c: Claim | undefined): Claim | undefined {
+  if (!c) return undefined;
+  for (const k of ["perf", "tokens", "speed"] as const) {
+    if (!Number.isFinite(c[k]) || Math.abs(c[k]) > 1000) throw new MarketError(`The ${k} claim must be a number of percent.`);
   }
+  if (String(c.change ?? "").length > 200) throw new MarketError("Keep what changed to 200 characters.");
+  return { change: String(c.change ?? ""), perf: Math.round(c.perf), tokens: Math.round(c.tokens), speed: Math.round(c.speed) };
+}
+
+/**
+ * Intercepta Quick Scan on a wallet, as a step. A flagged wallet throws, so
+ * nothing is written. Loaded on use: the Intercepta config is server-only.
+ */
+async function screenStep(wallet: string, onStep: (s: SubmitStep) => void): Promise<void> {
+  onStep({ step: "screen", state: "run", detail: `Intercepta Quick Scan on ${wallet.slice(0, 6)}…${wallet.slice(-4)}` });
+  const { screenWallet } = await import("./screen");
+  const s = await screenWallet(wallet);
+  onStep({ step: "screen", state: "done", detail: `${wallet.slice(0, 6)}…${wallet.slice(-4)} · ${s.detail} · ${s.ms} ms` });
+}
+
+/**
+ * Checks how the submitter pays: a free World ID submit under the daily limit,
+ * or the USDC stake. Intercepta checks the wallet on both paths: the staker,
+ * or the wallet a World ID human connected. World ID proves one person, and
+ * Intercepta that their wallet has no record of scams, sanctions or blacklists.
+ */
+async function checkSubmitter(mode: SubmitMode, onStep: (s: SubmitStep) => void, wallet?: string): Promise<{ submit: string; submitter: string }> {
+  onStep({ step: "check", state: "run", detail: mode.kind === "stake" ? `the ${STAKE_USDC} USDC stake` : "the World ID proof, and today's free submits" });
+  if (mode.kind === "stake") {
+    const submitter = await checkPayment(mode.txHash, STAKE_USDC);
+    onStep({ step: "check", state: "done", detail: `${STAKE_USDC} USDC from ${submitter.slice(0, 6)}…${submitter.slice(-4)}` });
+    await screenStep(submitter, onStep);
+    return { submit: `stake:USDC:${STAKE_USDC}`, submitter };
+  }
+  if (mode.kind === "demo") {
+    if (!demoWorldId()) throw new MarketError("The demo World ID is off on this server. Scan with World App, or stake USDC.", 403);
+    onStep({ step: "check", state: "done", detail: "demo World ID, no phone scan · recorded as free:demo" });
+    return { submit: "free:demo", submitter: "demo" };
+  }
+  const day = now() - 24 * 3600;
+  const used = updateState((s) => {
+    const times = (s.freeSubmits[mode.nullifier] ?? []).filter((t) => t > day);
+    if (times.length >= FREE_SUBMITS_PER_DAY) return times.length;
+    times.push(now());
+    s.freeSubmits[mode.nullifier] = times;
+    return -1;
+  });
+  if (used >= 0) throw new MarketError(`This human already used ${used} free submits today. Stake ${STAKE_USDC} USDC, or wait.`, 429);
+  onStep({ step: "check", state: "done", detail: `a unique human · free submit ${FREE_SUBMITS_PER_DAY - (readState().freeSubmits[mode.nullifier]?.length ?? 0)} left today` });
+  if (wallet) await screenStep(wallet, onStep);
+  return { submit: "free", submitter: mode.nullifier };
+}
+
+/**
+ * Puts a pending version into the market: checks the World ID proof or the
+ * stake, registers its name, writes its records and the author's claim,
+ * encrypts its docs to the name, and opens the round. Pending versions only.
+ */
+export async function submitVersion(id: string, mode: SubmitMode, claimIn?: Claim, onStep: (s: SubmitStep) => void = () => {}) {
+  const { node, nodes, name, folder } = await findVersion(id);
+  if (folder !== "pending") throw new MarketError(`${name.split(".")[0]} is already ${folder}. Only a pending version can be submitted.`, 409);
+  const claim = checkClaim(claimIn);
+  const { submit, submitter } = await checkSubmitter(mode, onStep);
+
+  onStep({ step: "name", state: "run", detail: name });
+  const nameTx = await registerSubname(name);
+  onStep({ step: "name", state: "done", detail: nameTx ? name : `${name} (already there)`, tx: nameTx ?? undefined });
+
+  onStep({ step: "records", state: "run", detail: "the version records, and your claim" });
+  const base: Record<string, string> = {
+    ...nodeRecords(node, nodes, 20, 2),
+    [VERSION_KEYS.submit]: submit,
+    [VERSION_KEYS.submitter]: submitter,
+    ...(claim ? { [VERSION_KEYS.claim]: claimText(claim) } : {}),
+  };
+  const parentLabel = nodes.find((n) => n.id === node.parent) ? ensNames(nodes, REAL_TREE).get(node.parent)!.split(".")[0] : undefined;
+  const recTxs = await writeTexts(name, withExplorerKeys(base, summaryLine(name.split(".")[0]!, base, parentLabel)));
+  onStep({ step: "records", state: "done", detail: claim ? `claim: ${claimText(claim)}` : "the version records", tx: recTxs[0] });
 
   // The file key stays on the server: ensureDocs returns it, and it is never sent back.
-  await ensureDocs(node, name, { [VERSION_KEYS.submit]: submit, [VERSION_KEYS.submitter]: submitter });
+  onStep({ step: "files", state: "run", detail: "encrypting the harness files" });
+  await ensureDocs(node, name, {}, (txs, published) =>
+    onStep({ step: "files", state: "done", detail: published ? "the encrypted files are on the name" : "the files were already there", tx: txs[0] }));
+
+  const roundAt = roundName(name);
+  onStep({ step: "round", state: "run", detail: roundAt });
   const round = await openRound(name);
+  onStep({ step: "round", state: "done", detail: `open for ${ROUND_SECONDS / 60} minutes` });
+  onStep({ step: "done", name, round: round.name, until: round.until });
   return { id: node.id, name, submit, round };
+}
+
+/** What a proposal from the page holds: the change, the author's claim and the patch the demo run shows. */
+export type Proposal = { claim: Claim; diff: string };
+
+/**
+ * A version proposed from the page. The CLI run on the page is a stage demo,
+ * so this version is not in the engine log. It gets the next `v<n>` in the
+ * pending folder, its records, the claim, and `petri.demo`, which says so. The
+ * submit check and every ENS write are real.
+ */
+export async function proposeVersion(parentId: string, mode: SubmitMode, input: Proposal, onStep: (s: SubmitStep) => void = () => {}, wallet?: string) {
+  const { node: parent, nodes, name: parentName } = await findVersion(parentId);
+  const claim = checkClaim(input.claim);
+  if (!claim || claim.change.trim().length < 10) throw new MarketError("Say what changed, in 10 characters or more.");
+  const diff = String(input.diff ?? "");
+  if (diff.length > 6000) throw new MarketError("Keep the patch to 6000 characters.");
+
+  const { submit, submitter } = await checkSubmitter(mode, onStep, wallet);
+
+  // The next number after the log's versions and the earlier proposals.
+  const at = now();
+  const id = keccak256(stringToHex(`${parent.id}:${claim.change}:${at}`)).slice(2);
+  const entry = updateState((s) => {
+    // After the log's versions and every proposal, hidden ones too: their names stay on ENS.
+    const n = Math.max(nodes.length, ...s.proposals.map((q) => Number(q.label.slice(1)))) + 1;
+    const label = `v${n}`;
+    const name = versionName(REAL_TREE, label, "pending");
+    s.proposals.push({ id, label, parent: parent.id, name, at, change: claim.change, perf: claim.perf, tokens: claim.tokens, speed: claim.speed, diff, submit });
+    return { label, name };
+  });
+  const name = entry.name;
+
+  onStep({ step: "name", state: "run", detail: name });
+  const nameTx = await registerSubname(name);
+  onStep({ step: "name", state: "done", detail: name, tx: nameTx ?? undefined });
+
+  onStep({ step: "records", state: "run", detail: "the version records, and your claim" });
+  const pRecords: Record<string, string> = {
+    [RECORD_KEYS.description]: claim.change,
+    [RECORD_KEYS.id]: id,
+    [RECORD_KEYS.parent]: parent.id,
+    [RECORD_KEYS.status]: "pending",
+    [VERSION_KEYS.claim]: claimText(claim),
+    [VERSION_KEYS.submit]: submit,
+    [VERSION_KEYS.submitter]: submitter,
+    [VERSION_KEYS.demo]: "The CLI run was a stage demo. This version is not in the engine log.",
+  };
+  const recTxs = await writeTexts(name, withExplorerKeys(pRecords, summaryLine(entry.label, pRecords, parentName.split(".")[0])));
+  onStep({ step: "records", state: "done", detail: `claim: ${claimText(claim)}`, tx: recTxs[0] });
+
+  // The files: a harness.md with the change and the claim, and the patch. The key stays on the server.
+  onStep({ step: "files", state: "run", detail: "encrypting the change and the patch" });
+  const fileKey = newFileKey();
+  updateState((s) => (s.fileKeys[id] = fileKey));
+  const docs: Record<string, string> = {
+    "harness.md": [`# ${entry.label}, from ${parentName.split(".")[0]}`, "", claim.change, "", `Claim, not measured: ${claimText(claim)}`, ""].join("\n"),
+    ...(diff ? { "change.diff": diff } : {}),
+  };
+  const fileTxs = await writeTexts(name, {
+    [VERSION_KEYS.docList]: Object.keys(docs).join(","),
+    [VERSION_KEYS.docHash]: docsHash(docs),
+    [VERSION_KEYS.price]: String(PRICE_USDC),
+    ...Object.fromEntries(Object.entries(docs).map(([f, text]) => [docKey(f), encryptText(fileKey, text)])),
+  });
+  onStep({ step: "files", state: "done", detail: `${Object.keys(docs).length} files, encrypted on the name`, tx: fileTxs[0] });
+
+  onStep({ step: "round", state: "run", detail: roundName(name) });
+  const round = await openRound(name);
+  onStep({ step: "round", state: "done", detail: `open for ${ROUND_SECONDS / 60} minutes` });
+  onStep({ step: "done", name, round: round.name, until: round.until });
+  return { id, name, submit, round };
+}
+
+/**
+ * Hides a version proposed from the web app from the tree, and remembers it in
+ * the market state. Its ENS name and round stay on chain, so its number is
+ * never used again. Versions of the engine log cannot be hidden.
+ */
+export async function removeProposal(id: string) {
+  const name = updateState((s) => {
+    const p = s.proposals.find((q) => q.id === id);
+    if (p) p.hidden = true;
+    return p?.name ?? null;
+  });
+  if (!name) throw new MarketError("Only a version proposed from the web app can be removed.", 404);
+  return { name };
 }
 
 /** Opens the round of a pending version. It expires ROUND_SECONDS from now. */
@@ -299,7 +469,8 @@ export async function closeRound(id: string, force = false) {
   };
   const moved = moveName(version, status);
   await registerSubname(moved);
-  await writeTexts(moved, records);
+  const parentLabel = nodes.find((n) => n.id === node.parent) ? ensNames(nodes, REAL_TREE).get(node.parent)!.split(".")[0] : undefined;
+  await writeTexts(moved, withExplorerKeys(records, summaryLine(moved.split(".")[0]!, records, parentLabel)));
   txs.push(...(await revokeSubname(round.name)));
   txs.push(...(await revokeSubname(version)));
   updateState((s) => (s.moved[node.id] = status));

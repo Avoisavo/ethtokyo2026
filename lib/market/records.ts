@@ -25,6 +25,10 @@ export const VERSION_KEYS = {
   submitter: "petri.submitter",
   /** The price in USDC to use the harness once. */
   price: "petri.price",
+  /** The author's own claim, not measured: `perf +10% · tokens +5% · speed -3% · <what changed>`. */
+  claim: "petri.claim",
+  /** Set on a version proposed from the page: its CLI run was a stage demo. */
+  demo: "petri.demo",
 } as const;
 
 /** Records on the round name. */
