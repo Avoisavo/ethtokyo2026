@@ -1,11 +1,11 @@
 /**
- * The exact wire schemas of the log. SPEC.md section 8.3.
+ * The exact log message schemas. SPEC.md section 8.3.
  *
- * The chain holds commitments. The store holds evidence. A hash on the chain
- * lets anyone check that the bytes they fetched are the bytes the author signed.
+ * The log holds commitments. The store holds evidence. A hash in the log lets
+ * anyone check that the bytes they read from the store are the bytes the author signed.
  *
  * The hypothesis is the one exception. Design rule 4 says every node must state
- * a hypothesis in plain English, so the hypothesis goes on the chain in full.
+ * a hypothesis in plain English, so the hypothesis goes in the log in full.
  * One text, one place, no chance of two versions.
  *
  * `z.strictObject` rejects unknown keys. An unknown key would change the signed
@@ -14,7 +14,7 @@
  * Measured worst-case envelope sizes, with a 64-character tree id, every hex
  * field full, the hypothesis at its 240-byte cap and the reason at its 200-byte
  * cap: NodeSubmitted 797, VerificationSigned 749, StatusChanged (4 verifiers)
- * 911. Each one fits in 1024 bytes.
+ * 911.
  */
 
 import { z } from 'zod';
