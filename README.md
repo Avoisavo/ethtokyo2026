@@ -117,8 +117,13 @@ npm run dev          # http://localhost:3000
 3. Open **Coding · Claude Sonnet 5 · Petri harness v1** to see the real tree.
 4. Use the **Tree | Stats | Compare** switch to change the view. Compare shows each version on
    performance, token savings and speed.
-5. Click an accepted version, connect a wallet at the top right, and open the **Buy** tab to buy it
+5. Click a version. Its tabs are **Propose**, **Verify**, **Buy** (accepted versions only), then
+   the digest and the rules. See [Demo](#demo-propose-a-change-and-verify-one) for Propose and Verify.
+6. Click an accepted version, connect a wallet at the top right, and open the **Buy** tab to buy it
    once for 1 test USDC.
+
+Every command on the page names a version by its number, `v18`, not by its hash. The CLI takes both:
+`pnpm petri run v18` is the same as `pnpm petri run ae0acec3`.
 
 The Petri harness tree comes from the engine in `petri/`. The page runs `petri export`
 and `petri digest` on every request. The other trees are showcase trees. They show how
@@ -180,27 +185,76 @@ It is drawn dashed and never counts as data.
 
 ---
 
-## Demo: a second key accepts a version
+## Demo: propose a change, and verify one
 
-v18 (`ae0acec3`) has 1 verification. One more verification from a different key accepts it.
+The stage demo has two parts. Each part mixes demo steps with real ones, and the page marks the
+demo steps.
 
-1. Open http://localhost:3000/tree/coding--petri-harness-v1--claude-sonnet-5.
-2. Find v18, "Restoring the full symbol signatures…". It shows `1 of 2 keys`.
-3. Run the second verification:
+### Propose a change (the Propose tab)
+
+1. Click v2, then open the **Propose** tab.
+2. Copy the command and run it in the `petri` folder:
 
    ```bash
-   cd petri
-   PETRI_HOME=~/petri-demo-keys/k3 pnpm petri verify ae0acec3
+   pnpm demo:propose --parent v2.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth \
+     --perf 10 --tokens -5 --speed -3 \
+     --change "Add one repair turn after an empty reply, so a draft with no code block gets a second chance."
    ```
 
-4. Refresh the page. The version is now accepted and shows purple.
+   **Demo.** It prints the files the agent reads, 3 model calls with their input and output, the
+   patch (3 new functions), the rule checks, 3 tasks and a report. It writes the patch and your claim
+   to `petri/.petri/scratch/demo-proposal/`. It does not change the log.
+3. The tab finds the proposal within 2 seconds, and shows the change and the 3 claimed numbers.
+4. Submit it. **World ID · free** opens the real IDKit Selfie Check, which you scan with World App.
+   **Stake 5 USDC** pays with MetaMask.
+5. **Real, on Sepolia.** The platform checks the proof or the stake, then registers
+   `v19.pending.claude-sonnet-5.petri-harness-v1.coding.petri.eth`. It writes the records, the claim
+   (`petri.claim`) and `petri.demo`, encrypts the change onto the name, and opens a round.
+6. The tree shows v19 under v2, with your claim in the dashed box. Hover on it and press × to hide it.
+   The name stays on ENS, so the next proposal gets the next number.
 
-`~/petri-demo-keys/` exists on the machine that built this tree only. On another machine,
-create a new key first. Any key that is not the author's key works:
+### Verify a version (the Verify tab)
+
+1. Click v18, then open the **Verify** tab. v18 shows as pending on every load until its vote is in.
+2. Join: press **Scan with World ID** (weight 3), or pick a stake of 1, 5 or 10 USDC (weight 1).
+   **Demo.** Nothing is scanned or paid in this step.
+3. **Real, on Sepolia.** The platform then:
+   1. registers `verifier1.v18.pending.…`, owned by a new verifier wallet, for 10 minutes
+   2. sends that wallet a little gas
+   3. **opens the access control**: `grantSetterRoles` lets only that wallet write `petri.vote`
+
+   The page shows each transaction, and the name's expiry as the registry holds it, with a countdown.
+4. The file key opens, and the page lists the 7 harness files of v18.
+5. Re-run the version, in the `petri` folder. Paste the prompt on the tab into your coding agent,
+   or run it yourself:
+
+   ```bash
+   pnpm demo:verify v18    # makes your key in ~/my-verifier if you have none, then petri verify v18 --show
+   ```
+
+6. Vote on chain:
+
+   ```bash
+   pnpm demo:vote v18 yes  # or no
+   ```
+
+   The verifier wallet writes `petri.vote = yes:+7000bp` on its own name. Then the platform
+   **closes the access control** with `revokeRoles`. A second vote from the same wallet reverts.
+7. The tree turns v18 accepted, and it stays accepted on reload. Hover on it and press × to turn it
+   back to pending for the next run.
+
+The verifier wallet key is saved in `petri/.petri/scratch/verifier-wallet.json`, so `demo:vote` on
+the same machine can sign with it. Git ignores that folder. Wait 10 minutes between two runs, so
+the verifier name expires and the next run registers a fresh one.
+
+### The engine only: a second key accepts a version
+
+Without the web app, a second verification from a different key accepts v18:
 
 ```bash
+cd petri
 PETRI_HOME=~/my-verifier pnpm petri id create --label verifier
-PETRI_HOME=~/my-verifier pnpm petri verify ae0acec3
+PETRI_HOME=~/my-verifier pnpm petri verify v18
 ```
 
 To reset the tree after a demo:
@@ -322,7 +376,12 @@ their wallet, with the file key sealed to them.
 | A version, `v2.accepted.…` | The platform wallet only | 1 year |
 | `round.v18.pending.…` | The platform: the pool and the seed | 5 minutes after it opens |
 | `verifier1.round.…` | Owned by the verifier's wallet. It alone writes `petri.vote`. It cannot be transferred. | 10 minutes after the pick |
+| `verifier1.v18.pending.…` (the Verify tab demo) | Owned by the verifier wallet. It alone writes `petri.vote` until the close. | 10 minutes after the join |
 | `buyer1.v18.accepted.…` | Owned by the buyer's wallet. It cannot be transferred. | 30 days |
+
+The expiry of a name is in its registry. The Verify tab reads it with `getState` and shows it
+with a countdown. A pending version itself does not expire soon: `v18.pending.…` lives 1 year like
+every version. Only the names under it are short: the round, the verifiers and the buyers.
 
 Every name is registered with no roles, so nobody can transfer it. Every registry names its parent
 (`setParent`), and the ENSv2 Universal Resolver walks from `petri.eth` down.
@@ -396,8 +455,11 @@ writes only what differs from the chain, and moves a version whose status change
 |---|---|
 | The two trees, their folders, versions and records on Sepolia | Done. Read live by the tree page. |
 | Buy an accepted version, and buy again | Done in the browser, with a real wallet |
-| A round: submit, join, random pick, vote, close, move | Done on Sepolia from the terminal (`market:smoke`). No web page yet. |
-| World ID on submit (Selfie Check) and on join (World ID for Agents) | The server checks are written. Not yet run with a phone. |
+| A round: submit, join, random pick, vote, close, move | Done on Sepolia from the terminal (`market:smoke`) |
+| Propose from the page: the name, records, claim, encrypted change and round | Done on Sepolia. The CLI run before it (`demo:propose`) is a demo. |
+| Submit with World ID (Selfie Check) | The real IDKit request. The action `petri-submit` must exist in the World Developer Portal. |
+| Verify from the page: the verifier name, the access control open, the vote, the close | Done on Sepolia. The join (World ID scan or stake) is a demo. |
+| World ID for Agents on join | The server check is written. The Verify tab uses a demo scan. |
 
 ### Limits
 
@@ -417,7 +479,11 @@ writes only what differs from the chain, and moves a version whose status change
 [explorer.ens.dev](https://explorer.ens.dev/petri.eth) shows the owner, resolver and records live
 from the chain. Its subname lists and history come from an indexer, `staging-graphql.ens.dev`.
 On 2026-09-26 that indexer stopped at Sepolia block 11787289 (16:11 UTC), before `petri.eth` was
-registered, so those two parts stay empty until it restarts. The tree page on this site reads every
+registered, so those two parts stay empty until it restarts. While it is stopped, the explorer lists
+only 6 standard keys it always reads from the chain: `name`, `description`, `com.twitter`,
+`org.telegram`, `header` and `avatar`. So every version also holds `name`, a one-line summary such
+as `v2 · accepted · 19/20 · +7000bp · 1141 tokens/task · from v1`. The other records are on chain,
+and the node panel on this site shows them all. The tree page on this site reads every
 name through the Universal Resolver and does not depend on it.
 
 The full guide, with the API and every file, is `lib/ens/README.md`.
