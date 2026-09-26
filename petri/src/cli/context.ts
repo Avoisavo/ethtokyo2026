@@ -136,7 +136,7 @@ export function note(ctx: Pick<Ctx, 'quiet'>, line: string): void {
 }
 
 /**
- * Print a machine-readable document. §8.9: every export carries `trust` and
+ * Print a machine-readable document. §8.7: every export carries `trust` and
  * `mode` at the top level, so a JSON consumer cannot lose the honesty label.
  */
 export function emitJson(ctx: Pick<Ctx, 'config' | 'trust'>, body: Record<string, unknown>): void {
