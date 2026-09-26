@@ -13,7 +13,7 @@ import type { Check } from "./oidc";
  * Attempts live in memory (on globalThis so they survive dev-server HMR). The
  * device code never leaves this module's records. The agent's human owner, the
  * `(iss, sub)` pair bound on the first approval, is persisted to a JSON file in
- * the OS temp dir so it survives restarts, the same way lib/selfie-check does.
+ * the OS temp dir so it survives restarts, the same way lib/world/idkit does.
  */
 
 export type AttemptStatus = "pending" | "approved" | "denied" | "expired" | "cancelled" | "rejected" | "error";
