@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { STATUS_WORD, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
+import { ensNames } from "@/lib/ens-name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
@@ -20,6 +21,7 @@ const DEAD = new Set(["rejected", "withdrawn", "superseded"]);
 /** The same lineage as a vertical list, for narrow screens. */
 export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVerifications }: Props) {
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const names = ensNames(nodes);
 
   // A render function, not a nested component, so rows keep focus across renders.
   const branch = (id: string): ReactNode => {
@@ -35,7 +37,8 @@ export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVer
             <Glyph status={n.status} cx={8} cy={8} r={5.5} />
           </svg>
           <span className="t-text">
-            <span className="t-word">{wordOf(n)} · {n.short}</span>
+            <span className="t-word" title={n.short}>{wordOf(n)}</span>
+            <span className="t-ens">{names.get(id)}</span>
             <span className="t-hyp">{n.hypothesis}</span>
             <span className="t-num">{nodeNumbers(n, nodes, benchTotal, minVerifications)}</span>
           </span>
