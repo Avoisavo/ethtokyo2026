@@ -1,5 +1,5 @@
 /**
- * The printed verifier count must equal the counted set. SPEC.md sections 8.9,
+ * The printed verifier count must equal the counted set. SPEC.md sections 8.7,
  * 9.3 and 9.4.
  *
  * A reader trusts the number on the status line. The acceptance rule collapses
