@@ -36,6 +36,11 @@ Optional: put `NEXT_PUBLIC_SEPOLIA_RPC_URL=...` in `.env.local` to use your own 
    groups are saved in your browser, and granting sends one transaction per member.
 6. **Primary name**: set the name shown for your address (it must resolve back to your address).
 7. **Look up**: resolve any name or address through the ENSv2 Universal Resolver.
+8. **Publish the Petri tree**: write each tree version's record as text records on its name
+   (`addsigs.petriharnessv1.petri.eth`, …). One resolver on `petri.eth` serves every version, so set it up
+   first: deploy your resolver (1), register `petri.eth` (2) and point it at your resolver (3). The card shows
+   how many records differ from ENS and sends only those, up to 60 per transaction. `npm run ens:publish` does
+   the same from a terminal (see the root README).
 
 To try access control end to end, use two wallets: grant a policy to the second wallet, switch to it, and make
 the change it was granted (for example, edit a text record in section 3).
@@ -53,6 +58,8 @@ app/ens/_lib/ens/                   ENSv2 helpers: addresses, ABIs, roles, names
 app/ens/_lib/hooks/                 useTx, useMyResolver, useNameInfo, …
 app/ens/_lib/relay/                 Keyless relay bundles and tokens (npm run test:ens)
 scripts/gen-ens-abis.mjs            Regenerates app/ens/_lib/ens/abis + deployments.ts (npm run gen:ens-abis)
+scripts/ens-publish.ts              Writes the Petri tree's records to petri.eth's resolver (npm run ens:publish)
+app/api/ens-plan/route.ts           The names and records to publish, for section 8
 ```
 
 Folders starting with `_` are private in the App Router: they hold code, not routes.
