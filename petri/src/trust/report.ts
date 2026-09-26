@@ -283,8 +283,8 @@ export type IndependentReports = {
  * `report.runner` exists for readers only, and `checkReport` asserts the two
  * are equal.
  *
- * Pass the reports in the order they were recorded. For an HCS or local log
- * that is sequence order, which makes the result deterministic everywhere.
+ * Pass the reports in the order they were recorded. For the log that is
+ * sequence order, which makes the result deterministic everywhere.
  */
 export function independentReports(
   authorPublicKey: string, reports: readonly unknown[],
