@@ -9,12 +9,14 @@ type Published = { version: string; files: string[]; docs: Record<string, string
 
 /** The Buy tab of an accepted version: pay once, then the encrypted files it opens. */
 export function BuyTab({ id, name }: { id: string; name: string }) {
+  // A purchase publishes the files, so the list below reads ENS again after one.
+  const [reads, setReads] = useState(0);
   return (
     <div className="buy-tab">
       <p className="eyebrow">Buy · 1 USDC</p>
       <h2>Use this harness</h2>
-      <BuyPanel id={id} name={name} />
-      <EncryptedFiles id={id} name={name} />
+      <BuyPanel id={id} name={name} onOwned={() => setReads((n) => n + 1)} />
+      <EncryptedFiles id={id} name={name} reads={reads} />
     </div>
   );
 }
@@ -23,7 +25,7 @@ export function BuyTab({ id, name }: { id: string; name: string }) {
  * The encrypted files as ENS holds them: one text record per file on the
  * version name. Anyone can read the ciphertext. Only a buyer's key opens it.
  */
-function EncryptedFiles({ id, name }: { id: string; name: string }) {
+function EncryptedFiles({ id, name, reads }: { id: string; name: string; reads: number }) {
   const [data, setData] = useState<Published | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +41,7 @@ function EncryptedFiles({ id, name }: { id: string; name: string }) {
       })
       .catch((e: Error) => live && setError(e.message));
     return () => { live = false; };
-  }, [id]);
+  }, [id, reads]);
 
   const version = data?.version ?? name;
   return (
