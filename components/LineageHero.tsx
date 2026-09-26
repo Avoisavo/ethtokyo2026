@@ -4,6 +4,7 @@ import type { KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
 import { changesOf, fmtPct } from "@/lib/metrics";
+import { ensNames } from "@/lib/ens-name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
@@ -43,6 +44,7 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   // files it runs hash to the same id as an accepted ancestor, so the two run
   // exactly the same code. Walk up past the rejected parent to that ancestor.
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  const names = ensNames(nodes);
   const restoredAncestor = (n: ExportNode): string => {
     const seen = new Set<string>();
     let cur = byId.get(n.parent);
@@ -106,7 +108,10 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
         {nodes.filter((n) => slots[n.id] !== undefined).map((n) => {
           const { x, y } = at(n.id);
           const sel = n.id === selected;
-          const word = `${wordOf(n)} · ${n.short}`;
+          const name = names.get(n.id) ?? n.short;
+          // The diagram has ~300px per label: the leaf and its parent label, the rest elided.
+          const parts = name.split(".");
+          const word = `${wordOf(n)} · ${clip(parts.length > 3 ? `${parts[0]}.${parts[1]}.…` : name, 40)}`;
           const hyp = clip(n.hypothesis, 32);
           const num = nodeNumbers(n, nodes, benchTotal, minVerifications);
           // White blocks behind the label lines. Edges are drawn first, so an edge that
@@ -114,7 +119,7 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
           const labelW = Math.min(LABEL_W - 20, Math.max(word.length * 6.3, hyp.length * 6.9, num.length * 6.6) + 8);
           return (
             <g key={n.id} className={`h-node s-${n.status}${sel ? " is-selected" : ""}`} role="button"
-              tabIndex={0} aria-pressed={sel} aria-label={`${STATUS_WORD[n.status]} ${n.short}. ${n.hypothesis}`}
+              tabIndex={0} aria-pressed={sel} aria-label={`${STATUS_WORD[n.status]} ${name}. ${n.hypothesis}`}
               onClick={() => onSelect(n.id)} onKeyDown={(e) => key(e, n.id)}>
               {/* Two blocks, with an open band at the dot height. A straight edge stays visible
                   in that band, between the hypothesis above and the numbers below. */}
