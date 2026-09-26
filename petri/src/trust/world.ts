@@ -10,8 +10,7 @@
  * PETRI_WORLD_ADDRESS lets this check look up that human id.
  *
  * What the check records: the wallet, the human id or the reason there is none,
- * and the report it belongs to. The record goes to world-checks.jsonl and then to
- * the Hedera topic.
+ * and the report it belongs to. The record goes to world-checks.jsonl.
  *
  * What it does NOT do yet:
  *   - It does not prove the wallet belongs to the key that signed the report.
