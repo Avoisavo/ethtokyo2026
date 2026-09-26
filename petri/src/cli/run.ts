@@ -7,9 +7,8 @@
  * `evals` runs the whole benchmark 5 times: the harness answers, the tests run
  * in the sandbox, and every task result is printed with the median score.
  *
- * Neither command signs anything, writes to the log, or sends anything to
- * Hedera. `petri verify` does that, and only another key's verify makes a
- * version count.
+ * Neither command signs anything or writes to the log. `petri verify` does
+ * that, and only another key's verify makes a version count.
  */
 import type { Command } from 'commander';
 
