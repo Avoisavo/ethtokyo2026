@@ -221,39 +221,37 @@ flows at `/world` (IDKit Selfie Check, World ID for Agents) are explained in `li
 
 ---
 
-## Intercepta: paid verification, screened before signing
+## Intercepta: an agent buys a version, screened before signing
 
-At `/intercepta` the Petri agent pays over x402, in Circle test USDC on Ethereum Sepolia. It buys one of
-two things: a **version as a markdown file** (`GET /api/versions/:versionId/markdown`, as often as it
-likes), or a **verification run** by another key (`POST /api/verifier/verify/:versionId`). Paying per
-verification run is item 3 on Petri's roadmap in `petri/CLAUDE.md`. Intercepta sits in the payment path
-on both sides. The full walkthrough, in plain English, is [`docs/intercepta.md`](docs/intercepta.md).
+At `/intercepta` the Petri agent buys a version's record as a **markdown file** over x402, in Circle test
+USDC on Ethereum Sepolia: what an agent reads before it builds on that version. It can buy as often as it
+likes. Intercepta sits in the payment path on both sides. The walkthrough, in plain English, is
+[`docs/intercepta.md`](docs/intercepta.md).
 
-For a verification run:
-
-1. The verifier answers `POST /api/verifier/verify/:versionId` with HTTP 402: 0.01 USDC to its wallet.
+1. The seller answers `GET /api/versions/:versionId/markdown` with HTTP 402: 0.01 USDC to its wallet.
 2. Petri checks its own limits first, with no network call: at most 0.50 USDC a payment, Circle USDC
    only, and an authorization valid for at most 300 s.
-3. **Intercepta Quick Scan** screens the verifier's wallet (`payTo`), before the authorization exists.
+3. **Intercepta Quick Scan** screens the seller's wallet (`payTo`), before the authorization exists.
 4. The x402 scheme builds the EIP-3009 authorization. Petri checks it against the 402, and
    **Intercepta Scan Message** screens the exact typed data. Petri signs only if every check passed.
-5. The verifier checks the signature, screens the payer with **Quick Scan**, runs a real
-   `petri verify` with its own key, and settles on Sepolia only after the report exists.
+5. The seller checks the signature, screens the payer with **Quick Scan**, settles on Sepolia, and only
+   then sends the file.
 
 Any error, timeout or missing scan **holds** the payment. Nothing is paid by default.
 
-| Verifier | What happens | Signed? | Funds moved? |
+| Seller | What happens | Signed? | Funds moved? |
 |---|---|---|---|
-| honest | Screened clean, paid 0.01 USDC, `petri verify` runs, settled on Sepolia | Yes | Yes |
+| honest | Screened clean, paid 0.01 USDC, settled on Sepolia, file delivered | Yes | Yes |
 | rogue | Its wallet is a sanctioned mainnet address: Quick Scan rejects `intercepta_block:sanction_address` | No | No |
 | greedy | Asks 0.75 USDC: rejected `over_limit` before any Intercepta request | No | No |
 
-A verification run sells **once per verifier key per version**, because Petri counts one report per key. For
-demos, the page's **Demo: allow repeat runs** box lets the verifier sell it again; that repeat report is stored
-but does not change the version's status.
-
 **Preview without screening** shows the agent before this feature: it builds the authorization it
 would sign to the rogue wallet, and stops. Every attempt is one line in `petri/.petri/payments.jsonl`.
+
+The same checks guard a second seller that is not on the page: `POST /api/verifier/verify/:versionId`
+sells a `petri verify` run by the seller's key (item 3 on Petri's roadmap in `petri/CLAUDE.md`). It sells
+once per key per version, because Petri counts one report per key; `&repeat=1` lets a demo buy it again,
+and that report does not count.
 
 ### Run it
 
