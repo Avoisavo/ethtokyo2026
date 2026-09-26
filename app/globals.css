@@ -422,18 +422,12 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-tools button:hover { color: var(--ink); border-color: var(--ink-faint); }
 .cmp-tools button[aria-pressed="true"] { color: var(--pass); border-color: color-mix(in srgb, var(--pass) 45%, var(--rule)); background: var(--pass-soft); }
 
-.cmp-tri-face { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; stroke-linejoin: round; }
-.cmp-grid { stroke: var(--rule); stroke-width: 1; }
-.cmp-mid { stroke: var(--ink-faint); stroke-width: 1.2; }
-.cmp-corner { font-size: 13px; font-weight: 600; fill: var(--ink); }
-.cmp-corner-sub { font-size: 11px; fill: var(--ink-faint); }
 .cmp-dot { cursor: pointer; outline: none; }
 .cmp-hit { fill: transparent; }
 .cmp-dot:focus-visible .cmp-hit { stroke: var(--pass); stroke-width: 2; }
 .cmp-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
 .cmp-ring-hover { stroke: var(--ink-faint); stroke-dasharray: 2.5 2.5; }
 .cmp-label { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
-.cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
 .cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
 .cmp-anchor { fill: var(--ink-faint); }
 .cmp-link { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; opacity: .5; }
@@ -473,3 +467,44 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-table tr.is-selected td { background: var(--pass-soft); }
 .cmp-row-btn { border: 0; background: none; padding: 0; color: var(--pass); cursor: pointer; }
 .cmp-row-btn code { text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--pass) 40%, transparent); text-underline-offset: 3px; }
+
+/* ---- radar: the selected version on each measure, against its parent ---- */
+.rd-head { display: flex; flex-direction: column; gap: 6px; }
+.rd-who { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.rd-who svg { align-self: center; }
+.rd-who b { font-family: var(--f-mono), monospace; font-size: 12px; font-weight: 500; }
+.rd-tree { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rd-tree-label { width: 64px; flex: none; font-size: 11.5px; color: var(--ink-faint); }
+.rd-path { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; min-width: 0; }
+.rd-step { display: inline-flex; align-items: center; gap: 6px; }
+.rd-arrow { color: var(--ink-faint); font-size: 12px; }
+.rd-node { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); font-family: var(--f-mono), monospace; font-size: 11.5px; color: var(--ink-mid); cursor: pointer; }
+.rd-node:hover { color: var(--ink); border-color: var(--ink-faint); }
+.rd-node[aria-pressed="true"] { color: var(--ink); border-color: var(--pass); background: var(--pass-soft); }
+
+.rd-face { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; stroke-linejoin: round; }
+.rd-ring { fill: none; stroke: var(--rule); stroke-width: 1; stroke-linejoin: round; }
+.rd-spoke { stroke-width: 1.6; opacity: .75; }
+.rd-spoke.ax-x { stroke: var(--ax-x); } .rd-spoke.ax-y { stroke: var(--ax-y); } .rd-spoke.ax-z { stroke: var(--ax-z); }
+.rd-parent polygon { fill: none; stroke: var(--ink-mid); stroke-width: 1.4; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.rd-parent circle { fill: var(--surface); stroke: var(--ink-mid); stroke-width: 1.4; }
+.rd-shape polygon { stroke-width: 2.2; stroke-linejoin: round; }
+.rd-shape circle { stroke: var(--surface); stroke-width: 2; }
+.rd-pass polygon { fill: color-mix(in srgb, var(--pass) 24%, transparent); stroke: var(--pass); } .rd-pass circle { fill: var(--pass); }
+.rd-fail polygon { fill: color-mix(in srgb, var(--fail) 20%, transparent); stroke: var(--fail); } .rd-fail circle { fill: var(--fail); }
+.rd-wait polygon { fill: color-mix(in srgb, var(--ink-faint) 22%, transparent); stroke: var(--ink-mid); } .rd-wait circle { fill: var(--ink-mid); }
+.rd-chip rect { stroke-width: 1.5; }
+.rd-chip.ax-x rect { fill: color-mix(in srgb, var(--ax-x) 14%, var(--surface)); stroke: var(--ax-x); }
+.rd-chip.ax-y rect { fill: color-mix(in srgb, var(--ax-y) 14%, var(--surface)); stroke: var(--ax-y); }
+.rd-chip.ax-z rect { fill: color-mix(in srgb, var(--ax-z) 14%, var(--surface)); stroke: var(--ax-z); }
+.rd-chip text { font-family: var(--f-mono), monospace; font-size: 15px; font-weight: 600; fill: var(--ink); }
+.rd-name { font-size: 11px; font-weight: 700; letter-spacing: .08em; fill: var(--ink); }
+.rd-detail { font-size: 10.5px; fill: var(--ink-mid); }
+.rd-empty { font-size: 14px; font-weight: 600; fill: var(--ink-mid); }
+.rd-empty-sub { font-size: 11.5px; fill: var(--ink-faint); }
+.rd-legend { justify-content: center; }
+.rd-key.rd-pass { fill: color-mix(in srgb, var(--pass) 24%, transparent); stroke: var(--pass); stroke-width: 1.5; }
+.rd-key.rd-fail { fill: color-mix(in srgb, var(--fail) 20%, transparent); stroke: var(--fail); stroke-width: 1.5; }
+.rd-key.rd-wait { fill: color-mix(in srgb, var(--ink-faint) 22%, transparent); stroke: var(--ink-mid); stroke-width: 1.5; }
+.rd-parent-key { fill: none; stroke: var(--ink-mid); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.rd-face-key { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; }
