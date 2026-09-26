@@ -8,6 +8,7 @@ import { addresses, explorerTx } from "@/app/ens/_lib/ens/contracts";
 import { CHAIN_ID } from "@/app/ens/_lib/wagmi";
 import { ensAppUrl } from "@/lib/ens/name";
 import { accessPublicKey, decryptText, newAccessKeyPair, openFileKey } from "@/lib/market/crypto";
+import { zipFiles } from "@/lib/zip";
 
 /** The server wallet that owns petri.eth and takes payments. */
 const PLATFORM = process.env.NEXT_PUBLIC_PETRI_ENS_ADDRESS as Address | undefined;
@@ -36,10 +37,26 @@ function accessKeyFor(wallet: string): { secretKey: string; publicKey: string } 
 type Bought = { version: string; buyer: { name: string; key: string } | null; files: string[]; docs: Record<string, string> };
 
 /**
+ * Saves the opened files as one zip: `harness.md` at the top, and every other
+ * file under `harness/`, the same layout as petri/harness.
+ */
+function downloadZip(folder: string, files: Record<string, string>): void {
+  const entries = Object.fromEntries(Object.entries(files).map(([f, text]) =>
+    [f === "harness.md" ? `${folder}/${f}` : `${folder}/harness/${f}`, text]));
+  const url = URL.createObjectURL(new Blob([zipFiles(entries)], { type: "application/zip" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${folder}.zip`;
+  a.click();
+  // Some browsers start the download after the click returns, so keep the URL a moment.
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/**
  * Pay 1 USDC once, get your own ENS name with the harness key sealed to you,
  * and read the harness files. Accepted versions of the real tree only.
  */
-export function BuyPanel({ id, name }: { id: string; name: string }) {
+export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOwned?: () => void }) {
   const { address, isConnected, chainId } = useConnection();
   const client = usePublicClient({ chainId: CHAIN_ID });
   const { mutateAsync: write } = useWriteContract();
@@ -64,6 +81,7 @@ export function BuyPanel({ id, name }: { id: string; name: string }) {
     const files: Record<string, string> = {};
     for (const f of data.files) files[f] = data.docs[f] ? decryptText(fileKey, data.docs[f]) : "";
     setOwned({ buyer: data.buyer.name, files });
+    onOwned?.();
     return true;
   };
 
@@ -126,6 +144,10 @@ export function BuyPanel({ id, name }: { id: string; name: string }) {
       <section className="buy">
         <h3>You own this harness</h3>
         <p>Your name: <a href={ensAppUrl(owned.buyer)} target="_blank" rel="noreferrer"><code>{owned.buyer}</code></a>. It holds the file key, sealed to this browser. It expires in 30 days.</p>
+        <button type="button" onClick={() => downloadZip(`petri-${name.split(".")[0]}-${id.slice(0, 8)}`, owned.files)}>
+          Download all {Object.keys(owned.files).length} files (.zip)
+        </button>
+        <p>The zip holds <code>harness.md</code> and a <code>harness/</code> folder with the same layout as <code>petri/harness</code>.</p>
         <div className="buy-files">
           {Object.entries(owned.files).map(([f, text]) => (
             <details key={f}>
