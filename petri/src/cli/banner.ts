@@ -14,7 +14,7 @@ import { logPath } from '../store/paths.js';
 export type TrustLabel = 'local-unverified';
 
 /** The honest one-word trust label that every status line and export carries. */
-export function trustLabel(_cfg: Pick<PetriConfig, 'ledger'>): TrustLabel {
+export function trustLabel(): TrustLabel {
   return 'local-unverified';
 }
 
