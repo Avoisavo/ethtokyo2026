@@ -96,7 +96,7 @@ export function messageVerdict(call: InterceptaCall<MessageScan> | null): Messag
 
 /* ------------------------------------------------------------------ checks */
 
-export type CheckId = "limit" | "asset" | "validity" | "payto" | "authorization" | "message" | "payer";
+export type CheckId = "limit" | "asset" | "validity" | "payto" | "authorization" | "message" | "payer" | "internal";
 export type CheckStatus = "pass" | "hold" | "fail" | "skipped";
 export type Check = { id: CheckId; label: string; source: "petri" | "intercepta"; status: CheckStatus; code: string; detail: string };
 
@@ -111,6 +111,7 @@ const LABEL: Record<CheckId, string> = {
   authorization: "Authorization matches the 402",
   message: "Intercepta Scan Message on the authorization",
   payer: "Intercepta Quick Scan on the payer",
+  internal: "Petri agent",
 };
 
 const check = (id: CheckId, source: Check["source"], status: CheckStatus, code: string, detail: string): Check => ({
@@ -202,6 +203,13 @@ export function payerCheck(v: AddressVerdict): Check {
     case "skipped":
       return check("payer", "petri", "skipped", "payer_screen_off", "Payer screening is off (PETRI_VERIFIER_SCREEN_PAYER=off).");
   }
+}
+
+/** Anything no other check decided. x402's own spend cap rejects; every other surprise holds. */
+export function internalCheck(detail: string, spendControl: boolean): Check {
+  return spendControl
+    ? check("internal", "petri", "fail", "x402_spend_controls", detail)
+    : check("internal", "petri", "hold", "internal_error", detail);
 }
 
 /** Reject beats hold, and hold beats pay. The code is the first check that did not pass. */
