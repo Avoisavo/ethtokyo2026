@@ -54,7 +54,14 @@ type Server = {
   busyVersions: Set<string>;
 };
 
-const g = globalThis as unknown as { __petriVerifier?: { key: string; server: Server } };
+const g = globalThis as unknown as { __petriVerifier?: { key: string; module: object; server: Server } };
+
+/**
+ * A new object each time this module is evaluated. The server is cached on
+ * globalThis to survive dev hot reloads, but a server built by an older copy
+ * of this code has older hooks and fields, so it is never reused.
+ */
+const MODULE = {};
 
 export function profileOf(value: string | string[] | null | undefined): VerifierProfile {
   const v = Array.isArray(value) ? value[0] : value;
@@ -70,7 +77,7 @@ export function offer(cfg: VerifierConfig, profile: VerifierProfile) {
 
 export function getVerifierServer(cfg: VerifierConfig): Server {
   const key = JSON.stringify([cfg.relayerAddress, cfg.payTo, cfg.feeAtomic.toString(), cfg.rogue.payTo, cfg.greedy.feeAtomic.toString(), cfg.timeoutSeconds, cfg.screenPayer, cfg.rpcUrl]);
-  if (g.__petriVerifier?.key === key) return g.__petriVerifier.server;
+  if (g.__petriVerifier?.key === key && g.__petriVerifier.module === MODULE) return g.__petriVerifier.server;
 
   const relayer = privateKeyToAccount(cfg.relayerKey);
   const wc = createWalletClient({ account: relayer, chain: sepolia, transport: http(cfg.rpcUrl) }).extend(publicActions);
@@ -159,7 +166,7 @@ export function getVerifierServer(cfg: VerifierConfig): Server {
   built.ready.catch(() => {
     if (g.__petriVerifier?.server === built) delete g.__petriVerifier;
   });
-  g.__petriVerifier = { key, server: built };
+  g.__petriVerifier = { key, module: MODULE, server: built };
   return built;
 }
 
