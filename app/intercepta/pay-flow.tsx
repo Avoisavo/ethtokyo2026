@@ -159,6 +159,8 @@ export default function PayFlow({
   );
 
   const r = current;
+  // Records written before markdown existed carry no product: they are verification runs.
+  const shownProduct: Product = r ? (r.product ?? "verification") : product;
   const checks = r?.decision?.checks ?? [];
   const find = (id: Check["id"]) => checks.find((c) => c.id === id);
   const quick = r?.intercepta.find((c) => c.endpoint === "quick-scan") as InterceptaCall<QuickScan> | undefined;
@@ -476,11 +478,11 @@ export default function PayFlow({
       </Section>
 
       {/* ------------------------------------------------------------ 8 */}
-      <Section n={8} title={`The seller's side: payer screen, settlement, ${(r?.product ?? product) === "markdown" ? "the file" : "petri verify"}`} status={s8} statusText={{ pass: "Settled", fail: "Refused", info: "", idle: r?.signed ? "" : "Not reached" }[s8]}>
+      <Section n={8} title={`The seller's side: payer screen, settlement, ${shownProduct === "markdown" ? "the file" : "petri verify"}`} status={s8} statusText={{ pass: "Settled", fail: "Refused", info: "", idle: r?.signed ? "" : "Not reached" }[s8]}>
         <p>
           The seller checks the signature with its in-process facilitator and screens the payer with Intercepta in
           x402&apos;s <code>onAfterVerify</code> hook.{" "}
-          {(r?.product ?? product) === "markdown" ? (
+          {shownProduct === "markdown" ? (
             <>Then it settles on Sepolia and sends the file.</>
           ) : (
             <>
