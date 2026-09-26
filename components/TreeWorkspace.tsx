@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import { ensNames } from "@/lib/ens-name";
+import { ensNames } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
