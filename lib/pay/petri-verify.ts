@@ -65,7 +65,8 @@ function failure(e: unknown, fallback: string): Fail {
   return { ok: false, status, code, detail };
 }
 
-export type Preflight = { ok: true; runnerId: string } | Fail;
+/** alreadyVerified: this key reported on the version before, so a new report will not count. */
+export type Preflight = { ok: true; runnerId: string; alreadyVerified: boolean } | Fail;
 
 /**
  * `petri --json show <id> --diff`: the live record of one version. Read-only,
@@ -80,7 +81,11 @@ export async function petriShow(versionId: string, home: string): Promise<{ ok: 
   }
 }
 
-export async function preflight(versionId: string, home: string | null): Promise<Preflight> {
+/**
+ * `allowRepeat` is for demos only. In Petri one key counts once per version, so
+ * a repeat report is stored and published but never changes the version's status.
+ */
+export async function preflight(versionId: string, home: string | null, opts: { allowRepeat?: boolean } = {}): Promise<Preflight> {
   if (!engineInstalled()) {
     return { ok: false, status: 503, code: "engine_not_installed", detail: "The Petri engine is not installed. Run: cd petri && corepack pnpm install" };
   }
@@ -98,12 +103,23 @@ export async function preflight(versionId: string, home: string | null): Promise
     if (node.manifest.author === runnerId) {
       return { ok: false, status: 409, code: "verifier_is_author", detail: "This verifier's key wrote the version. Its report would not count." };
     }
-    if (node.verifications.some((v) => v.pub === runnerId)) {
+    const alreadyVerified = node.verifications.some((v) => v.pub === runnerId);
+    if (alreadyVerified && !opts.allowRepeat) {
       return { ok: false, status: 409, code: "already_verified", detail: "This verifier's key already reported on this version. A second report would not count." };
     }
-    return { ok: true, runnerId };
+    return { ok: true, runnerId, alreadyVerified };
   } catch (e) {
     return failure(e, "preflight_failed");
+  }
+}
+
+/** `petri --json status <id>`: the keys the acceptance rule counted for this version. */
+export async function petriCountedKeys(versionId: string, home: string): Promise<{ ok: true; counted: string[] } | Fail> {
+  try {
+    const { stdout } = await petri(["status", versionId], home, 30_000);
+    return { ok: true, counted: (JSON.parse(stdout) as { counted: string[] }).counted };
+  } catch (e) {
+    return failure(e, "status_failed");
   }
 }
 

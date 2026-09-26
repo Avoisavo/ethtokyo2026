@@ -40,6 +40,8 @@ export type VerifierReply = {
     statusReason: string;
   };
   settlement?: { success: boolean; transaction: string; network: string; payer?: string; errorReason?: string };
+  /** Demo repeat mode: the verifier's key had already reported, so this report does not count. */
+  repeat?: boolean;
   /** The markdown seller's file name. The file itself goes to PaymentRecord.delivered. */
   file?: string;
 };
@@ -67,6 +69,8 @@ export type PaymentRecord = {
   mode: PayMode;
   /** Missing on records written before markdown existed: those are verification runs. */
   product?: Product;
+  /** The buyer allowed a demo repeat run (a report that may not count). */
+  repeat?: boolean;
   versionId: string;
   verifier: VerifierProfile;
   url: string;
