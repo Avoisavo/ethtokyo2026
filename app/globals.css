@@ -226,14 +226,6 @@ dd small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-f
 .node-panel { border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .np-head { display: flex; align-items: center; gap: 6px; }
 .eyebrow { font-family: var(--f-mono), monospace; font-size: 11px; color: var(--ink-faint); letter-spacing: .02em; }
-.np-hyp { font-size: 15px; line-height: 1.4; }
-.verdict { border-radius: 8px; background: var(--sunk); padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--rule-soft); }
-.verdict.v-accepted { background: var(--pass-soft); border-color: color-mix(in srgb, var(--pass) 20%, transparent); }
-.verdict.v-rejected { background: var(--fail-soft); border-color: color-mix(in srgb, var(--fail) 20%, transparent); }
-.verdict .code { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; }
-.verdict.v-accepted .code { color: var(--pass); }
-.verdict.v-rejected .code { color: var(--fail); }
-.verdict p { font-size: 12.5px; color: var(--ink-mid); }
 .facts, .goal-facts { display: grid; gap: 8px; margin: 0; }
 .facts { grid-template-columns: 1fr 1fr; }
 .goal-facts { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -242,20 +234,6 @@ dd small { display: block; font-size: 12px; font-weight: 400; color: var(--ink-f
 .np-block { display: flex; flex-direction: column; gap: 6px; }
 .np-block h3 { font-size: 12px; font-weight: 500; color: var(--ink-faint); letter-spacing: 0; }
 .np-block > p { font-size: 13px; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.tags span { font-family: var(--f-mono), monospace; font-size: 11px; border: 1px solid var(--rule); border-radius: 6px; padding: 2px 6px; color: var(--ink-mid); }
-.tags .badge { color: var(--ink); }
-.parent-link { font-size: 12.5px; color: var(--ink-mid); }
-.parent-link button { background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--f-mono), monospace; font-size: 12px; color: var(--pass); }
-ul.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.check { border: 1px solid var(--rule-soft); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; }
-.check.counted { border-left: 3px solid var(--pass); }
-.check.ignored { border-left: 3px dashed var(--ink-faint); color: var(--ink-mid); }
-.check-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.check-state { font-family: var(--f-mono), monospace; font-size: 10.5px; font-weight: 500; }
-.check.counted .check-state { color: var(--pass); }
-.check code { font-size: 11px; color: var(--ink-faint); overflow-wrap: anywhere; }
-.why { font-size: 12px; color: var(--fail); }
 details.diff summary { cursor: pointer; font-size: 12.5px; color: var(--ink-mid); }
 details.diff pre { margin: 6px 0 0; font-size: 11.5px; line-height: 1.55; background: var(--sunk); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 10px; overflow: auto; max-height: 320px; white-space: pre; }
 /* The version as ENS stores it: its name, its resolver and every text record, one key above its value. */
@@ -329,10 +307,6 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .empty-pair p { color: var(--ink-mid); }
 .empty-pair ol { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 4px; color: var(--ink-mid); }
 
-.blocked { border-radius: 8px; background: var(--sunk); border: 1px dashed var(--rule); padding: 9px 11px; display: flex; flex-direction: column; gap: 4px; }
-.blocked .code { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; color: var(--fail); }
-.blocked p { font-size: 12.5px; color: var(--ink-mid); }
-.blocked pre { margin: 0; font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: 6px; padding: 8px; max-height: 160px; overflow: auto; }
 
 /* Legend sits inside the tree panel, top right. */
 .tree-plate { position: relative; }
