@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { type Address, erc20Abi, parseAbi } from "viem";
 import { useConnection, usePublicClient, useReadContract, useSignMessage, useWriteContract } from "wagmi";
 
@@ -156,48 +156,50 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
   };
 
   /** The buy flow as a checklist: done, running (with a spinner), waiting, or failed. */
-  const SERVER_STEPS: { key: string; what: string; wait: string }[] = [
-    { key: "check", what: "The platform checks your payment", wait: "the signature and the 1 USDC transfer" },
-    { key: "files", what: "The encrypted files are on the version name", wait: "published once, at the first buy" },
-    { key: "name", what: "Your ENS name is created", wait: "buyer<n> under the version" },
-    { key: "key", what: "The file key is sealed onto your name", wait: "petri.key" },
-  ];
-  const serverRows = stage === null || stage < 3 ? null : SERVER_STEPS.map((st) => {
-    const got = server[st.key];
-    const state = got?.state === "done" || stage > 3 ? "done" : got?.state === "run" ? (failed ? "fail" : "run") : failed && stage === 3 && !got ? "wait" : "wait";
+  /**
+   * Every step of a buy, always on screen, numbered 1 to 8: done, running (a
+   * spinner), waiting, or failed. Steps 4 to 7 are the platform's, ticked as the
+   * buy route streams them.
+   */
+  const flow = stage === null ? null : (() => {
+    const mine = (at: number) => (at < stage ? "done" : at === stage ? (failed ? "fail" : "run") : "wait");
+    const theirs = (key: string) => {
+      const got = server[key];
+      if (got?.state === "done" || stage > 3) return "done";
+      if (got?.state === "run") return failed ? "fail" : "run";
+      return "wait";
+    };
+    const tx = (key: string) => server[key]?.tx;
+    const detail = (key: string, wait: string) => server[key]?.detail ?? wait;
+    const rows: { what: string; state: string; note: ReactNode; tx?: string }[] = [
+      { what: "Sign the access key in MetaMask", state: mine(0), note: "proves this browser's key belongs to your wallet" },
+      { what: "Pay 1 USDC in MetaMask", state: mine(1), note: "a transfer to the platform wallet" },
+      { what: "Payment confirmed on Sepolia", state: mine(2), note: payTx ? <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a> : "waiting for the block" },
+      { what: "The platform checks your payment", state: theirs("check"), note: detail("check", "the signature and the 1 USDC transfer") },
+      { what: "The encrypted files are on the version name", state: theirs("files"), note: detail("files", "published once, at the first buy"), tx: tx("files") },
+      {
+        what: "Your ENS name is created", state: theirs("name"), tx: tx("name"),
+        note: server.name?.detail
+          ? <><NameLink name={server.name.detail} />{server.name.state === "done" ? " · owned by your wallet · 30 days" : ""}</>
+          : "buyer<n> under the version",
+      },
+      { what: "The file key is sealed onto your name", state: theirs("key"), note: detail("key", "petri.key"), tx: tx("key") },
+      { what: "Open your key and decrypt the files", state: mine(4), note: boughtName ? <>from <NameLink name={boughtName} />, in this browser only</> : "in this browser only" },
+    ];
     return (
-      <li key={st.key} className={`buy-step sub ${state}`}>
-        <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : "·"}</span>
-        <span>
-          <b>{st.what}</b>
-          <small> · {st.key === "name" && got?.detail
-            ? <><NameLink name={got.detail} />{got.state === "done" ? " · owned by your wallet · 30 days" : ""}</>
-            : got?.detail ?? st.wait}</small>
-          {got?.tx && <small> · <a href={explorerTx(got.tx)} target="_blank" rel="noreferrer">tx {got.tx.slice(0, 8)}…</a></small>}
-        </span>
-      </li>
-    );
-  });
-  const flow = stage === null ? null : (
-    <ol className="buy-flow" aria-live="polite">
-      {[
-        { what: "Sign the access key in MetaMask", note: "proves this browser's key belongs to your wallet" },
-        { what: "Pay 1 USDC in MetaMask", note: "a transfer to the platform wallet" },
-        { what: "Payment confirmed on Sepolia", note: payTx ? <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a> : null },
-        { what: "Open your key and decrypt the files", note: boughtName ? <>from <NameLink name={boughtName} />, in this browser only</> : "in this browser only" },
-      ].map((st, i) => {
-        // The rows are stages 0, 1, 2 and 4. Stage 3 is the platform's own steps, drawn between.
-        const at = i === 3 ? 4 : i;
-        const state = at < stage ? "done" : at === stage ? (failed ? "fail" : "run") : "wait";
-        return (
-          <li key={i} className={`buy-step ${state}`}>
-            <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : at + 1}</span>
-            <span><b>{st.what}</b>{st.note && <small> · {st.note}</small>}</span>
+      <ol className="buy-flow" aria-live="polite">
+        {rows.map((r, i) => (
+          <li key={i} className={`buy-step ${r.state}`}>
+            <span className="buy-mark" aria-hidden="true">{r.state === "done" ? "✓" : r.state === "fail" ? "✕" : r.state === "run" ? <span className="spinner" /> : i + 1}</span>
+            <span>
+              <b>{r.what}</b><small> · {r.note}</small>
+              {r.tx && <small> · <a href={explorerTx(r.tx)} target="_blank" rel="noreferrer">tx {r.tx.slice(0, 8)}…</a></small>}
+            </span>
           </li>
-        );
-      }).flatMap((row, i) => (i === 3 ? [<li key="srv" className="buy-sub"><ol>{serverRows}</ol></li>, row] : [row]))}
-    </ol>
-  );
+        ))}
+      </ol>
+    );
+  })();
 
   const mint = async () => {
     if (!address) return;
