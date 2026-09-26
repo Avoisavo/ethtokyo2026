@@ -69,6 +69,8 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
   const [stage, setStage] = useState<number | null>(null);
   const [failed, setFailed] = useState(false);
   const [boughtName, setBoughtName] = useState<string | null>(null);
+  // The platform's own steps, as the buy route streams them.
+  const [server, setServer] = useState<Record<string, { state: "run" | "done"; detail?: string; tx?: string }>>({});
 
   const balance = useReadContract({
     address: USDC, abi: erc20Abi, functionName: "balanceOf", args: address ? [address] : undefined,
@@ -102,6 +104,7 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
     setFailed(false);
     setPayTx(null);
     setBoughtName(null);
+    setServer({});
     try {
       setStage(0);
       setStep("buying");
@@ -119,9 +122,26 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, wallet: address, accessKey: key.publicKey, signature, txHash: hash }),
       });
-      const data = (await res.json()) as { ok: boolean; error?: string; name?: string };
-      if (!data.ok) throw new Error(data.error ?? "The purchase failed.");
-      setBoughtName(data.name ?? null);
+      // One JSON line per step, as the platform does it.
+      const reader = res.body!.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      let got: string | null = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = JSON.parse(buf.slice(0, nl)) as { step?: string; state?: "run" | "done"; detail?: string; tx?: string; name?: string; error?: string };
+          buf = buf.slice(nl + 1);
+          if (line.error) throw new Error(line.error);
+          if (line.step === "done") got = line.name ?? null;
+          else if (line.step) setServer((s0) => ({ ...s0, [line.step!]: { state: line.state!, detail: line.detail, tx: line.tx } }));
+        }
+      }
+      if (!got) throw new Error("The purchase stopped before it finished.");
+      setBoughtName(got);
 
       setStage(4);
       if (!(await open(address))) throw new Error("Your name was created, but the key did not open. Reload the page.");
@@ -136,23 +156,46 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
   };
 
   /** The buy flow as a checklist: done, running (with a spinner), waiting, or failed. */
+  const SERVER_STEPS: { key: string; what: string; wait: string }[] = [
+    { key: "check", what: "The platform checks your payment", wait: "the signature and the 1 USDC transfer" },
+    { key: "files", what: "The encrypted files are on the version name", wait: "published once, at the first buy" },
+    { key: "name", what: "Your ENS name is created", wait: "buyer<n> under the version" },
+    { key: "key", what: "The file key is sealed onto your name", wait: "petri.key" },
+  ];
+  const serverRows = stage === null || stage < 3 ? null : SERVER_STEPS.map((st) => {
+    const got = server[st.key];
+    const state = got?.state === "done" || stage > 3 ? "done" : got?.state === "run" ? (failed ? "fail" : "run") : failed && stage === 3 && !got ? "wait" : "wait";
+    return (
+      <li key={st.key} className={`buy-step sub ${state}`}>
+        <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : "·"}</span>
+        <span>
+          <b>{st.what}</b>
+          <small> · {st.key === "name" && got?.detail
+            ? <><NameLink name={got.detail} />{got.state === "done" ? " · owned by your wallet · 30 days" : ""}</>
+            : got?.detail ?? st.wait}</small>
+          {got?.tx && <small> · <a href={explorerTx(got.tx)} target="_blank" rel="noreferrer">tx {got.tx.slice(0, 8)}…</a></small>}
+        </span>
+      </li>
+    );
+  });
   const flow = stage === null ? null : (
     <ol className="buy-flow" aria-live="polite">
       {[
         { what: "Sign the access key in MetaMask", note: "proves this browser's key belongs to your wallet" },
         { what: "Pay 1 USDC in MetaMask", note: "a transfer to the platform wallet" },
         { what: "Payment confirmed on Sepolia", note: payTx ? <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a> : null },
-        { what: "The platform checks the payment, publishes the files and creates your name", note: boughtName ? <code>{boughtName}</code> : "about a minute" },
-        { what: "Open your key and decrypt the files", note: "in this browser only" },
+        { what: "Open your key and decrypt the files", note: boughtName ? <>from <NameLink name={boughtName} />, in this browser only</> : "in this browser only" },
       ].map((st, i) => {
-        const state = i < stage ? "done" : i === stage ? (failed ? "fail" : "run") : "wait";
+        // The rows are stages 0, 1, 2 and 4. Stage 3 is the platform's own steps, drawn between.
+        const at = i === 3 ? 4 : i;
+        const state = at < stage ? "done" : at === stage ? (failed ? "fail" : "run") : "wait";
         return (
           <li key={i} className={`buy-step ${state}`}>
-            <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : i + 1}</span>
+            <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : at + 1}</span>
             <span><b>{st.what}</b>{st.note && <small> · {st.note}</small>}</span>
           </li>
         );
-      })}
+      }).flatMap((row, i) => (i === 3 ? [<li key="srv" className="buy-sub"><ol>{serverRows}</ol></li>, row] : [row]))}
     </ol>
   );
 
@@ -176,7 +219,7 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
     return (
       <section className="buy">
         <h3>You own this harness</h3>
-        <p>Your name: <a href={ensAppUrl(owned.buyer)} target="_blank" rel="noreferrer"><code>{owned.buyer}</code></a>. It holds the file key, sealed to this browser. It expires in 30 days.</p>
+        <p>Your name: <NameLink name={owned.buyer} />. It holds the file key, sealed to this browser. It expires in 30 days.</p>
         <button type="button" onClick={() => downloadZip(`petri-${name.split(".")[0]}-${id.slice(0, 8)}`, owned.files)}>
           Download all {Object.keys(owned.files).length} files (.zip)
         </button>
@@ -223,5 +266,16 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
       {flow}
       {error && <p className="err">{error}</p>}
     </section>
+  );
+}
+
+/** A name as a short link to its explorer page: "buyer2.v2.accepted…petri.eth". The full name shows on hover. */
+function NameLink({ name }: { name: string }) {
+  const parts = name.split(".");
+  const text = parts.length > 4 ? `${parts.slice(0, 3).join(".")}…${parts.slice(-2).join(".")}` : name;
+  return (
+    <a className="buy-name" href={ensAppUrl(name)} target="_blank" rel="noreferrer" title={name}>
+      <code>{text}</code> ↗
+    </a>
   );
 }

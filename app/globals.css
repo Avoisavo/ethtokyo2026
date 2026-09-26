@@ -578,3 +578,11 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--pass) 25%, transparent); border-top-color: var(--pass); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+.buy-sub { list-style: none; }
+.buy-sub ol { list-style: none; margin: 0 0 0 10px; padding: 0 0 0 20px; border-left: 2px solid var(--rule); display: flex; flex-direction: column; gap: 7px; }
+.buy-step.sub .buy-mark { width: 16px; height: 16px; font-size: 10px; }
+.buy-step.sub .spinner { width: 15px; height: 15px; }
+.buy-name { color: var(--pass); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.buy-name code { font-size: 12px; }
+.buy-name:hover { text-decoration: underline; }
