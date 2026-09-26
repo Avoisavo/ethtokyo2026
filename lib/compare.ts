@@ -1,5 +1,6 @@
 import { isBlocked, isRoot, rootRerunBp } from "./format";
 import type { ExportNode, RunRecord } from "./types";
+import { estimateTradeOff } from "./metrics";
 
 /** One version on the Compare view: its score, what it costs and how long it takes. */
 export interface ComparePoint {
@@ -14,6 +15,8 @@ export interface ComparePoint {
   rating: { perf: number; speed: number; cost: number };
   /** The three ratings scaled to add up to 1: where it sits in the trade-off triangle. */
   mix: { perf: number; speed: number; cost: number };
+  /** True for a version that never ran: placed at its parent, moved by the estimate. Not data. */
+  est?: boolean;
 }
 
 export interface CompareData {
@@ -83,10 +86,26 @@ export function compareData(nodes: ExportNode[], benchTotal: number): CompareDat
   const ids = new Set(nodes.map((n) => n.id));
   const measured: Omit<ComparePoint, "rating" | "mix">[] = [];
   const unplotted: ExportNode[] = [];
+  const at = new Map<string, Omit<ComparePoint, "rating" | "mix">>();
   for (const n of nodes) {
     const m = measure(n, nodes, ids, benchTotal);
-    if (m === null) unplotted.push(n);
-    else measured.push({ n, ...m });
+    if (m !== null) { const q = { n, ...m }; measured.push(q); at.set(n.id, q); }
+  }
+  // A version that never ran is placed at its parent, moved by the estimated change,
+  // so a path through it can be drawn. It is marked `est` and drawn faded.
+  for (const n of [...nodes].sort((a, b) => a.seq - b.seq)) {
+    if (at.has(n.id)) continue;
+    const parent = at.get(n.parent);
+    if (!parent) { unplotted.push(n); continue; }
+    const e = estimateTradeOff(n, nodes);
+    const q = {
+      n, est: true,
+      perfBp: Math.min(10000, Math.max(0, parent.perfBp * (1 + e.perf / 100))),
+      tokens: Math.max(1, parent.tokens * (1 - e.tokens / 100)),
+      wallMs: Math.max(1, parent.wallMs * (1 - e.speed / 100)),
+    };
+    measured.push(q);
+    at.set(n.id, q);
   }
   const perf = ratings(measured.map((p) => p.perfBp), true);
   const speed = ratings(measured.map((p) => p.wallMs), false);

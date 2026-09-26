@@ -308,9 +308,11 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
     );
   }
 
-  const best = points.reduce((a, b) => (b.perfBp > a.perfBp || (b.perfBp === a.perfBp && b.tokens < a.tokens) ? b : a));
-  const cheapest = points.reduce((a, b) => (b.tokens < a.tokens || (b.tokens === a.tokens && b.perfBp > a.perfBp) ? b : a));
-  const fastest = points.reduce((a, b) => (b.wallMs < a.wallMs || (b.wallMs === a.wallMs && b.perfBp > a.perfBp) ? b : a));
+  // The headline facts come from measurements only, never from an estimate.
+  const real = points.some((p) => !p.est) ? points.filter((p) => !p.est) : points;
+  const best = real.reduce((a, b) => (b.perfBp > a.perfBp || (b.perfBp === a.perfBp && b.tokens < a.tokens) ? b : a));
+  const cheapest = real.reduce((a, b) => (b.tokens < a.tokens || (b.tokens === a.tokens && b.perfBp > a.perfBp) ? b : a));
+  const fastest = real.reduce((a, b) => (b.wallMs < a.wallMs || (b.wallMs === a.wallMs && b.perfBp > a.perfBp) ? b : a));
   const fact = (label: string, p: ComparePoint, value: string) => (
     <button type="button" className="cmp-fact" aria-pressed={p.n.id === selected} onClick={() => onSelect(p.n.id)}>
       <span className="cmp-fact-label">{label}</span>
@@ -340,9 +342,11 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
       <TradeCtx.Provider value={tradeOf}>
       <figure className="cmp-figure">
         <div className="plate compare-plate">
-          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
+          <div className="cmp-pair">
+            <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
+            <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
+          </div>
           <Axes3D {...shared} links={links} lineage={lineage} />
-          <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
         </div>
         <div className="legend">
           <span><svg width="14" height="14" aria-hidden="true"><Glyph status="accepted" cx={7} cy={7} r={5} /></svg>Accepted</span>
@@ -376,7 +380,7 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
               {points.map((p) => (
                 <tr key={p.n.id} className={p.n.id === selected ? "is-selected" : undefined}>
                   <td><button type="button" className="cmp-row-btn" aria-pressed={p.n.id === selected} onClick={() => onSelect(p.n.id)}><code>{p.n.short}</code></button></td>
-                  <td>{STATUS_WORD[p.n.status]}</td>
+                  <td>{STATUS_WORD[p.n.status]}{p.est ? " · estimate" : ""}</td>
                   <td>{fmtPerf(p.perfBp)}</td>
                   <td>{fmtTokens(p.tokens)}</td>
                   <td>{fmtWall(p.wallMs)}</td>
@@ -484,7 +488,9 @@ function Chip({ x, y, text, axis }: { x: number; y: number; text: string; axis: 
 function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<string, ComparePoint>; nodes: ExportNode[]; selected: string; onSelect: (id: string) => void; benchTotal: number }) {
   const all = new Map(nodes.map((n) => [n.id, n]));
   const node = all.get(selected) ?? nodes[0]!;
-  const p = byId.get(node.id);
+  // Only a measured point fills the radar. An estimate is drawn dashed below.
+  const found = byId.get(node.id);
+  const p = found && !found.est ? found : undefined;
   const parentNode = all.get(node.parent);
   const parent = parentNode ? byId.get(parentNode.id) : undefined;
 
@@ -665,7 +671,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
   }
   const mid = tri(1 / 3, 1 / 3, 1 / 3);
   const order = [...points].sort((a, b) => Number(a.n.id === selected) - Number(b.n.id === selected) || rankOf(a) - rankOf(b));
-  const hp = byId.get(hover ?? selected);
+  const hp = hover === null ? undefined : byId.get(hover);
 
   const key = (e: KeyboardEvent, id: string) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(id); }
@@ -713,7 +719,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
             const isSel = p.n.id === selected;
             const lab = labels.get(p.n.id);
             return (
-              <g key={p.n.id} className="cmp-dot" role="button" tabIndex={0} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}`} role="button" tabIndex={0} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)} onKeyDown={(e) => key(e, p.n.id)}
                 onPointerEnter={() => setHover(p.n.id)} onPointerLeave={() => setHover(null)}
@@ -880,8 +886,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
   ).get(sel.p.n.id);
   const at2d = new Map<string, Pt>(placed.map((q) => [q.p.n.id, [q.s.x, q.s.y]]));
   const ideal = P([1, 1, 1]);
-  // The hovered point's card, or the selected one's when nothing is hovered, so a click pins it.
-  const hp = placed.find((q) => q.p.n.id === (hover ?? selected));
+  const hp = hover === null ? undefined : placed.find((q) => q.p.n.id === hover);
 
   const onKey = (e: KeyboardEvent) => {
     const step = 0.12;
@@ -979,7 +984,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
             const isSel = p.n.id === selected;
             const r = PR * s.f;
             return (
-              <g key={p.n.id} className="cmp-dot" role="button" tabIndex={-1} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}`} role="button" tabIndex={-1} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)}
                 onPointerEnter={() => { if (drag.current?.moved !== true) setHover(p.n.id); }}

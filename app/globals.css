@@ -557,3 +557,9 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .rd-est circle { fill: var(--surface); }
 .cmp-tip-trade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-family: var(--f-mono), monospace; font-size: 11px; }
 .cmp-tip-vs { color: var(--ink-faint); font-family: var(--f-body), sans-serif; }
+
+.cmp-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; }
+.cmp-pair > * { min-width: 0; }
+@media (max-width: 1000px) { .cmp-pair { grid-template-columns: 1fr; } }
+.cmp-est { opacity: .45; }
+.cmp-est .cmp-ring { opacity: 1; }
