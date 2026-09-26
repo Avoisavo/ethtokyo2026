@@ -26,6 +26,7 @@ import {
   formatEther,
   http,
   parseAbi,
+  zeroAddress,
   zeroHash,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -158,14 +159,16 @@ async function main() {
     const secret = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
     const commitment = await client.readContract({
       address: registrar, abi: RegistrarAbi, functionName: "makeCommitment",
-      args: [LABEL, account.address, secret, registry, resolver, DURATION, zeroHash],
+      // No subregistry here: it is attached below with setSubregistry, which emits the
+      // SubregistryUpdated event the explorer's indexer follows. Same as the relay app.
+      args: [LABEL, account.address, secret, zeroAddress, resolver, DURATION, zeroHash],
     });
     await send("commit", { address: registrar, abi: RegistrarAbi, functionName: "commit", args: [commitment] });
     console.log(`  waiting ${COMMIT_WAIT_MS / 1000} s for the commitment to age…`);
     await sleep(COMMIT_WAIT_MS);
     await send(`register ${ENS_SUFFIX} (${Number(price) / 1e6} USDC, 1 year)`, {
       address: registrar, abi: RegistrarAbi, functionName: "register",
-      args: [LABEL, account.address, secret, registry, resolver, DURATION, usdc, zeroHash],
+      args: [LABEL, account.address, secret, zeroAddress, resolver, DURATION, usdc, zeroHash],
     });
   }
   const setResolver = await client.readContract({ address: ethRegistry, abi: registryStateAbi, functionName: "getResolver", args: [LABEL] });
