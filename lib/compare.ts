@@ -61,13 +61,26 @@ function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTota
   return { perfBp, tokens, wallMs };
 }
 
+/** The weakest version still pulls a little, so dots sit just inside the edges rather than on them. */
+const FLOOR = 0.05;
+
+/**
+ * Each value as a strength across this tree: the best version scores 1, the worst
+ * FLOOR, the rest in between by their value. Small differences are stretched too,
+ * so the dots spread across the triangle; the real numbers stay in the tooltip.
+ */
+function strengths(values: number[], higherIsBetter: boolean): number[] {
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const best = higherIsBetter ? hi : lo;
+  return values.map((v) => FLOOR + (1 - FLOOR) * (hi === lo ? 1 : 1 - Math.abs(best - v) / (hi - lo)));
+}
+
 /**
  * Every measured version with its three numbers, and its mix for the triangle.
  *
- * The triangle needs three shares. Each is a strength from 0 to 1: Performance is
- * the score itself; Speed and Cost are measured against the fastest and cheapest
- * version in this tree (the best one scores 1, one that takes twice as long 0.5).
- * The three strengths are then scaled to add up to 1.
+ * The triangle needs three shares. Each measure becomes a strength across this tree
+ * (see strengths), and the three strengths are scaled to add up to 1.
  */
 export function compareData(nodes: ExportNode[], benchTotal: number): CompareData {
   const ids = new Set(nodes.map((n) => n.id));
@@ -78,16 +91,50 @@ export function compareData(nodes: ExportNode[], benchTotal: number): CompareDat
     if (m === null) unplotted.push(n);
     else measured.push({ n, ...m });
   }
-  const fastest = Math.min(...measured.map((p) => p.wallMs));
-  const cheapest = Math.min(...measured.map((p) => p.tokens));
-  const points = measured.map((p) => {
-    const perf = Math.max(0, Math.min(1, p.perfBp / 10000));
-    const speed = fastest / p.wallMs;
-    const cost = cheapest / p.tokens;
-    const sum = perf + speed + cost;
-    return { ...p, mix: { perf: perf / sum, speed: speed / sum, cost: cost / sum } };
+  const perf = strengths(measured.map((p) => p.perfBp), true);
+  const speed = strengths(measured.map((p) => p.wallMs), false);
+  const cost = strengths(measured.map((p) => p.tokens), false);
+  const points = measured.map((p, i) => {
+    const sum = perf[i]! + speed[i]! + cost[i]!;
+    return { ...p, mix: { perf: perf[i]! / sum, speed: speed[i]! / sum, cost: cost[i]! / sum } };
   });
   return { points, unplotted };
+}
+
+/** A line from a version to its parent. `direct` is false when unmeasured versions sit between. */
+export interface Link { parent: string; child: string; direct: boolean }
+
+/** The tree's parent links among plotted versions. An unplotted parent is skipped to its nearest plotted ancestor. */
+export function treeLinks(nodes: ExportNode[], points: ComparePoint[]): Link[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const shown = new Set(points.map((p) => p.n.id));
+  const links: Link[] = [];
+  for (const p of points) {
+    let cur = byId.get(p.n.parent);
+    let direct = true;
+    const seen = new Set<string>();
+    while (cur !== undefined && !shown.has(cur.id) && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      cur = byId.get(cur.parent);
+      direct = false;
+    }
+    if (cur !== undefined && shown.has(cur.id)) links.push({ parent: cur.id, child: p.n.id, direct });
+  }
+  return links;
+}
+
+/** The versions from the start of the tree down to `id`, following plotted parents. */
+export function lineageOf(id: string, links: Link[], nodes: ExportNode[], points: ComparePoint[]): Set<string> {
+  const shown = new Set(points.map((p) => p.n.id));
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  // An unplotted version is traced from its nearest plotted ancestor.
+  let cur: string | undefined = id;
+  const guard = new Set<string>();
+  while (cur !== undefined && !shown.has(cur) && !guard.has(cur)) { guard.add(cur); cur = byId.get(cur)?.parent; }
+  const up = new Map(links.map((l) => [l.child, l.parent]));
+  const path = new Set<string>();
+  while (cur !== undefined && !path.has(cur)) { path.add(cur); cur = up.get(cur); }
+  return path;
 }
 
 export const fmtPerf = (bp: number): string => `${Math.round(bp / 100)}%`;
