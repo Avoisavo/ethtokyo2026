@@ -19,6 +19,36 @@ never deleted, so the next agent reads them and does not try the same idea again
 
 ---
 
+## Before and after
+
+Petri started at ETHGlobal Online 2026 with one outside service: a Hedera topic that kept a copy of
+the log. For ETHGlobal Tokyo 2026 the Hedera part is gone. ENS now holds the names and the records,
+World ID checks the humans, and Intercepta screens the payments. The code from before is at the git
+tag `pre-ethtokyo2026`.
+
+| | Before: ETHGlobal Online 2026 | Now: ETHGlobal Tokyo 2026 |
+|---|---|---|
+| **Public record** | `petri anchor` copied every log line to a Hedera Consensus Service topic. | Every tree, version and check is an ENSv2 subname on Sepolia, under `petri.eth`. Each version's status, score, change, verifiers and token cost are text records. The tree page reads them live. |
+| **Version names** | A hash id, like `ecc7cdb0` | An ENS name, like `v2.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth`. It moves between the `accepted`, `rejected` and `pending` folders when the status changes. |
+| **Who verifies** | Any key that runs `petri verify` | A submitted version opens a 5-minute round. Any wallet joins the pool. Up to 5 verifiers are picked at random by weight, and the seed is on chain, so anyone can replay the pick. |
+| **A verifier's vote** | A signed line in the local log | A subname owned by the verifier's wallet. It holds the sealed file key, and only that wallet can write `petri.vote`. The name is burned when the round closes. |
+| **Proof of a human** | A simulated Selfie Check on a demo page, and a World AgentBook lookup after `petri verify`, off by default. Both records went to the Hedera topic. | World ID Selfie Check to submit for free, 3 times a day per human. Without it, a 5 USDC stake. World ID for Agents to join a round, with weight 3 instead of 1. The AgentBook lookup after `petri verify` stays, still off by default. |
+| **Harness files** | In the repository only | Encrypted on the version's ENS name, as `petri.doc.<file>` records |
+| **People pay** | No payments | A person buys an accepted version once, for 1 test USDC. A buyer subname holds the file key, sealed to their browser, for 30 days. |
+| **Agents pay** | No payments | An agent buys a version's record as markdown over x402, for 0.01 USDC. Intercepta screens the seller's wallet, the exact typed data and the payer before anything is signed or settled. |
+| **Web app** | Tree and Stats | Tree, Stats and Compare, with performance, token savings and speed for every change, and a Buy tab |
+| **Recorded tree** | 16 versions: 3 accepted, 2 rejected, 11 pending | 18 versions, `v1` to `v18`: the baseline, 4 accepted, 2 rejected, 11 pending |
+| **Tests** | 102 engine tests | 100 engine tests, 55 web tests, and the Intercepta tests |
+
+**What we gave up.** The Hedera topic held a copy of every log line. ENS holds each version's result,
+not every line. So the full log is again one file on one machine, guarded by its hash chain.
+
+**What is not done yet.** A round runs on Sepolia from the terminal (`npm run market:smoke`), with no
+web page yet. The World ID checks on submit and on join are written, but not yet run with a phone. See
+[What is real, and what is not yet](#what-is-real-and-what-is-not-yet).
+
+---
+
 ## The problem
 
 1. **Nobody measures.** Teams change a prompt, then say the agent "feels better". There is
