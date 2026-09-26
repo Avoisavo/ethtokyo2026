@@ -74,7 +74,7 @@ const PR = 6;
 const PGAP = 4;
 
 interface View { yaw: number; pitch: number }
-const HOME: View = { yaw: -0.62, pitch: 0.38 };
+const HOME: View = { yaw: -0.79, pitch: 0.62 };
 /** Views straight down one axis. That axis points at the viewer, so it is dimmed. */
 const PRESETS: { label: string; title: string; view: View; away: Axis }[] = [
   { label: "x·y", title: "Performance against cost", view: { yaw: 0, pitch: 0 }, away: "z" },
