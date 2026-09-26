@@ -108,13 +108,23 @@ export type VerifyResult =
 
 const g = globalThis as unknown as { __petriVerifyLock?: Promise<unknown> };
 
-/** One verify at a time: runs share the scratch harness folders and the log lock. */
-export async function runVerify(versionId: string, home: string): Promise<VerifyResult> {
+/**
+ * One verify at a time: runs share the scratch harness folders and the log lock.
+ * `recheck` runs inside the lock, just before the verify, so a run queued behind
+ * another run of the same version is refused instead of producing a report that cannot count.
+ */
+export async function runVerify(versionId: string, home: string, recheck?: () => Promise<Preflight>): Promise<VerifyResult> {
   const previous = g.__petriVerifyLock ?? Promise.resolve();
   const mine = previous.catch(() => undefined).then(async (): Promise<VerifyResult> => {
     try {
+      const again = recheck ? await recheck() : null;
+      if (again && !again.ok) return again;
       const { stdout } = await petri(["verify", versionId], home, 180_000);
-      const r = JSON.parse(stdout) as Extract<VerifyResult, { ok: true }>;
+      const r = JSON.parse(stdout) as Extract<VerifyResult, { ok: true }> & { seq: number | null };
+      // petri stores a report it could not publish and still exits 0. It does not count yet.
+      if (r.seq === null || r.seq === undefined) {
+        return { ok: false, status: 503, code: "report_not_published", detail: "The report was stored but not published to the log (the log lock was busy)." };
+      }
       return {
         ok: true,
         report: r.report,
