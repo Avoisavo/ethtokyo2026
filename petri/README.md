@@ -86,12 +86,12 @@ lost and why, and which areas nobody has tried.
 
 ## Quickstart
 
-No API key and no Hedera account are needed for these steps.
+No API key is needed for these steps.
 
 ```bash
 pnpm install
 pnpm typecheck                  # no output means it passed
-pnpm test                       # 102 tests
+pnpm test                       # 100 tests
 pnpm petri id create --label me # your own key. The repo never ships a private key.
 pnpm petri tree                 # the whole tree, rejected branches included
 pnpm petri digest               # what an agent reads before proposing
@@ -101,9 +101,9 @@ pnpm petri verify ecc7cdb0      # re-run both sides 5 times and sign the result
 pnpm petri evolve --dry-run     # the digest and the exact prompt a model would get
 ```
 
-Registered commands: `init config id topic snapshot propose submit show tree tips
-dead-ends lineage diff evolve verify status publish digest areas export fsck
-anchor`.
+Registered commands: `init config id snapshot propose submit show tree tips
+dead-ends lineage diff evolve run evals verify status publish digest areas export
+fsck`.
 
 ---
 
@@ -137,23 +137,7 @@ The live path has not been run on this tree yet.
 
 ---
 
-## Hedera anchor and World ID
-
-`petri anchor` copies every line of `.petri/log.jsonl` and `.petri/world-checks.jsonl`
-to a Hedera Consensus Service topic, as the exact bytes and in order. The local log
-stays the source of the tree. See `src/consensus/anchor.ts`.
-
-```bash
-export HEDERA_OPERATOR_ID=0.0.12345 HEDERA_OPERATOR_KEY=302e...
-pnpm petri anchor create --network testnet   # a topic with no admin key and no submit key
-pnpm petri anchor push                       # send every record not on the topic yet
-pnpm petri anchor status                     # counts, mirror URL and HashScan URL
-```
-
-When a topic is set up, `verify`, `submit`, `evolve` and `publish` send their new records
-by themselves. A receipt for each line goes into `.petri/anchors.jsonl`. A line that
-changes after it reached Hedera is reported, and the push stops. The anchor is tested
-with a fake topic. It has not been run against a real topic on this tree yet.
+## World ID check
 
 `petri verify` runs a World ID check after it signs the report. It is off unless
 `PETRI_WORLD_ID=1`. It looks up `PETRI_WORLD_ADDRESS` in World AgentBook on World Chain
@@ -167,8 +151,8 @@ check does not link the wallet to the signing key yet, and it does not change ac
 - **A verifier can sign without running the benchmark.** Nothing in this build compares
   result hashes across verifiers.
 - **A local log proves nothing about independence.** One person can create many keys.
-  Distinct keys are not distinct people. A Hedera topic gives shared order and a
-  timestamp, and does not change this.
+  Distinct keys are not distinct people. The log file can also be edited or deleted,
+  so it proves nothing about time or deletion either.
 - **Replay covers 2 harness versions.** A new harness needs a live run to get a score.
   `--allow-graded` does not help yet: all 20 `bench/tasks/*/answers/` directories are empty.
 - **The benchmark is 20 tasks.** A gain here may not carry over to other work.
@@ -184,7 +168,7 @@ check does not link the wallet to the signing key yet, and it does not change ac
 | `SPEC.md` | The binding contract for hashing, signing, the acceptance rule and the CLI |
 | `src/core/` | Canonical JSON, SHA-256, content ids, shared schemas |
 | `src/trust/` | ed25519 identity, signed envelopes, the verification report |
-| `src/consensus/` | The local hash-chained log, the Hedera topic client, the replay reducer |
+| `src/consensus/` | The local hash-chained log and the replay reducer |
 | `src/policy/acceptance.ts` | The acceptance rule |
 | `src/store/` | Everything under `.petri/` |
 | `src/evolve/` | Guards, the diff, the scratch typecheck, candidate measurement |
@@ -193,4 +177,4 @@ check does not link the wallet to the signing key yet, and it does not change ac
 | `bench/` | 20 tasks, the sandbox, the runner, the median, the recorded fixtures |
 | `harness/` | The harness files under evolution. `contract.ts` is frozen |
 | `demo/` | The positive-prompt demo change and its script |
-| `test/` | 102 tests |
+| `test/` | 100 tests |
