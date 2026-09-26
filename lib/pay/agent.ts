@@ -238,6 +238,7 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
       rec.outcome = rec.verifierReply.settlement.success ? "paid" : "pending";
     } else {
       rec.outcome = "refused";
+      if (!body2) rec.error = `The verifier failed with HTTP ${r2.status} and settled nothing. The authorization expires unused at its validBefore.`;
       if (r2.status === 402) {
         try {
           rec.refusedReason = hc.getPaymentRequiredResponse((n) => r2.headers.get(n), body2 ?? undefined).error;
