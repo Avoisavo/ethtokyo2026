@@ -11,41 +11,26 @@ import type { PetriConfig } from '../config.js';
 import type { Mode, NodeStatus } from '../core/schema.js';
 import { logPath } from '../store/paths.js';
 
-export type TrustLabel = 'hcs' | 'local-unverified';
+export type TrustLabel = 'local-unverified';
 
 /** The honest one-word trust label that every status line and export carries. */
-export function trustLabel(cfg: Pick<PetriConfig, 'ledger'>): TrustLabel {
-  return cfg.ledger === 'hcs' ? 'hcs' : 'local-unverified';
+export function trustLabel(_cfg: Pick<PetriConfig, 'ledger'>): TrustLabel {
+  return 'local-unverified';
 }
 
 /** The one-line summary. Every command prints this, whatever else it prints. */
 export function bannerLine(cfg: PetriConfig): string {
   const model = cfg.mode === 'live' ? 'live (calls claude-sonnet-5)' : 'replay (no model call)';
-  const ledger =
-    cfg.ledger === 'hcs' && cfg.hedera
-      ? `hedera topic ${cfg.hedera.topicId} (${cfg.hedera.network})`
-      : 'local-log (this machine only)';
-  return `PETRI  mode ${model}  |  trust ${ledger}`;
+  return `PETRI  mode ${model}  |  trust local-log (this machine only)`;
 }
 
 /** The `ledger` block of §8.9, verbatim. */
-export function trustBanner(cfg: PetriConfig, root: string): string {
-  if (cfg.ledger === 'hcs' && cfg.hedera) {
-    return [
-      `TRUST  hedera topic ${cfg.hedera.topicId} (${cfg.hedera.network})  —  PUBLIC`,
-      '  Every message is public. Read them with no key and no account:',
-      `    ${cfg.hedera.mirrorRest[0]}/api/v1/topics/${cfg.hedera.topicId}/messages`,
-      '  `petri tree` and `petri status` derive every status from that log alone.',
-      '  A topic proves order, time and non-deletion. It does not prove that two keys',
-      '  are two people, and it does not prove a verifier ran the benchmark.',
-    ].join('\n');
-  }
+export function trustBanner(root: string): string {
   return [
     `TRUST  local log ${logPath(root)}  —  UNVERIFIED`,
     '  This log is on this machine only. It proves nothing about independence.',
     '  One person can hold every key in it. The file can be edited or deleted.',
-    '  Only a Hedera topic proves order, time and non-deletion to a stranger.',
-    '  Run `petri topic create` to publish to a real topic.',
+    '  It proves nothing about time or non-deletion to a stranger.',
   ].join('\n');
 }
 
@@ -70,29 +55,21 @@ export function modeBanner(mode: Mode): string {
 /** Print the full banner to stderr. Call it before every result. */
 export function printBanner(cfg: PetriConfig, root: string): void {
   process.stderr.write(`${bannerLine(cfg)}\n`);
-  process.stderr.write(`${trustBanner(cfg, root)}\n`);
+  process.stderr.write(`${trustBanner(root)}\n`);
   process.stderr.write(`${modeBanner(cfg.mode)}\n\n`);
 }
 
 /**
  * The banner for a command that runs before `.petri/config.json` exists, so it
- * has a ledger and a mode but no config object to read them from.
+ * has a mode but no config object to read it from.
  */
-export function printBareBanner(ledger: 'hcs' | 'local', mode: Mode, detail: string): void {
+export function printBareBanner(mode: Mode, detail: string): void {
   const model = mode === 'live' ? 'live (calls claude-sonnet-5)' : 'replay (no model call)';
   process.stderr.write(`PETRI  mode ${model}  |  trust ${detail}\n`);
-  if (ledger === 'local') {
-    process.stderr.write(
-      'TRUST  local  —  UNVERIFIED. This log is on this machine only.\n' +
-        '  It proves nothing about independence, time or non-deletion.\n',
-    );
-  } else {
-    process.stderr.write(
-      `TRUST  hedera ${detail}  —  PUBLIC\n` +
-        '  A topic proves order, time and non-deletion. It does not prove that two\n' +
-        '  keys are two people, and it does not prove a verifier ran the benchmark.\n',
-    );
-  }
+  process.stderr.write(
+    'TRUST  local  —  UNVERIFIED. This log is on this machine only.\n' +
+      '  It proves nothing about independence, time or non-deletion.\n',
+  );
   process.stderr.write(`${modeBanner(mode)}\n\n`);
 }
 
