@@ -48,6 +48,7 @@ const registryAbi = parseAbi([
   "function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)",
   "function unregister(uint256 anyId)",
   "function setSubregistry(uint256 anyId, address registry)",
+  "function setParent(address parent, string label)",
   "function getSubregistry(string label) view returns (address)",
   "function getState(uint256 anyId) view returns ((uint8 status, uint64 expiry, address latestOwner, uint256 tokenId, uint256 resource))",
 ]);
@@ -127,6 +128,8 @@ export async function subregistryOf(parent: string): Promise<Address> {
     });
   }
   await send({ address: holder, abi: registryAbi, functionName: "setSubregistry", args: [labelId(label), predicted] });
+  // The registry names its parent, so indexers file its subnames under `parent`.
+  await send({ address: predicted, abi: registryAbi, functionName: "setParent", args: [holder, label] });
   return predicted;
 }
 

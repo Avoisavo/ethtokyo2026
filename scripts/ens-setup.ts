@@ -67,6 +67,8 @@ const registryStateAbi = parseAbi([
   "function getResolver(string label) view returns (address)",
   "function setSubregistry(uint256 anyId, address registry)",
   "function setResolver(uint256 anyId, address resolver)",
+  "function setParent(address parent, string label)",
+  "function getParent() view returns (address parent, string label)",
   "function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)",
 ]);
 
@@ -102,6 +104,11 @@ async function main() {
     }
   };
 
+  const setParent = async (registry: Address, parent: Address, label: string) => {
+    const [p, l] = await client.readContract({ address: registry, abi: registryStateAbi, functionName: "getParent" });
+    if (p.toLowerCase() === parent.toLowerCase() && l === label) return;
+    await send(`name the parent of ${label}'s registry`, { address: registry, abi: registryStateAbi, functionName: "setParent", args: [parent, label] });
+  };
   const hasCode = async (a: Address) => ((await client.getCode({ address: a })) ?? "0x") !== "0x";
   const proxyLogic = await client.readContract({ address: VERIFIABLE_FACTORY, abi: verifiableFactoryAbi, functionName: "proxyLogic" });
   const predict = (salt: bigint) => predictProxyAddress({ proxyLogic, deployer: account.address, salt });
@@ -171,6 +178,9 @@ async function main() {
   if (setRegistry.toLowerCase() !== registry.toLowerCase()) {
     await send("point petri.eth at the registry", { address: ethRegistry, abi: registryStateAbi, functionName: "setSubregistry", args: [labelId(LABEL), registry] });
   }
+  // The registry names its own parent, so indexers such as explorer.ens.dev file
+  // its subnames under petri.eth. Without it they show no history and no subnames.
+  await setParent(registry, ethRegistry, LABEL);
 
   // 4. The tree name, with its own registry for the version subnames.
   console.log(`\n4. ${TREE_NAME}`);
@@ -194,6 +204,7 @@ async function main() {
   if (treeSub.toLowerCase() !== treeRegistry.toLowerCase()) {
     await send("point the tree name at its registry", { address: registry, abi: registryStateAbi, functionName: "setSubregistry", args: [labelId(TREE_LABEL), treeRegistry] });
   }
+  await setParent(treeRegistry, registry, TREE_LABEL);
 
   const out = {
     chainId: 11155111,
