@@ -46,14 +46,16 @@ interface Props {
   onSelect: (id: string) => void;
   benchTotal: number;
   minVerifications: number;
+  /** Names the root in ENS-style names. */
+  harness?: string;
   /** The statuses the layout is computed from. Defaults to `nodes`. */
   layoutNodes?: ExportNode[];
 }
 
-export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, minVerifications, layoutNodes }: Props) {
+export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, minVerifications, harness, layoutNodes }: Props) {
   const status = new Map((layoutNodes ?? nodes).map((n) => [n.id, n.status]));
   const { slots, rows, maxDepth } = tidySlots(forest, (id) => status.get(id));
-  const names = ensNames(nodes);
+  const names = ensNames(nodes, harness);
   const nameLines = new Map(nodes.map((n) => [n.id, wrapName(names.get(n.id) ?? n.short)]));
   // Rows grow with the longest wrapped name, so no label runs into the next row.
   const extra = Math.max(0, ...[...nameLines.values()].map((l) => l.length - 1)) * NAME_LINE;
