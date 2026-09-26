@@ -248,6 +248,10 @@ Any error, timeout or missing scan **holds** the payment. Nothing is paid by def
 | rogue | Its wallet is a sanctioned mainnet address: Quick Scan rejects `intercepta_block:sanction_address` | No | No |
 | greedy | Asks 0.75 USDC: rejected `over_limit` before any Intercepta request | No | No |
 
+A verification run sells **once per verifier key per version**, because Petri counts one report per key. For
+demos, the page's **Demo: allow repeat runs** box lets the verifier sell it again; that repeat report is stored
+but does not change the version's status.
+
 **Preview without screening** shows the agent before this feature: it builds the authorization it
 would sign to the rogue wallet, and stops. Every attempt is one line in `petri/.petri/payments.jsonl`.
 
