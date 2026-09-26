@@ -1,4 +1,4 @@
-import type { ExportNode } from "./types";
+import type { ExportNode } from "../types";
 
 /**
  * ENS-style hierarchical names for tree versions.
