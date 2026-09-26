@@ -144,6 +144,54 @@ git clean -fd petri/.petri
 
 ---
 
+## ENS: every version's record on its name
+
+Each version has an ENS name under `petri.eth`. The name reads from the version up to the root:
+
+| Version | Name |
+|---|---|
+| `0a54718a` (the root) | `petriharnessv1.petri.eth` |
+| `ecc7cdb0` | `addsigs.petriharnessv1.petri.eth` |
+| `872aaa3d` | `dropsigs.addsigs.petriharnessv1.petri.eth` |
+
+The name's resolver holds the version's record as text records. The node panel on the tree page
+reads them, and any ENS client can read the same record.
+
+| Key | What it holds |
+|---|---|
+| `description` | The hypothesis |
+| `petri.id`, `petri.parent` | The version id (SHA-256 of its manifest) and its parent's id |
+| `petri.status`, `petri.verdict`, `petri.reason` | The status, the engine's code (for example `WIN`) and the reason |
+| `petri.score`, `petri.score-source`, `petri.bench` | The score in basis points, where it comes from (`author`, `rerun` or `predicted`), and the number of tasks |
+| `petri.delta`, `petri.keys`, `petri.min-keys`, `petri.checks` | The checked change, the counted keys, the keys needed, and each check by another key as JSON |
+| `petri.tokens` | Median tokens per task |
+| `petri.falsified-if`, `petri.area`, `petri.motif`, `petri.metric`, `petri.mode`, `petri.blocked` | How it could be proven wrong, and its tags |
+
+ENSv2 runs on Sepolia. One resolver on `petri.eth` serves every version name. It stores records per
+full name and answers wildcard lookups, so no subname registry is needed.
+
+1. Set up `petri.eth` once in the ENS playground at http://localhost:3000/ens. Mint test USDC and
+   deploy your resolver (section 1), register `petri.eth` (section 2), then point it at your
+   resolver (section 3).
+2. See what would be written. This needs no key:
+
+   ```bash
+   npm run ens:publish -- --dry-run
+   ```
+
+3. Put the same account's key in `.env.local` as `PETRI_ENS_PRIVATE_KEY`, then write:
+
+   ```bash
+   npm run ens:publish
+   ```
+
+The script writes only the records that differ from ENS, 60 per transaction, then reads them back.
+Run it again after new checks to update the verdicts. Section 8 of `/ens` does the same from a
+browser wallet. Until `petri.eth` has a resolver, every lookup comes back empty and the panel
+shows the local log.
+
+---
+
 ## Hedera and World ID
 
 ### Every record on a public Hedera topic
@@ -253,6 +301,9 @@ The live path has not been run on this tree yet.
 |---|---|
 | `app/`, `components/`, `lib/*.ts` | The Petri web app (Next.js) |
 | `lib/showcase.ts` | The showcase trees for other domains |
+| `lib/ens-name.ts`, `lib/ens-records.ts`, `lib/ens-resolve.ts` | Each version's ENS name, the text records it holds, and the reader |
+| `scripts/ens-publish.ts` | Writes those records to the resolver on `petri.eth` (`npm run ens:publish`) |
+| `app/ens/` | The ENSv2 playground on Sepolia. See `app/ens/README.md`. |
 | `petri/` | The engine: CLI, benchmark, harness, recorded tree. See `petri/README.md`. |
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
 | `petri/src/consensus/anchor.ts`, `petri/src/cli/anchor.ts` | The Hedera topic copy of every record |
