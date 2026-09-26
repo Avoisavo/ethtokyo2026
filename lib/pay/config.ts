@@ -18,6 +18,12 @@ type Problem = { name: string; issue: string; fix: string };
 
 const PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/;
 
+/** MetaMask exports a key without 0x. Accept both. */
+const privateKey = (name: string): string | undefined => {
+  const raw = process.env[name]?.trim();
+  return raw && /^[0-9a-fA-F]{64}$/.test(raw) ? `0x${raw}` : raw;
+};
+
 export const DEFAULT_ROGUE_PAY_TO = "0x098B716B8Aaf21512996dC57EB0615e2383E2f96";
 
 export function sepoliaRpcUrl(): string {
@@ -61,16 +67,16 @@ export type PayerConfigResult = { ok: true; config: PayerConfig } | { ok: false;
 
 export function getPayerConfig(): PayerConfigResult {
   const problems: Problem[] = [];
-  const key = process.env.PETRI_PAY_PRIVATE_KEY?.trim();
+  const key = privateKey("PETRI_PAY_PRIVATE_KEY");
   if (!key || !PRIVATE_KEY.test(key)) {
     problems.push({
       name: "PETRI_PAY_PRIVATE_KEY",
-      issue: key ? "Not 0x + 64 hex characters." : "Not set.",
+      issue: key ? "Not 64 hex characters (with or without 0x)." : "Not set.",
       fix: "A throwaway key holding Sepolia USDC from faucet.circle.com. It needs no ETH. Server-side only.",
     });
   }
   const maxAtomic = usdc("PETRI_PAY_MAX_USD", "0.50", problems);
-  const maxValiditySeconds = seconds("PETRI_PAY_MAX_VALIDITY_S", 600, problems);
+  const maxValiditySeconds = seconds("PETRI_PAY_MAX_VALIDITY_S", 300, problems);
   if (problems.length > 0) return { ok: false, problems };
   return {
     ok: true,
@@ -107,11 +113,11 @@ export type VerifierConfigResult = { ok: true; config: VerifierConfig } | { ok: 
 
 export function getVerifierConfig(): VerifierConfigResult {
   const problems: Problem[] = [];
-  const relayerKey = process.env.PETRI_X402_RELAYER_KEY?.trim();
+  const relayerKey = privateKey("PETRI_X402_RELAYER_KEY");
   if (!relayerKey || !PRIVATE_KEY.test(relayerKey)) {
     problems.push({
       name: "PETRI_X402_RELAYER_KEY",
-      issue: relayerKey ? "Not 0x + 64 hex characters." : "Not set.",
+      issue: relayerKey ? "Not 64 hex characters (with or without 0x)." : "Not set.",
       fix: "A throwaway key with a little Sepolia ETH. The verifier uses it to settle payments. Server-side only.",
     });
   }
