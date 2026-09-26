@@ -10,11 +10,9 @@ import { z } from 'zod';
 import { byteCompare } from './core/canonical.js';
 import { notFoundError, usageError } from './core/errors.js';
 import { REPO_ROOT } from './core/root.js';
-import { Hex64, TreeId } from './core/schema.js';
+import { Hex64, LedgerSchema, TreeId } from './core/schema.js';
 
 export { Hex64, TreeId };
-
-export const AccountId = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export const PolicySchema = z.strictObject({
   maxRunSpreadBp: z.int().min(0).max(10000).default(3000),
@@ -28,13 +26,7 @@ export type Policy = z.infer<typeof PolicySchema>;
 
 export const PetriConfigSchema = z.strictObject({
   bench: z.strictObject({ id: Hex64, name: z.string().min(1).max(64) }),
-  hedera: z.strictObject({
-    mirrorRest: z.array(z.url()).min(1),
-    network: z.enum(['testnet', 'mainnet', 'previewnet']),
-    operatorId: AccountId,
-    topicId: AccountId,
-  }).optional(),
-  ledger: z.enum(['hcs', 'local']),
+  ledger: LedgerSchema,
   mode: z.enum(['live', 'replay']),
   policy: PolicySchema,
   runsPerVerification: z.int().min(3).max(99).default(5),
@@ -66,6 +58,14 @@ export function loadConfig(path: string = CONFIG_PATH): PetriConfig {
   } catch (e) {
     throw usageError(`petri: ${path} is not valid JSON: ${(e as Error).message}`);
   }
+  // A wrong ledger gets a one-line error. The schema error below prints a JSON dump.
+  const ledger = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>)['ledger'] : undefined;
+  if (ledger !== undefined && ledger !== 'local') {
+    throw usageError(
+      `petri: ${path} sets "ledger" to ${JSON.stringify(ledger)}. `
+      + 'The only ledger is "local", the log in .petri/log.jsonl.',
+    );
+  }
   const parsed = PetriConfigSchema.safeParse(raw);
   if (!parsed.success) {
     throw usageError(`petri: ${path} is not a valid config: ${parsed.error.message}`);
@@ -76,9 +76,6 @@ export function loadConfig(path: string = CONFIG_PATH): PetriConfig {
       `petri: runsPerVerification is ${cfg.runsPerVerification}. It must be odd, `
       + 'because an even run count has no unique median.',
     );
-  }
-  if (cfg.ledger === 'hcs' && cfg.hedera === undefined) {
-    throw usageError('petri: ledger is "hcs" but the config carries no `hedera` block.');
   }
   return cfg;
 }
