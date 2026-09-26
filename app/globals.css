@@ -415,7 +415,7 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-pane-head .muted { font-size: 12px; }
 .cmp-chart { position: relative; margin-top: auto; }
 .cmp-chart svg { display: block; width: 100%; height: auto; max-width: 700px; margin: 0 auto; overflow: visible; }
-.cmp-3d svg { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
+.cmp-3d svg { max-width: 840px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
 .cmp-3d svg.is-dragging { cursor: grabbing; }
 .cmp-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 .cmp-tools button { height: 26px; padding: 0 10px; font-size: 12px; border: 1px solid var(--rule); background: var(--surface); border-radius: 6px; color: var(--ink-mid); cursor: pointer; }
@@ -453,6 +453,10 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-axis-title { font-size: 12px; font-weight: 600; fill: var(--ink); pointer-events: none; }
 .cmp-axis-name { font-family: var(--f-mono), monospace; font-weight: 500; fill: var(--ink-faint); }
 .cmp-tick { font-size: 9.5px; pointer-events: none; }
+/* The axis a preset view looks straight down fades back. */
+.cmp-ax, .cmp-tick { transition: opacity .25s; }
+.cmp-ax.is-dim, .cmp-tick.is-dim { opacity: .15; }
+@media (prefers-reduced-motion: reduce) { .cmp-ax, .cmp-tick { transition: none; } }
 .cmp-drop { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2 3; opacity: .55; }
 .cmp-shadow { fill: var(--ink-faint); opacity: .3; }
 .cmp-ideal { fill: none; stroke: var(--pass); stroke-width: 1.3; stroke-dasharray: 2 2; }
