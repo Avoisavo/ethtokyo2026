@@ -58,17 +58,9 @@ export const logPath = (root: string = REPO_ROOT): string => join(petriDir(root)
 export const lockPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'log.lock');
 export const cursorPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'cursor.json');
 
-/** The Hedera topic that holds a copy of every log line. See src/consensus/anchor.ts. */
-export const anchorConfigPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'anchor.json');
-/** One receipt per line that reached the Hedera topic. */
-export const anchorsPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'anchors.jsonl');
-/** Consensus time and running hash per topic message, read back from the mirror node. Derived. */
-export const anchorTimesPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'anchor-times.json');
 /** One World ID check per verification, written only when the check is on. */
 export const worldChecksPath = (root: string = REPO_ROOT): string =>
   join(petriDir(root), 'world-checks.jsonl');
-export const mirrorCachePath = (root: string = REPO_ROOT): string =>
-  join(petriDir(root), 'mirror-cache.jsonl');
 
 /* ---------------------------------------------------------------- objects */
 
