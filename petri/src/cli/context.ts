@@ -6,7 +6,7 @@
  * Every write goes through `store` or `consensus`.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -19,7 +19,7 @@ import type { ConsensusLog } from '../consensus/log.js';
 import { openLog } from '../consensus/log.js';
 import type { EnvDescriptor } from '../trust/report.js';
 import { loadIdentity, type Identity } from '../trust/identity.js';
-import { configPath, identityPath, petriDir } from '../store/paths.js';
+import { configPath, identityPath, logPath, petriDir } from '../store/paths.js';
 import { PetriStore } from '../store/store.js';
 import { EXIT, fail } from './exit.js';
 import { printBanner, trustLabel, type TrustLabel } from './banner.js';
@@ -219,14 +219,39 @@ export const asCanon = (value: unknown): Canon => value as Canon;
 
 export const envHashOf = (env: EnvDescriptor): string => contentId(asCanon(env));
 
-/** Resolve a node id the user typed. A unique 8-or-more character prefix works. */
+/**
+ * The node ids in the order the log first submitted them. `v1` is the first.
+ * The web app and the ENS names count versions the same way.
+ */
+function submittedOrder(store: PetriStore): string[] {
+  const file = logPath(store.root);
+  if (!existsSync(file)) return [];
+  const ids: string[] = [];
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    if (line.trim() === '') continue;
+    const body = (JSON.parse(line) as { envelope?: { body?: { type?: string; node?: string } } }).envelope?.body;
+    if (body?.type === 'NodeSubmitted' && body.node && !ids.includes(body.node)) ids.push(body.node);
+  }
+  return ids;
+}
+
+/**
+ * Resolve a node id the user typed. A unique 8-or-more character prefix works,
+ * and so does a version number: `v1` is the first node the log submitted.
+ */
 export function resolveNodeId(store: PetriStore, needle: string): string {
+  const v = /^v([1-9][0-9]*)$/.exec(needle);
+  if (v) {
+    const id = submittedOrder(store)[Number(v[1]) - 1];
+    if (id === undefined || !store.hasNode(id)) fail(EXIT.NOT_FOUND, `no version ${needle}`);
+    return id;
+  }
   if (/^[0-9a-f]{64}$/.test(needle)) {
     if (!store.hasNode(needle)) fail(EXIT.NOT_FOUND, `no node ${needle}`);
     return needle;
   }
   if (!/^[0-9a-f]{4,63}$/.test(needle)) {
-    fail(EXIT.USAGE, `"${needle}" is not a node id. Ids are lowercase hexadecimal.`);
+    fail(EXIT.USAGE, `"${needle}" is not a node id. Use a version number such as v3, or a lowercase hexadecimal id.`);
   }
   const hits = store.listNodeIds().filter((id) => id.startsWith(needle));
   if (hits.length === 0) fail(EXIT.NOT_FOUND, `no node starts with ${needle}`);
