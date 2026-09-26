@@ -67,6 +67,19 @@ function failure(e: unknown, fallback: string): Fail {
 
 export type Preflight = { ok: true; runnerId: string } | Fail;
 
+/**
+ * `petri --json show <id> --diff`: the live record of one version. Read-only,
+ * but the engine opens the tree with a key, so it runs as the verifier's key.
+ */
+export async function petriShow(versionId: string, home: string): Promise<{ ok: true; node: unknown } | Fail> {
+  try {
+    const { stdout } = await petri(["show", versionId, "--diff"], home, 30_000);
+    return { ok: true, node: (JSON.parse(stdout) as { node: unknown }).node };
+  } catch (e) {
+    return failure(e, "show_failed");
+  }
+}
+
 export async function preflight(versionId: string, home: string | null): Promise<Preflight> {
   if (!engineInstalled()) {
     return { ok: false, status: 503, code: "engine_not_installed", detail: "The Petri engine is not installed. Run: cd petri && corepack pnpm install" };
