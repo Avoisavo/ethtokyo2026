@@ -26,19 +26,13 @@ export type LogEntry = {
   chain: string;           // sha256 of the previous chain and this entry, as hex.
   consensusNanos: string;  // Decimal nanoseconds since the epoch. Exactly 19 digits.
   envelope: SignedEnvelope<PetriMessage>;
-  payer: string;           // Always "local".
   seq: number;             // A per-log sequence number. 1-based. Gap-free.
-  source: 'local';
-  topic: string;           // "local:<treeId>".
 };
 
 export interface PublishReceipt {
   seq: number;
-  source: 'local';
-  topic: string;
-  txId: string;
   /**
-   * True when this message reached the local log only.
+   * Always true. The only log is the local file.
    *
    * SPEC.md section 8.8: a local log proves authorship and integrity. It proves
    * NOTHING about time, non-deletion or independence. The CLI MUST print
@@ -50,18 +44,10 @@ export interface PublishReceipt {
 }
 
 export interface ConsensusLog {
-  readonly kind: 'local';
-  readonly topic: string;
   publish(body: PetriMessage): Promise<PublishReceipt>;
   read(afterSeq?: number): AsyncIterable<LogEntry>;
-  /** The honest one-line trust label. The CLI MUST print this. */
-  trustLabel(): string;
   close(): Promise<void>;
 }
-
-/** Inside one log, `seq` IS the total order. */
-export const orderKey = (e: LogEntry): string =>
-  `${e.topic}:${String(e.seq).padStart(12, '0')}`;
 
 /** Open the tree's log. This is the ONLY place a log is constructed. */
 export function openLog(

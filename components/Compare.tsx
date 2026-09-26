@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
-import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
+import { STATUS_WORD, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
+import { estimateTradeOff, fmtPct, tradeOffOf, type TradeOff } from "@/lib/metrics";
+import { TradeIcon } from "./LineageHero";
+import { withVersionLabels } from "@/lib/ens/name";
 import { Glyph } from "./Glyph";
 
 interface Props {
@@ -36,7 +39,7 @@ type Measure = "perf" | "speed" | "cost";
 /** Each spoke wears the colour of the same measure's axis in the 3D plot. */
 const SPOKES: { key: Measure; title: string; axis: Axis; angle: number }[] = [
   { key: "perf", title: "Performance", axis: "x", angle: -PI / 2 },
-  { key: "cost", title: "Cost", axis: "y", angle: PI / 6 },
+  { key: "cost", title: "Token savings", axis: "y", angle: PI / 6 },
   { key: "speed", title: "Speed", axis: "z", angle: (5 * PI) / 6 },
 ];
 const spokeAt = (angle: number, r: number): Pt => [RC[0] + Math.cos(angle) * RR * r, RC[1] + Math.sin(angle) * RR * r];
@@ -71,7 +74,7 @@ const PR = 6;
 const PGAP = 4;
 
 interface View { yaw: number; pitch: number }
-const HOME: View = { yaw: -0.62, pitch: 0.38 };
+const HOME: View = { yaw: -0.79, pitch: 0.62 };
 /** Views straight down one axis. That axis points at the viewer, so it is dimmed. */
 const PRESETS: { label: string; title: string; view: View; away: Axis }[] = [
   { label: "x·y", title: "Performance against cost", view: { yaw: 0, pitch: 0 }, away: "z" },
@@ -242,6 +245,25 @@ function placeLabels(wants: LabelWant[], dots: Spot[], w: number, h: number): Ma
   return out;
 }
 
+/** Each version's three results against its parent: measured, or an estimate for a change that never ran. */
+const TradeCtx = createContext<(id: string) => { t: TradeOff; measured: boolean } | null>(() => null);
+
+function TradeRows({ id }: { id: string }) {
+  const r = useContext(TradeCtx)(id);
+  if (!r) return null;
+  return (
+    <span className="cmp-tip-trade">
+      {([["perf", r.t.perf], ["tokens", r.t.tokens], ["speed", r.t.speed]] as const).map(([kind, v]) => (
+        <span key={kind} className={`rd-trade-one ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}>
+          <svg width="11" height="11" aria-hidden="true"><g className={`tradeoff ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}><g className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}><TradeIcon kind={kind} x={5.5} y={5.5} /></g></g></svg>
+          {fmtPct(v)}
+        </span>
+      ))}
+      <span className="cmp-tip-vs">vs parent{r.measured ? "" : " · estimate"}</span>
+    </span>
+  );
+}
+
 function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: number; w: number; h: number; also: string[]; byId: Map<string, ComparePoint> }) {
   return (
     <div className={`cmp-tip${y < h * 0.3 ? " below" : ""}`} role="presentation"
@@ -249,6 +271,7 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
       <span className="cmp-tip-word">{STATUS_WORD[p.n.status]} · {p.n.short}</span>
       <span className="cmp-tip-hyp">{clip(p.n.hypothesis, 72)}</span>
       <span className="cmp-tip-nums">{fmtPerf(p.perfBp)} · {fmtTokens(p.tokens)} · {fmtWall(p.wallMs)}</span>
+      <TradeRows id={p.n.id} />
       <span className="cmp-tip-mix">Rating in this tree: {fmtRating(p.rating.perf)} performance · {fmtRating(p.rating.speed)} speed · {fmtRating(p.rating.cost)} cost</span>
       {also.length > 0 && (
         <span className="cmp-tip-also">Shares its spot with {also.slice(0, 5).map((id) => byId.get(id)?.n.short ?? id).join(", ")}{also.length > 5 ? ` +${also.length - 5}` : ""}</span>
@@ -257,12 +280,24 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
   );
 }
 
-export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
+export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props) {
+  // Versions are named by their ENS label (v10), the same as on the tree.
+  const nodes = useMemo(() => withVersionLabels(given), [given]);
   const { points, unplotted } = useMemo(() => compareData(nodes, benchTotal), [nodes, benchTotal]);
   const links = useMemo(() => treeLinks(nodes, points), [nodes, points]);
   const lineage = useMemo(() => lineageOf(selected, links, nodes, points), [selected, links, nodes, points]);
   const byId = useMemo(() => new Map(points.map((p) => [p.n.id, p])), [points]);
   const [hover, setHover] = useState<Hover>(null);
+  const tradeOf = useMemo(() => {
+    const ids = new Set(nodes.map((n) => n.id));
+    const cache = new Map<string, { t: TradeOff; measured: boolean } | null>();
+    for (const n of nodes) {
+      if (!ids.has(n.parent)) { cache.set(n.id, null); continue; }
+      const m = tradeOffOf(n, nodes, benchTotal);
+      cache.set(n.id, m ? { t: m, measured: true } : { t: estimateTradeOff(n, nodes), measured: false });
+    }
+    return (id: string) => cache.get(id) ?? null;
+  }, [nodes, benchTotal]);
 
   if (points.length === 0) {
     return (
@@ -273,9 +308,11 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
     );
   }
 
-  const best = points.reduce((a, b) => (b.perfBp > a.perfBp || (b.perfBp === a.perfBp && b.tokens < a.tokens) ? b : a));
-  const cheapest = points.reduce((a, b) => (b.tokens < a.tokens || (b.tokens === a.tokens && b.perfBp > a.perfBp) ? b : a));
-  const fastest = points.reduce((a, b) => (b.wallMs < a.wallMs || (b.wallMs === a.wallMs && b.perfBp > a.perfBp) ? b : a));
+  // The headline facts come from measurements only, never from an estimate.
+  const real = points.some((p) => !p.est) ? points.filter((p) => !p.est) : points;
+  const best = real.reduce((a, b) => (b.perfBp > a.perfBp || (b.perfBp === a.perfBp && b.tokens < a.tokens) ? b : a));
+  const cheapest = real.reduce((a, b) => (b.tokens < a.tokens || (b.tokens === a.tokens && b.perfBp > a.perfBp) ? b : a));
+  const fastest = real.reduce((a, b) => (b.wallMs < a.wallMs || (b.wallMs === a.wallMs && b.perfBp > a.perfBp) ? b : a));
   const fact = (label: string, p: ComparePoint, value: string) => (
     <button type="button" className="cmp-fact" aria-pressed={p.n.id === selected} onClick={() => onSelect(p.n.id)}>
       <span className="cmp-fact-label">{label}</span>
@@ -302,9 +339,10 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
         {fact("Fastest", fastest, fmtWall(fastest.wallMs))}
       </div>
 
+      <TradeCtx.Provider value={tradeOf}>
       <figure className="cmp-figure">
         <div className="plate compare-plate">
-          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} />
+          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
           <Axes3D {...shared} links={links} lineage={lineage} />
           <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
         </div>
@@ -323,7 +361,7 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           )}
         </div>
         <figcaption>
-          Performance is the benchmark score, re-run by other keys where it was. Cost is the median tokens per task. Speed is the median time of one benchmark run.
+          Performance is the benchmark score, re-run by other keys where it was. Token savings is the median tokens per task: fewer is better. Speed is the median time of one benchmark run.
           Both charts stretch each measure across this tree, from the weakest version to the best, so even small differences show.
           On the radar, the tip of each spoke is the best version in this tree (100) and the weakest sits near the centre (10); the real value is printed under each rating.
           The 3D axes, the tooltips and the table show real values. In the 3D plot and the triangle, arrows join each version to its parent.
@@ -334,16 +372,17 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           <summary>Show as a table</summary>
           <table className="cmp-table">
             <thead>
-              <tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Cost</th><th scope="col">Speed</th><th scope="col">Rating · perf / speed / cost</th></tr>
+              <tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Tokens</th><th scope="col">Speed</th><th scope="col">Against the parent · perf / tokens / speed</th><th scope="col">Rating · perf / speed / tokens</th></tr>
             </thead>
             <tbody>
               {points.map((p) => (
                 <tr key={p.n.id} className={p.n.id === selected ? "is-selected" : undefined}>
                   <td><button type="button" className="cmp-row-btn" aria-pressed={p.n.id === selected} onClick={() => onSelect(p.n.id)}><code>{p.n.short}</code></button></td>
-                  <td>{STATUS_WORD[p.n.status]}</td>
+                  <td>{STATUS_WORD[p.n.status]}{p.est ? " · estimate" : ""}</td>
                   <td>{fmtPerf(p.perfBp)}</td>
                   <td>{fmtTokens(p.tokens)}</td>
                   <td>{fmtWall(p.wallMs)}</td>
+                  <td>{(() => { const t = tradeOffOf(p.n, nodes, benchTotal); return t ? `${fmtPct(t.perf)} / ${fmtPct(t.tokens)} / ${fmtPct(t.speed)}` : "—"; })()}</td>
                   <td>{fmtRating(p.rating.perf)} / {fmtRating(p.rating.speed)} / {fmtRating(p.rating.cost)}</td>
                 </tr>
               ))}
@@ -358,6 +397,7 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           </table>
         </details>
       </figure>
+      </TradeCtx.Provider>
     </section>
   );
 }
@@ -443,10 +483,12 @@ function Chip({ x, y, text, axis }: { x: number; y: number; text: string; axis: 
  * shape filled in its status colour, its parent drawn dashed behind it. Above it, the
  * version's place in the tree: the path from the start and the children, all selectable.
  */
-function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, ComparePoint>; nodes: ExportNode[]; selected: string; onSelect: (id: string) => void }) {
+function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<string, ComparePoint>; nodes: ExportNode[]; selected: string; onSelect: (id: string) => void; benchTotal: number }) {
   const all = new Map(nodes.map((n) => [n.id, n]));
   const node = all.get(selected) ?? nodes[0]!;
-  const p = byId.get(node.id);
+  // Only a measured point fills the radar. An estimate is drawn dashed below.
+  const found = byId.get(node.id);
+  const p = found && !found.est ? found : undefined;
   const parentNode = all.get(node.parent);
   const parent = parentNode ? byId.get(parentNode.id) : undefined;
 
@@ -458,15 +500,41 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
     path.unshift(cur);
   }
   const children = nodes.filter((n) => n.parent === node.id);
-  const chip = (n: ExportNode) => (
-    <button key={n.id} type="button" className="rd-node" aria-pressed={n.id === node.id} onClick={() => onSelect(n.id)}
-      title={byId.has(n.id) ? clip(n.hypothesis, 90) : `${clip(n.hypothesis, 70)} (not measured)`}>
-      <svg width="12" height="12" aria-hidden="true"><Glyph status={n.status} cx={6} cy={6} r={4.2} blocked={isBlocked(n)} /></svg>
-      {n.short}
-    </button>
-  );
+  // Each chip also shows the change's three results against its parent, with the tree's icons.
+  // A change that never ran shows the estimate, in a dashed chip.
+  const chip = (n: ExportNode) => {
+    const measured = tradeOffOf(n, nodes, benchTotal);
+    const root = !all.has(n.parent);
+    const t = root ? null : (measured ?? estimateTradeOff(n, nodes));
+    const trade = t
+      ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent${measured ? "" : " (estimate, never measured)"}`
+      : "the baseline: everything is measured against it";
+    return (
+      <button key={n.id} type="button" className={`rd-node${t && !measured ? " est" : ""}`} aria-pressed={n.id === node.id} onClick={() => onSelect(n.id)}
+        title={`${clip(n.hypothesis, 90)}\n${trade}`}>
+        <svg width="12" height="12" aria-hidden="true"><Glyph status={n.status} cx={6} cy={6} r={4.2} blocked={isBlocked(n)} /></svg>
+        {n.short}
+        {t && (
+          <span className="rd-trade">
+            {([["perf", t.perf], ["tokens", t.tokens], ["speed", t.speed]] as const).map(([kind, v]) => (
+              <span key={kind} className={`tradeoff rd-trade-one ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}>
+                <svg width="11" height="11" aria-hidden="true"><g className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}><TradeIcon kind={kind} x={5.5} y={5.5} /></g></svg>
+                {fmtPct(v)}
+              </span>
+            ))}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   const rings = [0.25, 0.5, 0.75];
+  // A version that never ran: its parent's shape, moved by the estimated change on each measure.
+  const est = !p && parentNode ? estimateTradeOff(node, nodes) : null;
+  const clamp = (r: number) => Math.min(1, Math.max(0.1, r));
+  const estRating = est && parent
+    ? { perf: clamp(parent.rating.perf * (1 + est.perf / 100)), cost: clamp(parent.rating.cost * (1 + est.tokens / 100)), speed: clamp(parent.rating.speed * (1 + est.speed / 100)) }
+    : null;
   const tone = node.status === "accepted" ? "pass" : node.status === "rejected" ? "fail" : "wait";
 
   return (
@@ -525,12 +593,13 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
                 return <circle key={sp.key} cx={x} cy={y} r={4.5} />;
               })}
             </g>
-          ) : (
-            <g aria-hidden="true">
-              <text className="rd-empty" x={RC[0]} y={RC[1] - 4} textAnchor="middle">Not measured</text>
-              <text className="rd-empty-sub" x={RC[0]} y={RC[1] + 14} textAnchor="middle">
-                {isBlocked(node) ? blockedText(node.detail.mechanical!.cls) : "no score, tokens or time yet"}
-              </text>
+          ) : estRating && (
+            <g className={`rd-shape rd-${tone} rd-est`} aria-hidden="true">
+              <polygon points={shapeOf(estRating)} />
+              {SPOKES.map((sp) => {
+                const [x, y] = spokeAt(sp.angle, estRating[sp.key]);
+                return <circle key={sp.key} cx={x} cy={y} r={4} />;
+              })}
             </g>
           )}
 
@@ -539,8 +608,11 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
             const top = sp.key === "perf";
             // Outward from the corner: above the top one, below and a little out for the others.
             const x = top ? vx : vx + Math.cos(sp.angle) * 14;
-            const rating = p ? fmtRating(p.rating[sp.key]) : "—";
-            const detail = p ? `${realValue(sp.key, p)}${parent ? ` · ${change(sp.key, p, parent)}` : ""}` : "not measured";
+            const estPct = est ? (sp.key === "perf" ? est.perf : sp.key === "cost" ? est.tokens : est.speed) : null;
+            const rating = p ? fmtRating(p.rating[sp.key]) : estPct !== null ? fmtPct(estPct) : "—";
+            const detail = p
+              ? `${realValue(sp.key, p)}${parent ? ` · ${change(sp.key, p, parent)}` : ""}`
+              : estPct !== null ? `estimate · vs ${parentNode?.short ?? "parent"}` : isBlocked(node) ? "stopped before scoring" : "not run yet";
             const chipY = top ? vy - 38 : vy + 12;
             const nameY = top ? chipY - 20 : chipY + 42;
             const detailY = top ? chipY - 6 : chipY + 56;
@@ -556,7 +628,7 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
       </div>
 
       <div className="legend rd-legend">
-        <span><svg width="22" height="12" aria-hidden="true"><rect className={`rd-key rd-${tone}`} x="1" y="1" width="20" height="10" rx="2" /></svg>{node.short}{p ? "" : " (not measured)"}</span>
+        <span><svg width="22" height="12" aria-hidden="true"><rect className={`rd-key rd-${tone}`} x="1" y="1" width="20" height="10" rx="2" /></svg>{node.short}{p ? "" : est ? " (estimate, never measured)" : " (never measured)"}</span>
         {parentNode && (
           <span><svg width="22" height="12" aria-hidden="true"><path className="rd-parent-key" d="M1 6 H21" /></svg>
             Parent {parentNode.short}{parent ? "" : " (not measured)"}</span>
@@ -619,7 +691,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
           <text className="cmp-corner-sub" x={TOP[0]} y={TOP[1] - 11} textAnchor="middle">higher score</text>
           <text className="cmp-corner" x={LEFT[0]} y={LEFT[1] + 24} textAnchor="middle">Speed</text>
           <text className="cmp-corner-sub" x={LEFT[0]} y={LEFT[1] + 39} textAnchor="middle">less time</text>
-          <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Cost</text>
+          <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Token savings</text>
           <text className="cmp-corner-sub" x={RIGHT[0]} y={RIGHT[1] + 39} textAnchor="middle">fewer tokens</text>
 
           <TreeLinks links={links} lineage={lineage} byId={byId} spot={(id) => { const d = drawn.get(id); return d && { at: d.at, r: TR }; }} />
@@ -645,7 +717,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
             const isSel = p.n.id === selected;
             const lab = labels.get(p.n.id);
             return (
-              <g key={p.n.id} className="cmp-dot" role="button" tabIndex={0} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}${lineage.has(p.n.id) ? "" : " cmp-off"}`} role="button" tabIndex={0} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)} onKeyDown={(e) => key(e, p.n.id)}
                 onPointerEnter={() => setHover(p.n.id)} onPointerLeave={() => setHover(null)}
@@ -774,7 +846,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
   const O = P([-1, -1, -1]);
   const axes = [
     { name: "x" as Axis, title: "Performance", end: [1.7, -1, -1] as Vec, label: [1.98, -1, -1] as Vec },
-    { name: "y" as Axis, title: "Cost", end: [-1, 1.62, -1] as Vec, label: [-1, 1.85, -1] as Vec },
+    { name: "y" as Axis, title: "Token savings", end: [-1, 1.62, -1] as Vec, label: [-1, 1.85, -1] as Vec },
     { name: "z" as Axis, title: "Speed", end: [-1, -1, 1.7] as Vec, label: [-1, -1, 1.98] as Vec },
   ];
   const arrow = (a: Proj, b: Proj) => {
@@ -796,14 +868,33 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
     ...time.ticks.filter((t) => !nearOrigin(Z(t))).map((t) => ({ k: `z-${t}`, at: [-1 - OFF, -1 - OFF, Z(t)] as Vec, text: fmtWall(t) })),
   ];
 
-  const projected = points.map((p) => {
+  // Each version gets one fixed spot in the cube. Versions with the same numbers
+  // (the replay runs give many ties) are spread on a small ring around their shared
+  // spot, in 3D and in seq order, so the spread turns with the cube and a dot never
+  // jumps when the view changes.
+  const spotOf = new Map<string, Vec>();
+  const groups = new Map<string, ComparePoint[]>();
+  for (const p of points) {
     const v: Vec = [X(p.perfBp), Y(p.tokens), Z(p.wallMs)];
+    const key = v.map((c) => Math.round(c * 12)).join(",");
+    groups.set(key, [...(groups.get(key) ?? []), p]);
+    spotOf.set(p.n.id, v);
+  }
+  for (const g of groups.values()) {
+    if (g.length < 2) continue;
+    g.sort((a, b) => a.n.seq - b.n.seq);
+    const ring = Math.min(0.32, 0.1 + 0.035 * g.length);
+    g.forEach((p, i) => {
+      const [x, y, z] = spotOf.get(p.n.id)!;
+      const a = (2 * PI * i) / g.length;
+      spotOf.set(p.n.id, [x + Math.cos(a) * ring, y, z + Math.sin(a) * ring]);
+    });
+  }
+  const projected = points.map((p) => {
+    const v = spotOf.get(p.n.id)!;
     return { p, s: P(v), floor: P([v[0], -1, v[2]]) };
   }).sort((a, b) => a.s.depth - b.s.depth || rankOf(a.p) - rankOf(b.p));
-  // From this angle some dots land on each other. Push them apart on screen, every
-  // frame, so each stays visible while the plot turns; a thin line marks the true spot.
-  const apart = separate(projected.map((q) => ({ id: q.p.n.id, at: [q.s.x, q.s.y], r: PR * q.s.f })), PGAP);
-  const placed = projected.map((q) => ({ ...q, d: apart.get(q.p.n.id)!.at }));
+  const placed = projected.map((q) => ({ ...q, d: [q.s.x, q.s.y] as Pt }));
   const spot3d = new Map(placed.map((q) => [q.p.n.id, { at: q.d, r: PR * q.s.f }]));
   const sel = placed.find((q) => q.p.n.id === selected);
   const selLabel = sel && placeLabels(
@@ -910,7 +1001,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
             const isSel = p.n.id === selected;
             const r = PR * s.f;
             return (
-              <g key={p.n.id} className="cmp-dot" role="button" tabIndex={-1} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}${lineage.has(p.n.id) ? "" : " cmp-off"}`} role="button" tabIndex={-1} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)}
                 onPointerEnter={() => { if (drag.current?.moved !== true) setHover(p.n.id); }}

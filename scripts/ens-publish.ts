@@ -26,8 +26,11 @@ import { formatError } from "@/app/ens/_lib/ens/errors";
 import { walkHierarchy } from "@/app/ens/_lib/ens/hierarchy";
 import { dnsEncode, labelId } from "@/app/ens/_lib/ens/names";
 import { ResolverRoles } from "@/app/ens/_lib/ens/roles";
-import { ENS_SUFFIX } from "@/lib/ens/name";
-import { ALL_RECORD_KEYS, ENS_CHAIN_ID, type PlannedName, type RecordKey, changedKeys, treePlan } from "@/lib/ens/records";
+import { ENS_SUFFIX, ONCHAIN_TREES } from "@/lib/ens/name";
+import { ALL_RECORD_KEYS, ENS_CHAIN_ID, LEGACY_KEYS, type PlannedName, type RecordKey, changedKeys, treePlan } from "@/lib/ens/records";
+
+/** The 8 records, plus the old keys cleared to "". */
+const WRITE_KEYS = [...ALL_RECORD_KEYS, ...LEGACY_KEYS] as RecordKey[];
 
 /** An expected failure: printed as is, without a stack trace. */
 class Fail extends Error {}
@@ -72,12 +75,14 @@ async function main() {
   const { TREES, loadTreeEntry } = await import("@/lib/trees");
   const { resolveRecords, sepoliaClient, SEPOLIA_RPC_URL: rpcUrl } = await import("@/lib/ens/resolve");
 
-  // Only the real tree is published. Showcase trees were never measured.
-  const entry = TREES.find((t) => t.source === "real");
-  if (!entry) throw new Fail("No real tree in lib/trees.ts.");
-  const tree = await loadTreeEntry(entry);
-  if (!tree.ok) throw new Fail(`Could not load the tree from ${tree.root}:\n${tree.error}`);
-  const plan = treePlan(tree.data, entry.harness.key);
+  // The trees that are on chain: the real one, and the research showcase.
+  const plans = [];
+  for (const entry of TREES.filter((t) => ONCHAIN_TREES.includes(t.slug))) {
+    const tree = await loadTreeEntry(entry);
+    if (!tree.ok) throw new Fail(`Could not load the tree from ${tree.root}:\n${tree.error}`);
+    plans.push(treePlan(tree.data, entry.slug));
+  }
+  const plan = { suffix: plans[0].suffix, tree: plans.map((p) => p.tree).join(" + "), names: plans.flatMap((p) => p.names) };
 
   let planned = plan.names;
   if (opts.only) {
@@ -89,12 +94,12 @@ async function main() {
 
   const read = async (): Promise<Pending[]> => {
     const names = planned.map((n) => n.name);
-    const found = await resolveRecords(names, { keys: ALL_RECORD_KEYS, rpcUrl });
+    const found = await resolveRecords(names, { keys: WRITE_KEYS, rpcUrl });
     // The public RPC rate-limits bursts, so failed names are read again, slower.
     for (let attempt = 1; attempt <= 3 && found.some((l) => l.error); attempt++) {
       await sleep(1_000 * attempt);
       const retry = found.flatMap((l, i) => (l.error ? [i] : []));
-      const again = await resolveRecords(retry.map((i) => names[i]), { keys: ALL_RECORD_KEYS, rpcUrl });
+      const again = await resolveRecords(retry.map((i) => names[i]), { keys: WRITE_KEYS, rpcUrl });
       retry.forEach((i, j) => (found[i] = again[j]));
     }
     const failed = found.filter((l) => l.error);
@@ -104,7 +109,7 @@ async function main() {
           `RPC: ${rpcUrl}. Set NEXT_PUBLIC_SEPOLIA_RPC_URL in .env.local to use another one.`,
       );
     }
-    return planned.map((n, i) => ({ ...n, keys: changedKeys(n.records, found[i].texts, ALL_RECORD_KEYS) as RecordKey[] }));
+    return planned.map((n, i) => ({ ...n, records: { ...Object.fromEntries(LEGACY_KEYS.map((k) => [k, ""])), ...n.records }, keys: changedKeys({ ...Object.fromEntries(LEGACY_KEYS.map((k) => [k, ""])), ...n.records }, found[i].texts, WRITE_KEYS) as RecordKey[] }));
   };
 
   console.log(`Tree ${plan.tree}: ${planned.length} names under ${plan.suffix} on Sepolia (chain ${ENS_CHAIN_ID})\n`);

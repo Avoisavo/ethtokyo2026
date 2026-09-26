@@ -32,7 +32,7 @@ export const ModeSchema = z.enum(['live', 'replay']);
 export type Ledger = 'local';
 export const LedgerSchema = z.literal('local');
 
-/** Count the escaped JSON bytes, not the characters. The wire limit is bytes. */
+/** Count the escaped JSON bytes, not the characters. The field caps are in bytes. */
 export const byteLen = (max: number) => (s: string) =>
   Buffer.byteLength(JSON.stringify(s), 'utf8') <= max;
 

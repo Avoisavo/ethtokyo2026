@@ -355,10 +355,7 @@ function entry(seq: number, pub: string, body: LogEntry['envelope']['body']): Lo
     chain: '0'.repeat(64),
     consensusNanos: String(1_789_200_000_000_000_000n + BigInt(seq)).padStart(19, '0'),
     envelope: { body, pub, sig: '0'.repeat(128), ver: 1 },
-    payer: 'local',
     seq,
-    source: 'local',
-    topic: `local:${TREE}`,
   };
 }
 

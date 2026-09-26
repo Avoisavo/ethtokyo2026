@@ -46,6 +46,29 @@ a { color: inherit; }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; text-decoration: none; letter-spacing: -.01em; }
 .brand-mark { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--pass) 0 38%, transparent 40%), conic-gradient(var(--pass) 0 25%, var(--fail) 0 30%, var(--ink-faint) 0); box-shadow: inset 0 0 0 1.5px var(--surface); }
 .topnav { display: flex; gap: 16px; }
+.topbar-end { margin-left: auto; display: flex; align-items: center; }
+.wallet-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--pass); background: var(--pass); color: #fff; cursor: pointer; }
+.wallet-btn:disabled { opacity: .6; cursor: default; }
+.wallet-btn.warn { background: var(--fail); border-color: var(--fail); }
+.wallet-on { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 6px 4px 10px; border: 1px solid var(--rule); border-radius: 8px; }
+.wallet-on code { font-family: var(--f-mono), monospace; font-size: 12px; }
+.wallet-dot { width: 8px; height: 8px; border-radius: 50%; background: #2f9e44; }
+.wallet-x { border: 0; background: none; cursor: pointer; color: var(--ink-faint); font-size: 16px; line-height: 1; padding: 0 4px; }
+.buy { margin-top: 16px; padding: 14px; border: 1px solid var(--rule); border-radius: 10px; }
+.buy h3 { margin: 0 0 4px; font-size: 14px; }
+.buy p { margin: 4px 0; font-size: 13px; color: var(--ink-mid); }
+.buy ol { margin: 8px 0; padding-left: 18px; font-size: 13px; }
+.buy li { margin: 3px 0; }
+.buy li.done { color: var(--pass); }
+.buy button { font: inherit; font-size: 13px; font-weight: 600; margin: 6px 6px 0 0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--pass); background: var(--pass); color: #fff; cursor: pointer; }
+.buy button.ghost { background: none; color: var(--pass); }
+.buy button:disabled { opacity: .55; cursor: default; }
+.buy .err { color: var(--fail); white-space: pre-wrap; }
+.buy a { color: var(--pass); }
+.buy-files { margin-top: 10px; }
+.buy-files details { border-top: 1px solid var(--rule); padding: 6px 0; }
+.buy-files summary { cursor: pointer; font-family: var(--f-mono), monospace; font-size: 12.5px; }
+.buy-files pre { max-height: 320px; overflow: auto; font-size: 11.5px; background: var(--sunk, #f4f4f2); padding: 8px; border-radius: 6px; }
 .topnav a { text-decoration: none; color: var(--ink-mid); font-size: 13.5px; }
 .topnav a:hover { color: var(--ink); }
 .pill { margin-left: auto; font-size: 12px; color: var(--ink-mid); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px; }
@@ -240,6 +263,8 @@ details.diff pre { margin: 6px 0 0; font-size: 11.5px; line-height: 1.55; backgr
 .ens-profile { display: flex; flex-direction: column; gap: 12px; }
 .ens-kicker { font-family: var(--f-mono), monospace; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
 .ens-name { margin-top: 2px; font-family: var(--f-mono), monospace; font-size: 16px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.ens-name a { color: inherit; text-decoration: none; }
+.ens-name a:hover { color: var(--pass); text-decoration: underline; }
 .ens-resolver { margin-top: 2px; font-size: 12px; color: var(--ink-faint); }
 .ens-resolver a { font-family: var(--f-mono), monospace; font-size: 11.5px; color: var(--pass); text-decoration: none; }
 .ens-resolver a:hover { text-decoration: underline; }
@@ -344,7 +369,7 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .branch-foot button { border: 0; background: none; padding: 0; color: var(--pass); font-size: 12.5px; cursor: pointer; }
 
 /* ---- direction pills on tree lines ---- */
-.objective rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
+.objective > rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
 .objective text { font-family: var(--f-mono), monospace; font-size: 9.5px; fill: var(--ink-mid); }
 .card-domain { margin-bottom: 6px; }
 
@@ -418,9 +443,9 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-dot { cursor: pointer; outline: none; }
 .cmp-hit { fill: transparent; }
 .cmp-dot:focus-visible .cmp-hit { stroke: var(--pass); stroke-width: 2; }
-.cmp-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.cmp-ring { fill: none; stroke: var(--pass); stroke-width: 3; }
 .cmp-ring-hover { stroke: var(--ink-faint); stroke-dasharray: 2.5 2.5; }
-.cmp-label { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.cmp-label { font-family: var(--f-mono), monospace; font-size: 12px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
 .cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
 .cmp-anchor { fill: var(--ink-faint); }
@@ -502,3 +527,40 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .rd-key.rd-wait { fill: color-mix(in srgb, var(--ink-faint) 22%, transparent); stroke: var(--ink-mid); stroke-width: 1.5; }
 .rd-parent-key { fill: none; stroke: var(--ink-mid); stroke-width: 1.4; stroke-dasharray: 4 3; }
 .rd-face-key { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; }
+
+.tradeoffs { margin-top: 22px; }
+.tradeoffs h3 { margin: 0 0 4px; font-size: 15px; }
+.tradeoffs table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.tradeoffs th, .tradeoffs td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+.tradeoffs td.up { color: var(--pass); font-weight: 600; }
+.tradeoffs td.down { color: var(--fail); font-weight: 600; }
+.tradeoffs td.flat { color: var(--ink-faint); }
+.legend-trade { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-mid); font-size: 12px; }
+.legend-trade svg { margin-left: 6px; }
+/* The three trade-off icons. Better: solid colour. Worse: a red outline. About the same: grey outline. */
+.t-icon rect, .t-icon circle, .t-icon path { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.tradeoff .up .t-icon rect, .tradeoff .up .t-icon circle.t-outer { fill: var(--pass); stroke: var(--pass); }
+.tradeoff .up .t-icon circle.t-inner, .tradeoff .up .t-icon path { stroke: var(--surface); }
+.tradeoff .down .t-icon rect, .tradeoff .down .t-icon circle, .tradeoff .down .t-icon path { stroke: var(--fail); }
+.legend-trade .t-icon rect, .legend-trade .t-icon circle.t-outer { fill: var(--ink-mid); stroke: var(--ink-mid); }
+.legend-trade .t-icon circle.t-inner, .legend-trade .t-icon path { stroke: var(--paper); }
+.tradeoff .up text { fill: var(--pass); font-weight: 600; }
+.tradeoff.claimed > rect { stroke-dasharray: 3 3; }
+.tradeoff .down text { fill: var(--fail); font-weight: 600; }
+
+.rd-trade { display: inline-flex; gap: 6px; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--rule); font-family: var(--f-mono), monospace; font-size: 11px; }
+.rd-trade-one { display: inline-flex; align-items: center; gap: 2px; }
+.rd-trade-one.up { color: var(--pass); } .rd-trade-one.down { color: var(--fail); } .rd-trade-one.flat { color: var(--ink-faint); }
+.rd-node.est { border-style: dashed; }
+
+.rd-est polygon { stroke-dasharray: 5 4; fill-opacity: .12; }
+.rd-est circle { fill: var(--surface); }
+.cmp-tip-trade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-family: var(--f-mono), monospace; font-size: 11px; }
+.cmp-tip-vs { color: var(--ink-faint); font-family: var(--f-body), sans-serif; }
+
+.cmp-est { opacity: .45; }
+.cmp-est .cmp-ring { opacity: 1; }
+
+/* Points off the selected version's path are greyed out, so the path stands out. */
+.cmp-off { filter: grayscale(1); opacity: .28; }
+.cmp-off:hover { opacity: .7; }

@@ -31,8 +31,8 @@ export interface ReplayResult {
 }
 
 /**
- * A node's mode is not on the wire. `NodeSubmitted` carries no `mode` field,
- * because every byte of that message is spent on the hypothesis. The first
+ * A node's mode is not in the log message. `NodeSubmitted` carries no `mode`
+ * field, and the signed lines already in the log cannot get one. The first
  * `VerificationSigned` for a node therefore sets it.
  *
  * This default is never observable: a node with no verification is always

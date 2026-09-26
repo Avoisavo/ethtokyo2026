@@ -15,5 +15,5 @@ export async function GET() {
   const tree = await loadTreeEntry(entry);
   if (!tree.ok) return NextResponse.json({ error: tree.error }, { status: 500 });
   // The harness key names the root, as on the tree page.
-  return NextResponse.json(treePlan(tree.data, entry.harness.key), { headers: { "cache-control": "no-store" } });
+  return NextResponse.json(treePlan(tree.data, entry.slug), { headers: { "cache-control": "no-store" } });
 }

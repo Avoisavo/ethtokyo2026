@@ -1,4 +1,6 @@
 import { claimBp, isBlocked, isRoot, rootRerunBp, signedBp, STATUS_WORD, tasks, tasksOf } from "@/lib/format";
+import { withVersionLabels } from "@/lib/ens/name";
+import { estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
 import type { ExportNode, PetriExport } from "@/lib/types";
 
 /** The score a node was measured at by other keys. Falls back to the author claim. */
@@ -15,7 +17,9 @@ const RIGHT = 860;
 const T = 46;
 const B = 280;
 
-export function Stats({ d }: { d: PetriExport }) {
+export function Stats({ d: given }: { d: PetriExport }) {
+  // Versions are named by their ENS label (v10), the same as on the tree.
+  const d = { ...given, nodes: withVersionLabels(given.nodes) };
   const total = d.bench.total;
   const nodes = d.nodes;
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -141,6 +145,28 @@ export function Stats({ d }: { d: PetriExport }) {
           A version passes only if it beats its parent by {signedBp(d.policy.minDeltaBp)}.
           {unscored > 0 && ` ${unscored} ${unscored === 1 ? "version was" : "versions were"} stopped before scoring and ${unscored === 1 ? "is" : "are"} not plotted. See the table.`}
         </figcaption>
+        <div className="tradeoffs">
+          <h3>Every change is a trade-off</h3>
+          <p className="muted">Each change against its parent, on three results. + is better on all three. A gain on one often costs another. Rows marked est. are mock values for changes that never ran, not measurements.</p>
+          <table>
+            <thead><tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Token savings</th><th scope="col">Speed</th><th scope="col">Source</th></tr></thead>
+            <tbody>
+              {nodes.filter((n) => !isRoot(n, ids)).map((n) => {
+                const measured = tradeOffOf(n, nodes, total);
+                const t = measured ?? estimateTradeOff(n, nodes);
+                const cls = (v: number) => (v > 0.5 ? "up" : v < -0.5 ? "down" : "flat");
+                const cell = (v: number) => <td className={`${cls(v)}${measured ? "" : " est"}`}>{fmtPct(v)}</td>;
+                return (
+                  <tr key={n.id}>
+                    <td><code>{n.short}</code></td><td>{STATUS_WORD[n.status]}</td>
+                    {cell(t.perf)}{cell(t.tokens)}{cell(t.speed)}
+                    <td className="muted">{measured ? "measured" : isBlocked(n) ? "est. · stopped before scoring" : "est. · not measured yet"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         <details className="table-view">
           <summary>Show as a table</summary>
           <table>

@@ -3,8 +3,8 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, fmtPct } from "@/lib/metrics";
-import { ensNames } from "@/lib/ens/name";
+import { changesOf, estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 import { ZOOM_STEP, usePanZoom } from "./usePanZoom";
@@ -59,7 +59,8 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   const status = new Map((layoutNodes ?? nodes).map((n) => [n.id, n.status]));
   const { slots, rows, maxDepth } = tidySlots(forest, (id) => status.get(id));
   const names = ensNames(nodes, harness);
-  const nameLines = new Map(nodes.map((n) => [n.id, wrapName(names.get(n.id) ?? n.short)]));
+  // The card shows the short label only (v2). The full name is in the panel.
+  const nameLines = new Map(nodes.map((n) => [n.id, wrapName(shortLabel(names.get(n.id) ?? n.short))]));
   // Rows grow with the longest wrapped name, so no label runs into the next row.
   const extra = Math.max(0, ...[...nameLines.values()].map((l) => l.length - 1)) * NAME_LINE;
   const row = ROW + extra;
@@ -131,13 +132,34 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
         {/* The direction each change aimed for, on the line just before the child. */}
         {nodes.filter((n) => slots[n.parent] !== undefined && slots[n.id] !== undefined).map((n) => {
           const b = at(n.id);
-          const local = changesOf(n, nodes).local;
-          const label = local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(local)}`;
-          const w = label.length * 5.5 + 14;
+          // The three results of the change, against its parent, one per line with its icon:
+          // performance, token savings, speed. A version that was never measured shows the
+          // direction it aimed for.
+          const t = tradeOffOf(n, nodes, benchTotal);
+          const claimed = t === null;
+          // Never measured: a mock, marked as an estimate everywhere it shows (see estimateTradeOff).
+          const est = claimed ? estimateTradeOff(n, nodes) : null;
+          const shown = (t ?? est)!;
+          const rows: [TradeKind, number][] = [["perf", shown.perf], ["tokens", shown.tokens], ["speed", shown.speed]];
+          const w = 64;
+          const h = rows.length * 13 + 6;
+          const x0 = b.x - R - 10 - w;
+          const y0 = b.y - h / 2;
           return (
-            <g key={`o-${n.id}`} className="objective">
-              <rect x={b.x - R - 10 - w} y={b.y - 8} width={w} height={16} rx={8} />
-              <text x={b.x - R - 10 - w / 2} y={b.y + 3.2} textAnchor="middle">{label}</text>
+            <g key={`o-${n.id}`} className={`objective tradeoff${claimed ? " claimed" : ""}`}>
+              <title>{t
+                ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent`
+                : `estimate, never measured: performance ${fmtPct(shown.perf)} · token savings ${fmtPct(shown.tokens)} · speed ${fmtPct(shown.speed)}`}</title>
+              <rect x={x0} y={y0} width={w} height={h} rx={7} />
+              {rows.map(([kind, v], i) => {
+                const cy = y0 + 9.5 + i * 13;
+                return (
+                  <g key={kind} className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
+                    <TradeIcon kind={kind} x={x0 + 10} y={cy} />
+                    <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{fmtPct(v)}</text>
+                  </g>
+                );
+              })}
             </g>
           );
         })}
@@ -185,5 +207,37 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
         <button type="button" onClick={zoom.fitAll} disabled={zoom.atMin}>Fit</button>
       </div>
     </div>
+  );
+}
+
+type TradeKind = "perf" | "tokens" | "speed";
+
+/**
+ * The icon of one result, 10 px, centred on (x, y): performance is a rising bar
+ * chart, token savings a coin, speed a clock. The same three the legend shows.
+ */
+export function TradeIcon({ kind, x, y }: { kind: TradeKind; x: number; y: number }) {
+  if (kind === "perf") {
+    return (
+      <g className="t-icon" transform={`translate(${x - 5} ${y - 5})`}>
+        <rect x={0.5} y={6} width={2.4} height={4} />
+        <rect x={3.8} y={3.5} width={2.4} height={6.5} />
+        <rect x={7.1} y={0.5} width={2.4} height={9.5} />
+      </g>
+    );
+  }
+  if (kind === "tokens") {
+    return (
+      <g className="t-icon" transform={`translate(${x} ${y})`}>
+        <circle className="t-outer" r={4.4} />
+        <circle className="t-inner" r={2} />
+      </g>
+    );
+  }
+  return (
+    <g className="t-icon" transform={`translate(${x} ${y})`}>
+      <circle className="t-outer" r={4.4} />
+      <path d="M0 -2.6 V0 L1.9 1.3" />
+    </g>
   );
 }

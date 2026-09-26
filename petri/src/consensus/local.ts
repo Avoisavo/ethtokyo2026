@@ -102,10 +102,7 @@ type RawEntry = {
   chain: string;
   consensusNanos: string;
   envelope: SignedEnvelope<Canon>;
-  payer: string;
   seq: number;
-  source: string;
-  topic: string;
 };
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -128,27 +125,18 @@ function parseLine(label: string, lineNumber: number, line: string): RawEntry {
   const chain = e['chain'];
   const consensusNanos = e['consensusNanos'];
   const seq = e['seq'];
-  const payer = e['payer'];
-  const source = e['source'];
-  const topic = e['topic'];
   const envelope = e['envelope'];
 
   if (typeof chain !== 'string' || !HEX64.test(chain)) bad('no usable chain hash');
   if (typeof consensusNanos !== 'string' || !NANOS.test(consensusNanos)) bad('a malformed consensusNanos');
   if (typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 1) bad('a malformed sequence number');
-  if (typeof payer !== 'string') bad('a malformed payer');
-  if (typeof source !== 'string') bad('a malformed source');
-  if (typeof topic !== 'string') bad('a malformed topic');
   if (envelope === null || typeof envelope !== 'object' || Array.isArray(envelope)) bad('no envelope');
 
   return {
     chain,
     consensusNanos,
     envelope: envelope as SignedEnvelope<Canon>,
-    payer,
     seq,
-    source,
-    topic,
   };
 }
 
@@ -158,9 +146,6 @@ function readLines(path: string): string[] {
 }
 
 export class LocalLog implements ConsensusLog {
-  readonly kind = 'local' as const;
-  readonly topic: string;
-
   private readonly treeId: string;
   private readonly identity: Identity;
   private readonly path: string;
@@ -174,7 +159,6 @@ export class LocalLog implements ConsensusLog {
   constructor(treeId: string, identity: Identity, path: string, lockPath: string) {
     this.treeId = treeId;
     this.identity = identity;
-    this.topic = `local:${treeId}`;
     this.path = path;
     this.lockPath = lockPath;
     // Every message names the file in full. Two trees on one machine both hold a
@@ -198,21 +182,10 @@ export class LocalLog implements ConsensusLog {
       const seq = tail.seq + 1;
       const consensusNanos = this.nextNanos(tail.nanos);
       const chain = nextChain(tail.chain, seq, consensusNanos, envelope);
-      const entry: LogEntry = {
-        chain,
-        consensusNanos,
-        envelope,
-        payer: 'local',
-        seq,
-        source: 'local',
-        topic: this.topic,
-      };
+      const entry: LogEntry = { chain, consensusNanos, envelope, seq };
       this.append(canonicalJson(entry));
       return {
         seq,
-        source: 'local' as const,
-        topic: this.topic,
-        txId: `local:${this.topic}:${seq}`,
         unverified: true,
         warning: LOCAL_LEDGER_WARNING,
       };
@@ -248,13 +221,6 @@ export class LocalLog implements ConsensusLog {
         if (want !== raw.chain) {
           throw new Error(`petri: ${label} hash chain breaks at sequence ${raw.seq}. The log was edited.`);
         }
-        // The chain of SPEC.md section 8.6 covers consensusNanos, the envelope and
-        // seq. It does NOT cover payer, source or topic. The local log writes all
-        // three as constants, so check them directly rather than widen the chain,
-        // which would break golden vector G10.
-        if (raw.payer !== 'local' || raw.source !== 'local' || raw.topic !== `local:${treeId}`) {
-          throw new Error(`petri: ${label} sequence ${raw.seq} was edited outside the hash chain.`);
-        }
         const opened = openEnvelope<Canon>('msg', raw.envelope);
         if (!opened.ok) {
           throw new Error(`petri: ${label} sequence ${raw.seq} has a bad signature.`);
@@ -274,18 +240,11 @@ export class LocalLog implements ConsensusLog {
           chain: raw.chain,
           consensusNanos: raw.consensusNanos,
           envelope: { body: msg.data, pub: opened.pub, sig: raw.envelope.sig, ver: 1 },
-          payer: raw.payer,
           seq: raw.seq,
-          source: 'local',
-          topic: raw.topic,
         };
       }
     }
     return generate();
-  }
-
-  trustLabel(): string {
-    return `local log ${this.path}  —  UNVERIFIED`;
   }
 
   async close(): Promise<void> {

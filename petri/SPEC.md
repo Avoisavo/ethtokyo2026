@@ -695,7 +695,7 @@ export const SideRef = ParentRef;
 export type Mode = 'live' | 'replay';
 export const ModeSchema = z.enum(['live', 'replay']);
 
-/** Count the escaped JSON bytes, not the characters. The wire limit is bytes. */
+/** Count the escaped JSON bytes, not the characters. The field caps are in bytes. */
 export const byteLen = (max: number) => (s: string) =>
   Buffer.byteLength(JSON.stringify(s), 'utf8') <= max;
 ```
@@ -1209,8 +1209,7 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 ├── config.json                  PetriConfig.               §7.1
 ├── identity.json                mode 0600. NEVER commit.   §7.2
 ├── log.jsonl                    The local consensus log.   §7.3
-├── log.lock                     Transient. A write lock.
-├── cursor.json                  The last log seq consumed. §7.4
+├── log.lock                     Transient. A write lock.   §7.4
 ├── objects/
 │   └── <aa>/<rest>.json         Content-addressed. HarnessObject, NodeDetail,
 │                                BenchSpec, SignedReport, RunResult.
@@ -1282,17 +1281,18 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 ### 7.3 `.petri/log.jsonl`, one canonical JSON object per line
 
 ```json
-{"chain":"bd79f478865074e46bb76eaf75a6311afd4c63850d62c53413af31710a2e4a2c","consensusNanos":"1789200000000000000","envelope":{"body":{"bench":"aa80a75294768bd3bc81ed688e6fd0b4ea2741b68c3508fa37b023f1d70b5cb8","hyp":"Because the prompt sends only symbol names, sending full signatures will raise the median by at least 500bp.","node":"a3572a8d3168357ad34c4afbebc65a4f55ccfa2c0bc5f157d4f65391dea75fa4","parent":"a5966c17a7d5ee36571983655df9c4c7e168b7602b90ae0b373d10b6b51e78a6","tree":"petri-main","type":"NodeSubmitted"},"pub":"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737","sig":"38ce1b0a46fe537a42956f6c31421679faa238e18dc1b935ba2373b1f11ecdf36b529b149682ddd71bb81f9976310e906734618e5bd3fe97f8e70dcac889610e","ver":1},"payer":"local","seq":1,"source":"local","topic":"local:petri-main"}
+{"chain":"bd79f478865074e46bb76eaf75a6311afd4c63850d62c53413af31710a2e4a2c","consensusNanos":"1789200000000000000","envelope":{"body":{"bench":"aa80a75294768bd3bc81ed688e6fd0b4ea2741b68c3508fa37b023f1d70b5cb8","hyp":"Because the prompt sends only symbol names, sending full signatures will raise the median by at least 500bp.","node":"a3572a8d3168357ad34c4afbebc65a4f55ccfa2c0bc5f157d4f65391dea75fa4","parent":"a5966c17a7d5ee36571983655df9c4c7e168b7602b90ae0b373d10b6b51e78a6","tree":"petri-main","type":"NodeSubmitted"},"pub":"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737","sig":"38ce1b0a46fe537a42956f6c31421679faa238e18dc1b935ba2373b1f11ecdf36b529b149682ddd71bb81f9976310e906734618e5bd3fe97f8e70dcac889610e","ver":1},"seq":1}
 ```
 
 This is the one file written with `canonicalJson`, not with the pretty writer. The
 reason is the hash chain: `chain` covers the envelope, so the line must be stable.
 
-### 7.4 `.petri/cursor.json`
+### 7.4 `.petri/log.lock`
 
-```json
-{ "lastSeq": 42, "topic": "local:petri-main", "updatedAt": "2026-09-12T08:10:00.000Z" }
-```
+`LocalLog.publish` creates this file with `open(path, 'wx')` before it appends a
+line, and deletes it after the `fsyncSync`. The file holds the process id and the
+time. A writer that finds a lock older than 30 seconds deletes it and takes the lock.
+A writer that waits more than 10 seconds stops with an error.
 
 ### 7.5 `.petri/nodes/a3/572a8d…/manifest.json`
 
@@ -1363,29 +1363,18 @@ export interface LogEntry {
   chain: string;           // The sha256 hash chain of §8.6, as hex.
   consensusNanos: string;  // Decimal nanoseconds since the epoch. Exactly 19 digits.
   envelope: SignedEnvelope<PetriMessage>;
-  payer: string;           // Always "local".
   seq: number;             // A per-log sequence number. 1-based. Gap-free.
-  source: 'local';
-  topic: string;           // "local:<treeId>".
 }
 
 export interface PublishReceipt {
-  seq: number; source: 'local'; topic: string; txId: string;
+  seq: number; unverified: boolean; warning: string;
 }
 
 export interface ConsensusLog {
-  readonly kind: 'local';
-  readonly topic: string;
   publish(body: PetriMessage): Promise<PublishReceipt>;
   read(afterSeq?: number): AsyncIterable<LogEntry>;
-  /** The honest one-line trust label. The CLI MUST print this. */
-  trustLabel(): string;
   close(): Promise<void>;
 }
-
-/** `seq` IS the total order. The local log assigns it under an exclusive file lock. */
-export const orderKey = (e: LogEntry): string =>
-  `${e.topic}:${String(e.seq).padStart(12, '0')}`;
 
 /** Open the tree's log. This is the ONLY place a log is constructed. */
 export function openLog(cfg: PetriConfig, identity: Identity, root: string): ConsensusLog {
@@ -1478,7 +1467,7 @@ full, the hypothesis at its 240-byte cap and the reason at its 200-byte cap:
 | `VerificationSigned` | **749** |
 | `StatusChanged`, 4 verifiers | **911** |
 
-The field caps keep every message under 1 KB.
+The field caps keep each log line small.
 
 > **Reconciled.** One design put `diff` (a hash of the patch bytes) inside the node
 > id and in the log message. Petri removes it from both. Reason: a diff depends on the
@@ -1489,8 +1478,8 @@ The field caps keep every message under 1 KB.
 > commits to `harness` and `detail` instead.
 
 > **Reconciled.** The same design capped `verifiers` at 8 in `StatusChanged`. That
-> measures 1125 bytes, **the only message over 1 KB**. Petri caps it at 4, which
-> measures 911. The cap is on the advisory message only, not on how many
+> measures 1125 bytes. Petri caps it at 4, which measures 911, to keep the advisory
+> message small. The cap is on the advisory message only, not on how many
 > verifications a node may hold.
 
 > **Reconciled.** `NodeSubmitted` does not carry `harness` or `detail`. Both live
@@ -3414,7 +3403,7 @@ needs the behaviour imports it.
 | `src/trust/envelope.ts` | trust | `signingBytes`, `seal`, `openEnvelope`, `SignedEnvelope` |
 | `src/trust/report.ts` | trust | `VerificationReport`, `buildReport`, `checkReport`, `seedFor`, `reportId` |
 | `src/consensus/messages.ts` | consensus | `NodeSubmitted`, `VerificationSigned`, `StatusChanged`, `PetriMessage` |
-| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog`, `orderKey` |
+| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog` |
 | `src/consensus/local.ts` | consensus | `LocalLog`, the hash chain, the file lock |
 | `src/consensus/replay.ts` | consensus | `replay`, `ReplayNode`, `ReplayResult` |
 | `src/policy/acceptance.ts` | policy | `evaluate`, `Verdict`, `DecisionCode`, `NodeFacts` |
@@ -3917,7 +3906,7 @@ Every conflict between the four design tracks, the decision, and where it lives.
 | 11 | Replay nodes can never be accepted, versus the rule applies unchanged in replay. | A replay node **can** be accepted inside a replay tree. Cross-mode comparison stays banned in both directions. Design rule 6 needs acceptance to fire in the demo. | §9.6 |
 | 12 | Status cached in `node.json` versus derived on load. | Always derived. `index/` may cache it, and fsck check 11 compares. | §6.10 |
 | 13 | `diff` hashed into the node id versus excluded. | Excluded from the id and from the log message. It is display output, regenerated by fsck check 8. | §8.3 |
-| 14 | `StatusChanged.verifiers` capped at 8. | Capped at 4. Eight measured 1125 bytes, the only message over 1 KB. | §8.3 |
+| 14 | `StatusChanged.verifiers` capped at 8. | Capped at 4. Eight measured 1125 bytes; four measure 911. | §8.3 |
 | 15 | `NodeSubmitted` carrying `harness` and `detail`. | Neither. Both live in the manifest, which `node` commits to. It saves 100 to 150 bytes per message. | §8.3 |
 | 16 | Harness entry `solve(input) => {source, usage}` versus `solve(task, ctx) => Solution`. | `solve(task: TaskView, ctx: HarnessContext): Promise<Solution>`. Without `ctx` there is no budget, no trace and no seeded RNG. | §11.2 |
 | 17 | The contract in `src/` versus in `harness/`. | `harness/contract.ts`. The harness then imports nothing outside itself. | §11.2 |

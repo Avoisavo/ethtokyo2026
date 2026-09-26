@@ -1,108 +1,91 @@
 import type { ExportNode } from "../types";
 
 /**
- * ENS-style hierarchical names for tree versions.
+ * The ENS name of every tree version, on Sepolia ENSv2.
  *
- * Each version's label is its motif (already a short kebab-case slug), and its
- * name is that label on top of its parent's name, leaf first, like ENS:
+ * A tree is domain × harness × model, and its name reads the same way, leaf
+ * first: `claude-sonnet-5.petri-harness-v1.coding.petri.eth`. Under the tree
+ * are three folders. A version lives in the one that matches its status, and
+ * the platform moves it when the status changes:
  *
- *   petriharnessv1.petri.eth                 (the root: the harness itself)
- *   addsigs.petriharnessv1.petri.eth
- *   dropsigs.addsigs.petriharnessv1.petri.eth
+ *   v1.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth   accepted, or the baseline
+ *   v3.rejected.claude-sonnet-5.petri-harness-v1.coding.petri.eth   rejected
+ *   v9.pending.claude-sonnet-5.petri-harness-v1.coding.petri.eth    waiting for keys
  *
- * Every label says what that version does. Known motifs use ACTION_LABELS;
- * a new motif gets an automatic label from its slug (below).
- *
- * Each version adds one short label: the first two meaningful words of its
- * motif, joined with no dash, when they fit in MAX_LABEL characters
- * ("last-fence-not-first" → "lastfence"), otherwise the first word alone ("signatures-and-example" →
- * "signatures"). Filler words are skipped, and a root "genesis-v1" becomes "v1".
- *
- * Two siblings with the same motif get `2`, `3`… in the order they were
- * proposed, so every name is unique within its parent, as in a registry.
+ * `v<n>` counts versions in log order, so the number never changes. The
+ * `petri.parent` record says which version a version came from. The tree name
+ * holds `petri.v<n>` = the version id, so anyone can look a number up.
  */
 
 export const ENS_SUFFIX = "petri.eth";
 
-/**
- * Labels for known motifs, each saying what the version does. Read from the
- * hypothesis, not the slug: "positive-instructions" rewrites the rules as
- * do's, so it is "rewriterules". A motif not listed here falls back to toLabel.
- */
-const ACTION_LABELS: Record<string, string> = {
-  "signatures-and-example": "addsigs",
-  "drop-example": "dropsigs",
-  "restore-example": "restoresigs",
-  "replicate-signatures": "retestsigs",
-  "trim-prompt-tokens": "trimprompt",
-  "restore-after-trim": "restoresigs",
-  "restore-signatures-retest": "retestsigs",
-  "short-prompt": "shortprompt",
-  "positive-instructions": "rewriterules",
-  "read-test-file": "readtests",
-  "repair-turn": "retryempty",
-  "last-fence-not-first": "lastcodeblock",
-  "self-check-subprocess": "selftest",
-  "one-call-per-symbol": "callpersymbol",
-  "reserve-repair-budget": "repairbudget",
-  "widen-contract": "addtaskhints",
-};
+export type Folder = "accepted" | "rejected" | "pending";
+export const FOLDERS: Folder[] = ["accepted", "rejected", "pending"];
 
-/** Words that carry no idea, so they are skipped. */
-const FILLER = new Set([
-  "a", "an", "and", "the", "of", "to", "in", "on", "for", "with", "per", "after", "before", "not",
-  // Says nothing about the idea: "drop-example" is about dropping, so it becomes "drop".
-  "example",
-]);
-/** Longest label, so names stay short. */
-const MAX_LABEL = 14;
+/** The tree slug of the one real tree, as lib/trees.ts names it. */
+export const REAL_TREE = "coding--petri-harness-v1--claude-sonnet-5";
 
-/** A short, valid ENS label: lowercase letters and digits only, no dashes. */
-function toLabel(raw: string, fallback: string, isRoot: boolean): string {
-  let words = raw.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && !FILLER.has(w));
-  if (isRoot && words[0] === "genesis" && words.length > 1) words = words.slice(1);
-  if (words.length === 0) return fallback;
-  const two = words.slice(0, 2).join("");
-  return (two.length <= MAX_LABEL ? two : words[0]).slice(0, 63);
+/** The trees that are on chain. The others are showcase trees that stay off chain. */
+export const ONCHAIN_TREES = [REAL_TREE, "research--hermes-agent--claude-sonnet-5"];
+
+/** `coding--petri-harness-v1--claude-sonnet-5` → `claude-sonnet-5.petri-harness-v1.coding.petri.eth`. */
+export function treeName(slug: string): string {
+  const [domain, harness, model] = slug.split("--");
+  return `${model}.${harness}.${domain}.${ENS_SUFFIX}`;
 }
 
-/** The root's label: the harness name with every separator removed ("petri-harness-v1" → "petriharnessv1"). */
-const rootLabelOf = (harness: string): string => harness.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 63);
+/** The names from the domain down to the tree: `coding.petri.eth`, `petri-harness-v1.coding.petri.eth`, the tree. */
+export function treeLevels(slug: string): string[] {
+  const [domain, harness, model] = slug.split("--");
+  return [`${domain}.${ENS_SUFFIX}`, `${harness}.${domain}.${ENS_SUFFIX}`, `${model}.${harness}.${domain}.${ENS_SUFFIX}`];
+}
+
+export const folderName = (slug: string, folder: Folder): string => `${folder}.${treeName(slug)}`;
+
+/** The label of the version at `seq`, counted from 1. */
+export const versionLabel = (index: number): string => `v${index}`;
+
+/** Where a version lives. The root is the baseline everything is measured against, so it sits with the accepted ones. */
+export function folderOf(n: ExportNode): Folder {
+  if (n.parent === "root" || n.status === "accepted") return "accepted";
+  if (n.status === "rejected") return "rejected";
+  return "pending";
+}
+
+export const versionName = (slug: string, label: string, folder: Folder): string => `${label}.${folderName(slug, folder)}`;
+
+/** Where a name opens in the ENSv2 explorer (explorer.ens.dev), which indexes Sepolia. */
+export const ensAppUrl = (name: string): string => `https://explorer.ens.dev/${name}`;
+
+/** Map from node id to its label, `v<n>`, in `seq` order. */
+export function versionLabels(nodes: ExportNode[]): Map<string, string> {
+  const labels = new Map<string, string>();
+  [...nodes].sort((a, b) => a.seq - b.seq).forEach((n, i) => labels.set(n.id, versionLabel(i + 1)));
+  return labels;
+}
+
+/** Map from node id to its full ENS name, in the folder of its current status. */
+export function ensNames(nodes: ExportNode[], slug: string = REAL_TREE): Map<string, string> {
+  const labels = versionLabels(nodes);
+  const names = new Map<string, string>();
+  for (const n of nodes) names.set(n.id, versionName(slug, labels.get(n.id)!, folderOf(n)));
+  return names;
+}
+
+/** The short label of a name: `v3.rejected.…` → `v3`. */
+export const shortLabel = (name: string): string => name.split(".")[0];
+
+/** `v3.rejected.<tree>` → the same label in another folder. */
+export function moveName(name: string, folder: Folder): string {
+  const [label, , ...rest] = name.split(".");
+  return [label, folder, ...rest].join(".");
+}
 
 /**
- * Map from node id to its full ENS-style name. `harness` names the root, the
- * first version of the tree; without it the root falls back to its motif.
+ * The same versions, with `short` replaced by the ENS label (`v10`), for views
+ * that only display it. The real short id stays where a command needs it.
  */
-export function ensNames(nodes: ExportNode[], harness?: string): Map<string, string> {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-
-  // Unique label per node among its siblings, by proposal order.
-  const labels = new Map<string, string>();
-  const taken = new Map<string, Set<string>>();
-  for (const n of [...nodes].sort((a, b) => a.seq - b.seq)) {
-    const parentKey = byId.has(n.parent) ? n.parent : "";
-    const used = taken.get(parentKey) ?? new Set<string>();
-    const motif = n.detail.proposal.motif ?? "";
-    const isRoot = parentKey === "";
-    const base = (isRoot && harness && rootLabelOf(harness)) || ACTION_LABELS[motif] || toLabel(motif, n.short, isRoot);
-    let label = base;
-    for (let k = 2; used.has(label); k++) label = `${base}${k}`;
-    used.add(label);
-    taken.set(parentKey, used);
-    labels.set(n.id, label);
-  }
-
-  const names = new Map<string, string>();
-  const nameOf = (id: string, seen: Set<string>): string => {
-    const cached = names.get(id);
-    if (cached) return cached;
-    const n = byId.get(id)!;
-    // A missing parent (or a cycle, which should never happen) ends the chain at the suffix.
-    const parent = byId.has(n.parent) && !seen.has(n.parent) ? nameOf(n.parent, seen.add(id)) : ENS_SUFFIX;
-    const name = `${labels.get(id)}.${parent}`;
-    names.set(id, name);
-    return name;
-  };
-  for (const n of nodes) nameOf(n.id, new Set());
-  return names;
+export function withVersionLabels<T extends ExportNode>(nodes: T[]): T[] {
+  const labels = versionLabels(nodes);
+  return nodes.map((n) => ({ ...n, short: labels.get(n.id) ?? n.short }));
 }
