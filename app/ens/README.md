@@ -59,7 +59,11 @@ app/ens/_lib/hooks/                 useTx, useMyResolver, useNameInfo, …
 app/ens/_lib/relay/                 Keyless relay bundles and tokens (npm run test:ens)
 scripts/gen-ens-abis.mjs            Regenerates app/ens/_lib/ens/abis + deployments.ts (npm run gen:ens-abis)
 scripts/ens-publish.ts              Writes the Petri tree's records to petri.eth's resolver (npm run ens:publish)
-app/api/ens-plan/route.ts           The names and records to publish, for section 8
+app/api/ens/plan/route.ts           The names and records to publish, for section 8
+app/api/ens/records/route.ts        Each version name's text records, for the tree page
+lib/ens/                            Version names, the record schema and the resolver reader
 ```
+
+How the Petri tree uses ENS (names, records, publishing) is in `lib/ens/README.md`.
 
 Folders starting with `_` are private in the App Router: they hold code, not routes.
