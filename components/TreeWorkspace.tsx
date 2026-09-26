@@ -3,20 +3,20 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import type { ExportNode, ExportVerification, HederaTopic } from "@/lib/types";
+import { ensNames } from "@/lib/ens-name";
+import type { ExportNode } from "@/lib/types";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
 import { LineageHero } from "./LineageHero";
 import { NodePanel } from "./NodePanel";
 import { TreeView } from "./TreeView";
+import { useEnsRecords } from "./useEnsRecords";
 
 interface Props {
   nodes: ExportNode[];
   forest: Forest;
   initial: string;
   minVerifications: number;
-  /** The smallest delta that counts as a win, from the tree's policy. */
-  minDeltaBp?: number;
   benchTotal: number;
   /** Rendered beside the full record. */
   info: ReactNode;
@@ -24,8 +24,8 @@ interface Props {
   stats: ReactNode;
   /** Which view opens first. `?view=stats` or `?view=compare` sets it. */
   initialView?: View;
-  /** The Hedera topic that holds a copy of every record. */
-  hedera?: HederaTopic | null;
+  /** The harness key, e.g. "petri-harness-v1". Names the root in ENS-style names. */
+  harness?: string;
 }
 
 type View = "tree" | "stats" | "compare";
@@ -58,93 +58,6 @@ function showAsPending(nodes: ExportNode[], prefix: string): ExportNode[] {
   });
 }
 
-/** A signed verification as it arrives from the Hedera topic. */
-type WireVerification = {
-  seq: number;
-  timestamp: string;
-  pub: string;
-  body: {
-    type: "VerificationSigned";
-    node: string;
-    parent: string;
-    report: string;
-    mode: "live" | "replay";
-    runs: number;
-    clean: boolean;
-    spreadBp: number;
-    deltaMedianBp: number;
-    candMedianBp: number;
-    parentMedianBp: number;
-  };
-};
-
-/**
- * Add verifications that arrived on the Hedera topic after the page loaded.
- *
- * The deployed site reads a saved snapshot, so a verification run anywhere shows
- * up here only through the public topic. The same rule as the engine counts it:
- * never the author's key, one vote per key, and the version's own mode. The
- * status changes only in the two clear cases: every counted delta at or above
- * the margin (accepted), or every one at or below minus the margin (rejected).
- * `petri status` in the engine stays the authority.
- */
-function applyLive(
-  nodes: ExportNode[], arrived: WireVerification[], minVerifications: number, minDeltaBp: number, total: number,
-): ExportNode[] {
-  if (arrived.length === 0) return nodes;
-  return nodes.map((n) => {
-    const keys = new Set(n.verifications.filter((v) => v.counted).map((v) => v.runner));
-    const added: ExportVerification[] = [];
-    for (const w of arrived) {
-      const b = w.body;
-      if (b.node !== n.id || w.pub === n.author || keys.has(w.pub) || b.mode !== n.mode || !b.clean) continue;
-      keys.add(w.pub);
-      added.push({
-        reportId: b.report,
-        runner: w.pub,
-        runnerLabel: "",
-        counted: true,
-        ignoredWhy: "",
-        mode: b.mode,
-        runs: b.runs,
-        clean: b.clean,
-        spreadBp: b.spreadBp,
-        deltaMedianBp: b.deltaMedianBp,
-        parent: { node: b.parent, medianBp: b.parentMedianBp, total, runs: [] },
-        candidate: { node: b.node, medianBp: b.candMedianBp, total, runs: [] },
-        hedera: { seq: w.seq, txId: "", timestamp: w.timestamp },
-      });
-    }
-    if (added.length === 0) return n;
-    const verifications = [...n.verifications, ...added];
-    const deltas = verifications.filter((v) => v.counted).map((v) => v.deltaMedianBp);
-    const enough = deltas.length >= minVerifications;
-    if (enough && deltas.every((d) => d >= minDeltaBp)) {
-      const worst = Math.min(...deltas);
-      return {
-        ...n,
-        verifications,
-        status: "accepted",
-        statusCode: "WIN",
-        statusReason: `${deltas.length} verifications from distinct keys, every one at or above +${minDeltaBp}bp. Worst delta +${worst}bp.`,
-        verifiedDeltaBp: worst,
-      };
-    }
-    if (enough && deltas.every((d) => d <= -minDeltaBp)) {
-      const best = Math.max(...deltas);
-      return {
-        ...n,
-        verifications,
-        status: "rejected",
-        statusCode: "REGRESSION",
-        statusReason: `${deltas.length} verifications from distinct keys, every one at or below -${minDeltaBp}bp.`,
-        verifiedDeltaBp: best,
-      };
-    }
-    return { ...n, verifications };
-  });
-}
-
 /**
  * STAGE SIMULATION. Pressing Space shows the SELECTED version as accepted by two
  * keys. It changes this browser tab only. Nothing is written, no record is
@@ -157,8 +70,6 @@ function simulateAccepted(nodes: ExportNode[], targetId: string): ExportNode[] {
     const verifications = template.slice(0, 2).map((v, i) => ({
       ...v,
       reportId: `simulated-${i}`,
-      // A simulated check has no record on Hedera, so it must not link to one.
-      hedera: null,
       counted: true,
       ignoredWhy: "",
       deltaMedianBp: 1000,
@@ -181,59 +92,29 @@ function simulateAccepted(nodes: ExportNode[], targetId: string): ExportNode[] {
   });
 }
 
-export function TreeWorkspace({ nodes: recorded, forest, initial, minVerifications, minDeltaBp = 1000, benchTotal, info, stats, initialView = "tree", hedera = null }: Props) {
+export function TreeWorkspace({ nodes: recorded, forest, initial, minVerifications, benchTotal, info, stats, initialView = "tree", harness }: Props) {
   const [selected, setSelected] = useState(initial);
   const [view, setView] = useState<View>(initialView);
   const [simulatedId, setSimulatedId] = useState<string | null>(null);
   // True until a new record arrives from the engine in this tab.
   const [beforeUpdate, setBeforeUpdate] = useState(true);
-  // Signed verifications that reached the Hedera topic after this page loaded.
-  const [arrived, setArrived] = useState<WireVerification[]>([]);
-  const [toast, setToast] = useState<string | null>(null);
 
   const nodes = useMemo(() => {
     const base = beforeUpdate ? showAsPending(recorded, DEMO_PENDING) : recorded;
-    const live = applyLive(base, arrived, minVerifications, minDeltaBp, benchTotal);
-    return simulatedId === null ? live : simulateAccepted(live, simulatedId);
-  }, [beforeUpdate, arrived, simulatedId, recorded, minVerifications, minDeltaBp, benchTotal]);
+    return simulatedId === null ? base : simulateAccepted(base, simulatedId);
+  }, [beforeUpdate, simulatedId, recorded]);
 
-  // Watch the public topic. The first answer only sets the starting point, so a
-  // refresh shows the tree as it was, and each new verify run appears when it lands.
+  const names = useMemo(() => ensNames(nodes, harness), [nodes, harness]);
+  // Every version's record, read from its ENS name. A showcase tree is never looked up.
+  const ens = useEnsRecords([...names.values()], !recorded.some((n) => n.showcase));
+
+  // The demo version shows its real status once a new record is written.
+  // LiveRefresh announces that, then refreshes the page with the new record.
   useEffect(() => {
-    if (hedera === null) return;
-    let after = -1;
-    let stopped = false;
-    const poll = async (): Promise<void> => {
-      try {
-        const res = await fetch(
-          `/api/hedera-feed?topic=${hedera.topicId}&network=${hedera.network}&after=${after}`,
-          { cache: "no-store" },
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as { latest: number; messages: WireVerification[] };
-        if (after >= 0) {
-          const verifs = data.messages.filter((m) => (m.body as { type?: string }).type === "VerificationSigned");
-          if (verifs.length > 0 && !stopped) {
-            const last = verifs[verifs.length - 1]!;
-            setArrived((prev) => [...prev, ...verifs]);
-            setBeforeUpdate(false);
-            setToast(`Verified by another key — on Hedera #${last.seq}`);
-            window.setTimeout(() => { if (!stopped) setToast(null); }, 4000);
-          }
-        }
-        after = Math.max(after, data.latest);
-      } catch {
-        // The mirror node or the network is down. The next poll tries again.
-      }
-    };
-    void poll();
-    const timer = window.setInterval(() => void poll(), 3000);
-    return () => { stopped = true; window.clearInterval(timer); };
-  }, [hedera]);
-
-  // The demo version changes colour only when its record is on Hedera, never on
-  // the local file change alone. LiveRefresh announces the file change; the
-  // Hedera watcher below makes the switch.
+    const onDetected = () => setBeforeUpdate(false);
+    window.addEventListener("petri:detected", onDetected);
+    return () => window.removeEventListener("petri:detected", onDetected);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -247,8 +128,12 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
   }, [selected]);
 
   const node = nodes.find((n) => n.id === selected) ?? nodes[0]!;
-  const parent = nodes.find((n) => n.id === node.parent) ?? null;
-  const shared = { forest, nodes, selected: node.id, onSelect: setSelected, benchTotal, minVerifications };
+  // The status on screen is a stage-demo override, not the record, so the panel
+  // does not call the ENS copy stale.
+  const staged = simulatedId === node.id
+    || (beforeUpdate && DEMO_PENDING.length > 0 && node.id.startsWith(DEMO_PENDING)
+      && recorded.find((n) => n.id === node.id)?.status === "accepted");
+  const shared = { forest, nodes, selected: node.id, onSelect: setSelected, benchTotal, minVerifications, harness };
 
   return (
     <>
@@ -275,7 +160,7 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
 
           <div className={`selected-strip s-${node.status}`} aria-live="polite">
             <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
-            <span className="sel-word">{wordOf(node)} · {node.short}</span>
+            <span className="sel-word" title={node.short}>{wordOf(node)} · {names.get(node.id)}</span>
             <span className="sel-hyp">{clip(node.hypothesis, 96)}</span>
             <span className="sel-num">{nodeNumbers(node, nodes, benchTotal, minVerifications)}</span>
             <a href="#record">Full record ↓</a>
@@ -288,8 +173,9 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
       )}
 
       <section id="record" className="record">
-        <NodePanel node={node} parent={parent} nodes={nodes} minVerifications={minVerifications}
-          benchTotal={benchTotal} onSelect={setSelected} hedera={hedera}
+        <NodePanel node={node} nodes={nodes} harness={harness} minVerifications={minVerifications}
+          benchTotal={benchTotal} onSelect={setSelected}
+          ens={{ state: ens.state, lookup: ens.byName.get(names.get(node.id)!) }} staged={staged}
           onVerifyCopied={() => {
             // STAGE DEMO. Copying the verify command shows this version accepted,
             // the same simulation the Space key does. Display only, in this tab.
@@ -298,7 +184,6 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
           }} />
         <div className="record-info">{info}</div>
       </section>
-      {toast !== null && <div className="live-toast" role="status">{toast}</div>}
     </>
   );
 }
