@@ -47,3 +47,4 @@ next-env.d.ts
 
 # The harness market secrets: file keys and counters
 .market/
+/bought

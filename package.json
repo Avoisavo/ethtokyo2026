@@ -18,7 +18,8 @@
     "test:intercepta": "tsx --test \"lib/intercepta/**/*.test.ts\" \"lib/pay/**/*.test.ts\"",
     "ens:setup": "tsx scripts/ens-setup.ts",
     "market:smoke": "tsx scripts/market-smoke.ts",
-    "ens:tree": "tsx scripts/ens-tree.ts"
+    "ens:tree": "tsx scripts/ens-tree.ts",
+    "agent:buy": "tsx --env-file-if-exists=.env.local scripts/agent-buy.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^2.4.0",
