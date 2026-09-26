@@ -147,51 +147,107 @@ git clean -fd petri/.petri
 
 ---
 
-## ENS: every version's record on its name
+## ENS: every version is a name on ENSv2
 
-Each version has an ENS name under `petri.eth`. The name reads from the version up to the root:
+Every tree, every version and every check is a real subname on ENSv2 (Sepolia), under `petri.eth`.
+A tree is domain × harness × model, and its name reads the same way, leaf first. Under each tree
+are three folders. A version lives in the folder that matches its status, and the platform moves
+it when the status changes.
 
-| Version | Name |
+```
+petri.eth
+│
+├─ coding.petri.eth
+│  └─ petri-harness-v1.coding.petri.eth
+│     └─ claude-sonnet-5.petri-harness-v1.coding.petri.eth         the tree
+│        │   petri.v1 … petri.v18 = the version ids
+│        │
+│        ├─ accepted.…    v1 (baseline)  v2  v8  v13  v15
+│        ├─ rejected.…    v3  v14
+│        └─ pending.…     v4  v5  v6  v7  v9  v10  v11  v12  v16  v17  v18
+│
+└─ research.petri.eth
+   └─ hermes-agent.research.petri.eth
+      └─ claude-sonnet-5.hermes-agent.research.petri.eth           the tree (example data)
+         ├─ accepted.…    v1 (baseline)  v2  v3  v5  v8  v10
+         ├─ rejected.…    v4  v6  v7  v11  v13
+         └─ pending.…     v9  v12
+```
+
+`v<n>` counts versions in log order, so a number never changes. The tree name holds
+`petri.v<n>` = the version id, so anyone can look a number up. The baseline `v1` sits in
+`accepted`, because every other version is measured against it.
+
+### The records of a version
+
+For example `v2.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth`:
+
+| Key | Value |
 |---|---|
-| `0a54718a` (the root) | `petriharnessv1.petri.eth` |
-| `ecc7cdb0` | `addsigs.petriharnessv1.petri.eth` |
-| `872aaa3d` | `dropsigs.addsigs.petriharnessv1.petri.eth` |
+| `description` | The hypothesis, in the standard key, so any ENS app shows it |
+| `petri.id` | The version id (SHA-256 of its manifest) |
+| `petri.parent` | The parent version id. Empty on the baseline. |
+| `petri.status` | `accepted`, `rejected`, `pending` or `baseline` |
+| `petri.score` | `19/20`: tasks passed, median of 5 runs |
+| `petri.delta` | `+7000bp`: the change against the parent, measured by other keys |
+| `petri.verifier.1`, `petri.verifier.2` | The two keys that re-ran it and counted |
+| `petri.cost` | `1141 tokens/task`, so the trade-off is on chain next to the gain |
 
-The name's resolver holds the version's record as text records. The node panel on the tree page
-reads them, and any ENS client can read the same record.
+### A pending version in a round
 
-| Key | What it holds |
-|---|---|
-| `description` | The hypothesis |
-| `petri.id`, `petri.parent` | The version id (SHA-256 of its manifest) and its parent's id |
-| `petri.status`, `petri.verdict`, `petri.reason` | The status, the engine's code (for example `WIN`) and the reason |
-| `petri.score`, `petri.score-source`, `petri.bench` | The score in basis points, where it comes from (`author`, `rerun` or `predicted`), and the number of tasks |
-| `petri.delta`, `petri.keys`, `petri.min-keys`, `petri.checks` | The checked change, the counted keys, the keys needed, and each check by another key as JSON |
-| `petri.tokens` | Median tokens per task |
-| `petri.falsified-if`, `petri.area`, `petri.motif`, `petri.metric`, `petri.mode`, `petri.blocked` | How it could be proven wrong, and its tags |
+Only a pending version has names under it. When it is submitted, the platform opens one round:
 
-ENSv2 runs on Sepolia. One resolver on `petri.eth` serves every version name. It stores records per
-full name and answers wildcard lookups, so no subname registry is needed.
+```
+v18.pending.…                              the encrypted files: petri.doc.<file>
+└─ round.v18.pending.…                     open 5 minutes · the pool · the random seed
+   ├─ verifier1.round.v18.pending.…        owned by the verifier's wallet · sealed file key · vote
+   └─ verifier2.round.v18.pending.…
+```
 
-1. Set up `petri.eth` once in the ENS playground at http://localhost:3000/ens. Mint test USDC and
-   deploy your resolver (section 1), register `petri.eth` (section 2), then point it at your
-   resolver (section 3).
-2. See what would be written. This needs no key:
+1. Anyone with a wallet joins the pool while the round is open. A verifier with a fresh World ID
+   approval gets weight 3, without it weight 1.
+2. The platform picks up to 5 verifiers at random by weight. The seed is written on the round,
+   so anyone can replay the pick.
+3. Each picked verifier gets a subname with the file key sealed to their key. They decrypt the
+   files, run the version, and write `petri.vote` with their own wallet. Nobody else can write it.
+4. The round closes. The verifier names are burned, so their keys stop resolving. The version
+   moves to `accepted.…` or `rejected.…`, with the verifiers' wallets in its records.
 
-   ```bash
-   npm run ens:publish -- --dry-run
-   ```
+After that, a user can pay once for an accepted version and get `buyer1.v18.accepted.…`, owned by
+their wallet, with the file key sealed to them.
 
-3. Put the same account's key in `.env.local` as `PETRI_ENS_PRIVATE_KEY`, then write:
+### Who can do what, and for how long
 
-   ```bash
-   npm run ens:publish
-   ```
+| Name | Who can write it | Expires |
+|---|---|---|
+| `petri.eth`, the domain, harness and tree names | The platform wallet only | 1 year, renewable |
+| `accepted`, `rejected`, `pending` | The platform wallet only | 1 year |
+| A version, `v2.accepted.…` | The platform wallet only | 1 year |
+| `round.v18.pending.…` | The platform: the pool and the seed | 5 minutes after it opens |
+| `verifier1.round.…` | Owned by the verifier's wallet. It alone writes `petri.vote`. It cannot be transferred. | 10 minutes after the pick |
+| `buyer1.v18.accepted.…` | Owned by the buyer's wallet. It cannot be transferred. | 30 days |
 
-The script writes only the records that differ from ENS, 60 per transaction, then reads them back.
-Run it again after new checks to update the verdicts. Section 8 of `/ens` does the same from a
-browser wallet. Until `petri.eth` has a resolver, every lookup comes back empty and the panel
-shows the local log.
+Every name is registered with no roles, so nobody can transfer it. Every registry names its parent
+(`setParent`), and the ENSv2 Universal Resolver walks from `petri.eth` down.
+
+### Run it
+
+```bash
+npm run ens:setup       # once: resolver, the petri.eth registry, register petri.eth
+npm run ens:tree        # both trees: names, folders, versions, records. Safe to re-run.
+npm run market:smoke -- ae0acec3   # one full round on Sepolia: submit, join, pick, vote, close
+```
+
+Each needs `PETRI_ENS_PRIVATE_KEY` in `.env.local`, and Sepolia ETH on that wallet. `ens:tree`
+writes only what differs from the chain, and moves a version whose status changed.
+
+### The explorer
+
+[explorer.ens.dev](https://explorer.ens.dev/petri.eth) shows the owner, resolver and records live
+from the chain. Its subname lists and history come from an indexer, `staging-graphql.ens.dev`.
+On 2026-09-26 that indexer stopped at Sepolia block 11787289 (16:11 UTC), before `petri.eth` was
+registered, so those two parts stay empty until it restarts. The tree page on this site reads every
+name through the Universal Resolver and does not depend on it.
 
 The full guide, with the API and every file, is `lib/ens/README.md`.
 
