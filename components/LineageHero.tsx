@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { changesOf, fmtPct, metricOf, tradeOffOf } from "@/lib/metrics";
 import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -136,30 +136,26 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
           // performance, token savings, speed. A version that was never measured shows the
           // direction it aimed for.
           const t = tradeOffOf(n, nodes, benchTotal);
-          if (!t) {
-            const local = changesOf(n, nodes).local;
-            const label = local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(local)} (claimed)`;
-            const w = label.length * 5.5 + 14;
-            return (
-              <g key={`o-${n.id}`} className="objective">
-                <rect x={b.x - R - 10 - w} y={b.y - 8} width={w} height={16} rx={8} />
-                <text x={b.x - R - 10 - w / 2} y={b.y + 3.2} textAnchor="middle">{label}</text>
-              </g>
-            );
-          }
-          const rows: [TradeKind, number][] = [["perf", t.perf], ["tokens", t.tokens], ["speed", t.speed]];
+          const claimed = t === null;
+          // Never measured: the author's claimed gain on its own direction, and nothing for the other two.
+          const claim = claimed ? changesOf(n, nodes).local : null;
+          const rows: [TradeKind, number | null][] = t
+            ? [["perf", t.perf], ["tokens", t.tokens], ["speed", t.speed]]
+            : [["perf", metricOf(objectiveOf(n)) === "score" ? claim : null], ["tokens", metricOf(objectiveOf(n)) === "tokens" ? claim : null], ["speed", metricOf(objectiveOf(n)) === "time" ? claim : null]];
           const w = 64;
           const h = rows.length * 13 + 6;
           const x0 = b.x - R - 10 - w;
           const y0 = b.y - h / 2;
           return (
-            <g key={`o-${n.id}`} className="objective tradeoff">
-              <title>{`performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent`}</title>
+            <g key={`o-${n.id}`} className={`objective tradeoff${claimed ? " claimed" : ""}`}>
+              <title>{t
+                ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent`
+                : `claimed by the author, never measured: ${objectiveOf(n)} ${fmtPct(claim)}`}</title>
               <rect x={x0} y={y0} width={w} height={h} rx={7} />
               {rows.map(([kind, v], i) => {
                 const cy = y0 + 9.5 + i * 13;
                 return (
-                  <g key={kind} className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
+                  <g key={kind} className={claimed || v === null ? "flat" : v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
                     <TradeIcon kind={kind} x={x0 + 10} y={cy} />
                     <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{fmtPct(v)}</text>
                   </g>

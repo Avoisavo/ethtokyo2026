@@ -545,4 +545,6 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .legend-trade .t-icon rect, .legend-trade .t-icon circle.t-outer { fill: var(--ink-mid); stroke: var(--ink-mid); }
 .legend-trade .t-icon circle.t-inner, .legend-trade .t-icon path { stroke: var(--paper); }
 .tradeoff .up text { fill: var(--pass); font-weight: 600; }
+.tradeoff.claimed > rect { stroke-dasharray: 3 3; }
+.tradeoff.claimed text { fill: var(--ink-faint); font-style: italic; }
 .tradeoff .down text { fill: var(--fail); font-weight: 600; }
