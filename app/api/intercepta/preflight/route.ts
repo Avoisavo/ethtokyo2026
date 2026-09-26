@@ -56,7 +56,7 @@ export async function GET() {
   }
 
   const verifier = getVerifierConfig();
-  let verifierInfo: { payTo: string; relayer: string; rogue: string; fee: string; greedyFee: string; screenPayer: boolean } | null = null;
+  let verifierInfo: { payTo: string; relayer: string; rogue: string; fee: string; markdownFee: string; greedyFee: string; screenPayer: boolean } | null = null;
   if (!verifier.ok) {
     for (const p of verifier.problems) checks.push({ id: `verifier:${p.name}`, label: "Verifier", status: "blocked", detail: `${p.name}: ${p.issue}`, fix: p.fix });
   } else {
@@ -66,6 +66,7 @@ export async function GET() {
       relayer: v.relayerAddress,
       rogue: v.rogue.payTo,
       fee: formatUsdc(v.feeAtomic),
+      markdownFee: formatUsdc(v.markdownFeeAtomic),
       greedyFee: formatUsdc(v.greedy.feeAtomic),
       screenPayer: v.screenPayer,
     };
