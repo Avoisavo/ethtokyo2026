@@ -152,7 +152,7 @@ export function registerInit(program: Command): void {
       out(`  tree      ${parsed.data.treeId}`);
       out(`  bench     ${parsed.data.bench.name}  ${benchId.slice(0, 12)}  ${spec.total} tasks`);
       out(`  mode      ${parsed.data.mode}`);
-      out(`  ledger    ${parsed.data.ledger}  (trust ${trustLabel(parsed.data)})`);
+      out(`  ledger    ${parsed.data.ledger}  (trust ${trustLabel()})`);
       out(
         `  identity  ${ctx.identity().runnerId.slice(0, 12)}  ` +
           `${identityCreated ? 'created' : 'reused'}  ${identityPath(root)}`,
