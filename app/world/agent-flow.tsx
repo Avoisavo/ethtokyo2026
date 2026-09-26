@@ -67,6 +67,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
   const [log, setLog] = useState<LogRow[]>([]);
   const [executed, setExecuted] = useState<{ at: number; receipt: string; task: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
 
   const runPreflight = useCallback(async () => {
     setPreBusy(true);
@@ -91,7 +92,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
           path: PATH_LABEL[a.status] ?? a.status,
           code: a.code ?? a.status,
           detail: a.detail ?? "",
-          stoppedBy: a.status === "denied" ? "Human (World ID app)" : a.status === "cancelled" ? "Agent" : "Backend",
+          stoppedBy: a.status === "denied" ? "Human (World approval page)" : a.status === "cancelled" ? "Agent" : "Backend",
         },
         ...prev,
       ]);
@@ -178,8 +179,16 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
   }, []);
 
   const resetOwner = useCallback(async () => {
-    await fetch("/api/agent/reset", { method: "POST" });
-    await runPreflight();
+    setBusy("reset");
+    try {
+      await fetch("/api/agent/reset", { method: "POST" });
+      await runPreflight();
+      setResetMsg(
+        `Owner cleared at ${new Date().toLocaleTimeString()}. The next approval binds a new owner. To test a different human, bind one World ID first, then approve the next request with another.`,
+      );
+    } finally {
+      setBusy(null);
+    }
   }, [runPreflight]);
 
   /* ------------------------------------------------------------------ status */
@@ -233,7 +242,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
         <span className="tag tag-real">Best Use of World ID for Agents · sections 6–11</span>
         <h2 className={s.colTitle}>An AI agent can&apos;t spend your money until you approve it with World ID</h2>
         <p className={s.lede}>
-          Before running a payment, the agent asks for approval. You approve in the World ID app with a fresh proof. The
+          Before running a payment, the agent asks for approval. You approve on World&apos;s approval page with a fresh proof (mocked in the event sandbox). The
           backend validates the ID token and checks that the approver is the agent&apos;s owner. Only then does the
           action run.
         </p>
@@ -332,7 +341,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
               <QRCodeSVG value={attempt.verificationUriComplete} size={148} marginSize={2} />
             </div>
             <div className={s.approvalText}>
-              <div className="muted">Scan with your phone or open the link, then approve in the World ID app.</div>
+              <div className="muted">Open the link (or scan with your phone camera) and approve on World&apos;s page. Check the code matches.</div>
               <div className={s.userCode}>{attempt.userCode}</div>
               <a href={attempt.verificationUriComplete} target="_blank" rel="noreferrer">
                 Open approval link ↗
@@ -427,7 +436,7 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
         }
       >
         <p>
-          To test these: tap <strong>Deny</strong> in the World ID app, choose the 30 s window and let it expire, click{" "}
+          To test these: click <strong>Deny</strong> on World&apos;s approval page, choose the 30 s window and let it expire, click{" "}
           <strong>Cancel request</strong>, or send a forged token to the real validator. To test a different human,
           reset the owner and approve from another World ID.
         </p>
@@ -435,10 +444,11 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
           <button className="btn" onClick={forged} disabled={!config.ok || busy != null}>
             {busy === "forged" ? "Sending…" : "Forged ID token"}
           </button>
-          <button className="btn" onClick={resetOwner} disabled={!config.ok}>
-            Reset agent owner
+          <button className="btn" onClick={resetOwner} disabled={!config.ok || busy != null}>
+            {busy === "reset" ? "Resetting…" : "Reset agent owner"}
           </button>
         </div>
+        {resetMsg ? <p className="muted">{resetMsg}</p> : null}
         {log.length > 0 ? (
           <table className={s.table}>
             <thead>
