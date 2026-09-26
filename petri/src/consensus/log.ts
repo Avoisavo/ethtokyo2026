@@ -40,7 +40,7 @@ export interface PublishReceipt {
   /**
    * True when this message reached the local log only.
    *
-   * SPEC.md section 8.10: a local log proves authorship and integrity. It proves
+   * SPEC.md section 8.8: a local log proves authorship and integrity. It proves
    * NOTHING about time, non-deletion or independence. The CLI MUST print
    * `warning` whenever this flag is true. There is no flag to hide it.
    */
