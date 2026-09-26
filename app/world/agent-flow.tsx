@@ -471,12 +471,14 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
       </Section>
 
       {/* ------------------------------------------------------------ 11 */}
-      <Section n={11} title="Integration debrief" status="pass" statusText="Draft, fill in after the first run">
+      <Section n={11} title="Integration debrief" status="pass" statusText="Written">
         <dl className={s.debrief}>
           <dt>Time to first success</dt>
           <dd>
-            To be filled in after the first approved request. The client registration and code took about one working
-            session.
+            One working session on 2026-09-26: reading the guides, registering the client, writing the device flow and
+            JWKS validation. The first approved and validated request ran the agent action at 7:28 PM local time. The
+            only failed attempt before it was approving an old, already-cancelled code by mistake. The backend correctly
+            ignored that one.
           </dd>
           <dt>Friction</dt>
           <dd>
@@ -500,8 +502,8 @@ export default function AgentFlow({ config }: { config: AgentPageConfig }) {
             <ul>
               <li>We found no official JS helper for the device grant plus ID-token validation, so we wrote the JWKS check ourselves.</li>
               <li>
-                No binding message: the human can&apos;t see <em>what</em> the agent wants to do on the approval screen,
-                only who is asking.
+                No binding message. The approval page shows only the user code, not <em>what</em> the agent wants to
+                do. With two requests open, it&apos;s easy to approve the wrong one, which happened to us.
               </li>
             </ul>
           </dd>
