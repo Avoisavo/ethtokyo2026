@@ -342,11 +342,9 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
       <TradeCtx.Provider value={tradeOf}>
       <figure className="cmp-figure">
         <div className="plate compare-plate">
-          <div className="cmp-pair">
-            <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
-            <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
-          </div>
+          <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
           <Axes3D {...shared} links={links} lineage={lineage} />
+          <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
         </div>
         <div className="legend">
           <span><svg width="14" height="14" aria-hidden="true"><Glyph status="accepted" cx={7} cy={7} r={5} /></svg>Accepted</span>
