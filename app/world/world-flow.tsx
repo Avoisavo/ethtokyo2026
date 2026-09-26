@@ -23,7 +23,7 @@ import s from "./world.module.css";
  */
 
 /** IDKit pulls in WASM, so keep it out of the server bundle. */
-const LiveSelfieCheck = dynamic(() => import("../face/live-widget"), {
+const LiveSelfieCheck = dynamic(() => import("./live-widget"), {
   ssr: false,
 });
 
