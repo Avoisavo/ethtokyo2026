@@ -192,7 +192,7 @@ export function buildShowcaseTree(t: ShowcaseTree): PetriExport {
   return {
     showcase: true, protocol: "petri/export/1", generatedAt: 0, tree: t.key,
     mode: "live", trust: "local-unverified",
-    ledger: { kind: "local", lastSeq: 0, topicId: "" },
+    ledger: { kind: "local", lastSeq: 0 },
     bench: { id: t.key, name: t.benchName, total: t.total },
     policy: { minDeltaBp: MARGIN, minRuns: 5, minVerifications: 2, maxRunSpreadBp: 3000, maxRunnerDisagreementBp: 1000 },
     runsPerVerification: 5,

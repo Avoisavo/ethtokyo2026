@@ -8,22 +8,8 @@ export interface RunRecord { passed: number; scoreBp: number; tokens: number; wa
 
 export interface Side { node: string; medianBp: number; total: number; runs: RunRecord[] }
 
-/** Where one record sits on the Hedera topic. */
-export interface HederaRef {
-  seq: number;
-  txId: string;
-  /** Consensus time from the mirror node. Null until `petri hedera check` reads it. */
-  timestamp: string | null;
-}
-
-export interface HederaTopic {
-  topicId: string;
-  network: string;
-}
-
 export interface ExportVerification {
   reportId: string;
-  hedera?: HederaRef | null;
   runner: string;
   runnerLabel: string;
   counted: boolean;
@@ -57,7 +43,7 @@ export interface ExportNode {
   verifiedDeltaBp: number | null;
   disputed: boolean;
   mode: "live" | "replay";
-  trust: "hcs" | "local-unverified";
+  trust: "local-unverified";
   detail: {
     proposal: {
       hypothesis: string;
@@ -78,8 +64,6 @@ export interface ExportNode {
   diff: string;
   verifications: ExportVerification[];
   costs: { medianTokens: number; medianWallMs: number; tokensPerTask: number };
-  /** The NodeSubmitted record on the Hedera topic. */
-  hedera?: HederaRef | null;
 }
 
 export interface PetriExport {
@@ -89,10 +73,8 @@ export interface PetriExport {
   generatedAt: number;
   tree: string;
   mode: "live" | "replay";
-  trust: "hcs" | "local-unverified";
-  ledger: { kind: "hcs" | "local"; lastSeq: number; topicId: string };
-  /** The Hedera topic that holds a copy of every record. */
-  hedera?: HederaTopic | null;
+  trust: "local-unverified";
+  ledger: { kind: "local"; lastSeq: number };
   bench: { id: string; name: string; total: number };
   policy: {
     minDeltaBp: number;
