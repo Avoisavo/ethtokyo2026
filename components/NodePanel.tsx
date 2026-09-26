@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { isBlocked, wordOf } from "@/lib/format";
-import { ensNames } from "@/lib/ens-name";
-import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens-records";
+import { ensNames } from "@/lib/ens/name";
+import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
 import { explorerAddress } from "@/app/ens/_lib/ens/contracts";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
