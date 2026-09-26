@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { isBlocked, wordOf } from "@/lib/format";
-import { REAL_TREE, ensAppUrl, ensNames } from "@/lib/ens/name";
-import { BuyPanel } from "./BuyPanel";
+import { ensAppUrl, ensNames } from "@/lib/ens/name";
 import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
 import { explorerAddress } from "@/app/ens/_lib/ens/contracts";
 import type { ExportNode } from "@/lib/types";
@@ -98,8 +97,6 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
           </dl>
         </div>
       </section>
-
-      {harness === REAL_TREE && name.split(".")[1] === "accepted" && <BuyPanel id={node.id} name={name} />}
 
       <Fork parentId={node.short} area={p.primaryArea} />
 
