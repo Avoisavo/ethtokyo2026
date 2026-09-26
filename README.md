@@ -40,6 +40,8 @@ tag `pre-ethtokyo2026`.
 | **Recorded tree** | 16 versions: 3 accepted, 2 rejected, 11 pending | 18 versions, `v1` to `v18`: the baseline, 4 accepted, 2 rejected, 11 pending |
 | **Tests** | 102 engine tests | 100 engine tests, 55 web tests, and the Intercepta tests |
 
+Every transaction behind the Now column is linked in [Proof on chain](#proof-on-chain).
+
 
 ---
 
@@ -516,6 +518,121 @@ is screened as the same address on mainnet, and Scan Message runs under chain id
 - Scan Message classifies USDC `TransferWithAuthorization`, the x402 payment primitive, and flags a sanctioned `to` as `High` / `KNOWN_MALICIOUS`. The documented `messageType` enum does not list it. Saying so in the docs would help agent builders.
 - The responses differ from the docs: Scan Message answers 201, not 200, and Quick Scan traits leave out the required `txsCount`.
 - There are no testnet chain ids. The advice to screen mainnet addresses and the known-risk test addresses are only on the ETHGlobal page and in Discord, not in the API docs.
+
+---
+
+## Proof on chain
+
+Every link below opens a transaction that succeeded. Each one was checked with its receipt on
+2026-09-27, at Sepolia block 11789343. The platform wallet [`0xF112…0c06`](https://sepolia.etherscan.io/address/0xF1122BbDb1970aF6eb04a5B43e3864193f050c06) owns `petri.eth` and sends
+every platform write. It had sent 311 transactions by then, and all of them succeeded.
+
+### ENS on Sepolia
+
+**Register `petri.eth`**
+
+| Step | Transaction |
+|---|---|
+| Deploy the resolver that holds every name's records | [`0x9640…447f`](https://sepolia.etherscan.io/tx/0x9640173f43571ea88daca836f0e0c00c4b703138d914a57186ca442ded2f447f) |
+| Deploy the `petri.eth` registry | [`0x02cf…60c5`](https://sepolia.etherscan.io/tx/0x02cfed99be1a713241d9498a1ac0948aeb06b94f4304ad4e384666ae6b6360c5) |
+| Commit to the name `petri.eth` | [`0x2ecf…c6f0`](https://sepolia.etherscan.io/tx/0x2ecf8f69b1fbb4b34c0012617329ccbc0c0e4b47a6c144fb91bb93538cffc6f0) |
+| Register `petri.eth` for 1 year, paid in 8 test USDC | [`0x876f…b024`](https://sepolia.etherscan.io/tx/0x876fcd43d448608e9121b720b9482661822b6b796adb8e2906949f7d8671b024) |
+| The `petri.eth` registry names `.eth` as its parent | [`0xb340…8860`](https://sepolia.etherscan.io/tx/0xb340ac7b41d8234eb21a909995d543bcd0f6bf68fae818e574657b9ef80a8860) |
+
+**Build the coding tree**
+
+| Step | Transaction |
+|---|---|
+| Register `coding.petri.eth`, the domain | [`0xbfae…aeca`](https://sepolia.etherscan.io/tx/0xbfae69bdbe0ee3cec002cc10ca53dd8e626e966d9af7aabab8b001cd1d7baeca) |
+| Register `petri-harness-v1.coding.petri.eth`, the harness | [`0x623b…1322`](https://sepolia.etherscan.io/tx/0x623bb78a2c1a68c984c423bb3eeb32eec584decb389ac4b42f15e1e95f5e1322) |
+| Register the tree, `claude-sonnet-5.petri-harness-v1.coding.petri.eth` | [`0xf93e…be15`](https://sepolia.etherscan.io/tx/0xf93e67098ba8f6c7f38efc3c785e22f9ee259a016ca82c105a2e01d63e24be15) |
+| Link the tree's own registry | [`0x7437…40fc`](https://sepolia.etherscan.io/tx/0x743749c01ecdf833153a521b6338a287b9330ebdcd3935100a66070d5c9140fc) |
+| The tree's registry names its parent | [`0x2440…2abc`](https://sepolia.etherscan.io/tx/0x2440f76c0be35dc0652589dab5cae8f6f5af58384cc17360821b42bac7dd2abc) |
+| Register the `accepted` folder | [`0x6a46…13f4`](https://sepolia.etherscan.io/tx/0x6a46caca90b499d1d02312375d8487809bad1d3014c76d5c1f96d1bb5bbf13f4) |
+| Register `v2.accepted.…` | [`0x1a43…e00a`](https://sepolia.etherscan.io/tx/0x1a43ea76124a1d9ce42e9135485cffd5e0d53841450095325520a6934ac9e00a) |
+| Write the tree's records, `petri.v1` to `petri.v18` | [`0x6db6…178f`](https://sepolia.etherscan.io/tx/0x6db632d1f68be6a81c00cdb0788da64b475733d84825214ef542aba32c4b178f) |
+| Write v2's 9 records: hypothesis, id, parent, status, score, change, 2 verifiers, token cost | [`0x5b97…9d09`](https://sepolia.etherscan.io/tx/0x5b9735cb36a9a9c473c5bbb9642a54919259046d0eb1377d08ba0d7405e69d09) |
+
+**The research tree, with example data**
+
+| Step | Transaction |
+|---|---|
+| Register `research.petri.eth` | [`0x1514…19aa`](https://sepolia.etherscan.io/tx/0x15140db8d87433b3bb07f4696897a9e5a13f111f90393fb56851e75be8c419aa) |
+| Write v2's 9 records on the research tree | [`0x8c66…0034`](https://sepolia.etherscan.io/tx/0x8c66fa667130646c14b77e62e1949f2a172c57b5281a0383b0d0cb47b8880034) |
+
+**Buy v2 for 1 test USDC**
+
+| Step | Transaction |
+|---|---|
+| The buyer pays 1 test USDC to the platform wallet, from their own wallet | [`0xce2a…9225`](https://sepolia.etherscan.io/tx/0xce2a3d2aee1a8a4aa63d16ad4c8d127c3e9a3d0a47dcd22aba973025e9c59225) |
+| First buy of v2: publish its encrypted files, 1 of 3 transactions | [`0xec95…cf82`](https://sepolia.etherscan.io/tx/0xec95a8d880e53e6bc1b0b35669c821fa77c33e00c1a06df1e854155aadd8cf82) |
+| Register `buyer1.v2.accepted.…`, owned by the buyer for 30 days | [`0xa1eb…d2d5`](https://sepolia.etherscan.io/tx/0xa1eb1c6ee1f0daeccaf47ea5e811d017dbde3ca7221b102ecaa56b5b6806d2d5) |
+| Write buyer1's records: its wallet, its access key and the file key sealed to it | [`0x1930…444c`](https://sepolia.etherscan.io/tx/0x1930e1df19755c1d1461467e576be1ca7675e1d4490dc57acde46d28cfbb444c) |
+| Buy again: register `buyer2.v2.accepted.…` with a fresh 30 days | [`0x3243…2cbd`](https://sepolia.etherscan.io/tx/0x324351f8fdbc9ac903a774407dce437f82074c6da8f5288ae9c1f4660f352cbd) |
+
+**One full verify round, on the earlier names**
+
+This round ran with `npm run market:smoke`, before the tree moved into the `accepted`, `rejected`
+and `pending` folders. Its names used the earlier layout, `v18.petriharnessv1-claudesonnet5-coding.petri.eth`,
+and were burned when the folders came in, so they no longer resolve. The vote came from the test
+verifier's own wallet, [`0xfFc6…Fd66`](https://sepolia.etherscan.io/address/0xfFc6CfE468AEffd0681a78982B818BbCFEc4Fd66).
+
+| Step | Transaction |
+|---|---|
+| Submit v18: the free-submit records and the first encrypted files | [`0xe276…7829`](https://sepolia.etherscan.io/tx/0xe276ba54cfc9ec76cba5aa1036668ba5bade82588eeafa59907336bde9397829) |
+| Open the round `v18-1` | [`0x68a8…85b1`](https://sepolia.etherscan.io/tx/0x68a8e69d1121dc832fda469595d1573cb236557f06206de5383464c0833985b1) |
+| A test verifier joins the pool | [`0xc1ad…e97a`](https://sepolia.etherscan.io/tx/0xc1ad4e075824796cca0dbe3958f6841603e14ef62777025816ad8fe8feafe97a) |
+| Register the verifier name `k1`, which expires in 10 minutes | [`0x4dee…6c6e`](https://sepolia.etherscan.io/tx/0x4deed6d8736febb7729e9fb2264bfe92400ef9232d14310f32b706dd44d66c6e) |
+| Give the verifier's wallet the right to write `petri.vote` | [`0x3355…81bb`](https://sepolia.etherscan.io/tx/0x3355a2b8b0d3e59902eb447523b16d8b95e00d61c368e5c5b8e48654d88b81bb) |
+| Pick: write the seed and the picked verifier | [`0xe82c…b5f0`](https://sepolia.etherscan.io/tx/0xe82c55bf1036da8ace6c6030759c2c20c7ab8933f101ad83df6a6d2a55f5b5f0) |
+| The verifier votes yes, from its own wallet | [`0x8aa5…5d72`](https://sepolia.etherscan.io/tx/0x8aa518d7bf1ce8916feb163a6e584c0c6d87def0c982f5cd65d8209b60925d72) |
+| Close: burn the verifier name `k1` | [`0x0e7c…2153`](https://sepolia.etherscan.io/tx/0x0e7cb7bfe7270830fcc5840d39b0a842bfb58bc9b03e3aa567e81d0580f82153) |
+| Close the round as accepted | [`0x5be4…ff4a`](https://sepolia.etherscan.io/tx/0x5be433022c76a2d5571a06a8dcf38adabe3cc64fc1e9fa85dbf3ab75cf15ff4a) |
+
+**A verify round on today's names, as a stage demo**
+
+The round's own records call it a stage demo. The join and the seed were staged. The names, the
+vote right and the vote are real, and the vote came from the verifier's own wallet,
+[`0x0d2d…9382`](https://sepolia.etherscan.io/address/0x0d2d264600a565d8d751c3c14c58a542c11e9382). v18 stays in the `pending` folder.
+
+| Step | Transaction |
+|---|---|
+| Register `round.v18.pending.…` | [`0x9869…62d6`](https://sepolia.etherscan.io/tx/0x9869a3c8849c1424a768963a7788557dd927bf47c1ab28b71fae8a05a09362d6) |
+| Write the pick: the pool, the seed and the picked verifier | [`0xa226…aa3f`](https://sepolia.etherscan.io/tx/0xa22664b349643b552c8b12550399adccb8068aa74638abd35906496abcf0aa3f) |
+| Register `verifier1.round.v18.pending.…`, owned by the verifier's wallet | [`0x2175…ae45`](https://sepolia.etherscan.io/tx/0x2175eda33d966ae671daf08a0710b45d6f0751720f07c2dd589537b96edfae45) |
+| Write verifier1's records | [`0x5a21…72c9`](https://sepolia.etherscan.io/tx/0x5a21403922c14a595da9b703374d135b325f346a8f08780d2c746811062272c9) |
+| Give the verifier's wallet the right to write `petri.vote` | [`0xe7b6…f6da`](https://sepolia.etherscan.io/tx/0xe7b61fb7900e991d126d4d535979693fe4a05aa32b01b29e11a4f03fcc9cf6da) |
+| The verifier votes `yes:+7000bp`, from its own wallet | [`0x47ce…35d4`](https://sepolia.etherscan.io/tx/0x47ce67fcd05c0cc4fb75080460f8cd0080f729204d17b8378fa21ba8e42935d4) |
+| Close the round as accepted | [`0x404e…d1bd`](https://sepolia.etherscan.io/tx/0x404eb2593204404fd456be6c02ba17d8df9266e5ab5f07d4ce0fdffd5f46d1bd) |
+| Take the vote right back | [`0x12ca…d6cb`](https://sepolia.etherscan.io/tx/0x12ca00affc669ad0f9090fcb410bb4c1bd78d8f2c4c4ac3ec23bfe604209d6cb) |
+
+### Intercepta on Sepolia
+
+Each payment moves 0.01 Circle test USDC from the Petri agent [`0xfEC6…dE28`](https://sepolia.etherscan.io/address/0xfEC6BB7506B4c06ddA315c8C12ED030eb05bdE28)
+to the seller [`0x9D93…a6b4`](https://sepolia.etherscan.io/address/0x9D93b988D4303D9b08cD03d4D64D1B81E12Da6b4), with `transferWithAuthorization`.
+Intercepta screened the seller, the typed data and the payer before each one. The seller sends the
+transaction, so the agent pays no gas.
+
+| Step | Transaction |
+|---|---|
+| Pay 0.01 USDC for a verify run of v16 (`e1adae18`) | [`0xe7d6…dc82`](https://sepolia.etherscan.io/tx/0xe7d6f6eb5c80eae8f7de463aa2a2e974066419f324f593a6c1c2dcc230e7dc82) |
+| Pay 0.01 USDC for a verify run of v3 (`872aaa3d`) | [`0x3b6e…c278`](https://sepolia.etherscan.io/tx/0x3b6e93701f0d74ecd61d11daeae877e22b69bb85d280c0e6978c1cd8f8a0c278) |
+| Pay 0.01 USDC for v16's record as markdown | [`0x3145…3773`](https://sepolia.etherscan.io/tx/0x31452ae412984c8c27b55478d2965807f1379ec2a3d381d021902640869c3773) |
+| Buy v16's markdown again | [`0x48ff…634e`](https://sepolia.etherscan.io/tx/0x48ff285386e9c09d90566e3d7c73ce3600fcb5da0b922f8d0f211d6a3fda634e) |
+| Buy v16's markdown a third time | [`0x0141…b3b4`](https://sepolia.etherscan.io/tx/0x01412b52e31921e4cc5a96957fba40511e44ca4aea6e550c7a2b1be760ebb3b4) |
+
+The blocked tries have no transaction, and that is the point. The rogue seller was stopped 3 times
+and the greedy seller 4 times, before anything was signed. Each try is one line in
+`petri/.petri/payments.jsonl`.
+
+### World
+
+World makes no transaction in Petri, so there is nothing to link here.
+
+- World ID Selfie Check and World ID for Agents are checked off chain, through World's API.
+- The check after `petri verify` only reads [AgentBook on World Chain](https://worldscan.org/address/0xA23aB2712eA7BBa896930544C7d6636a96b944dA).
+  It writes nothing.
+- No Petri wallet is registered in AgentBook yet.
 
 ---
 
