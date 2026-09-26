@@ -8,7 +8,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { InterceptaConfig } from "../intercepta/config";
 import { DEFAULT_THRESHOLDS } from "../intercepta/decision";
 import { payForVerification } from "./agent";
-import { authorizationProblems } from "./authorization";
+import { authorizationProblems, paymentKeyOf } from "./authorization";
 import type { PayerConfig } from "./config";
 import { SEPOLIA } from "./network";
 
@@ -215,4 +215,43 @@ test("authorizationProblems: catches a swapped recipient and an over-long lifeti
   assert.equal(problems.length, 2);
   assert.match(problems.join(" "), /to is not the payTo/);
   assert.match(problems.join(" "), /validBefore/);
+});
+
+test("paymentKeyOf: one EIP-3009 authorization only, case-normalised", () => {
+  const nonce = `0x${"ab".repeat(32)}`;
+  const key = paymentKeyOf({ authorization: { from: PAYER, nonce } });
+  assert.equal(key, `${PAYER.toLowerCase()}:${nonce}`);
+  assert.equal(paymentKeyOf({ authorization: { from: PAYER.toUpperCase().replace("0X", "0x"), nonce: nonce.toUpperCase().replace("0X", "0x") } }), key);
+  // A Permit2 payload, alone or beside a decoy authorization, is refused.
+  assert.equal(paymentKeyOf({ permit2Authorization: { from: ROGUE }, authorization: { from: CLEAN, nonce } }), null);
+  assert.equal(paymentKeyOf({ permit2Authorization: { from: ROGUE } }), null);
+  assert.equal(paymentKeyOf({ authorization: { from: PAYER, nonce: "0x01" } }), null);
+  assert.equal(paymentKeyOf(null), null);
+});
+
+test("a payTo that is not an address: rejected by Petri, never sent to Intercepta", async () => {
+  const net = fakeNetwork({ payTo: `${ROGUE}/../${CLEAN}` });
+  const r = await run(net);
+  assert.equal(r.outcome, "rejected");
+  assert.equal(r.decision?.code, "payto_not_an_address");
+  assert.equal(net.interceptaCalls(), 0);
+});
+
+test("a broadcast settlement that is not confirmed: recorded as pending, never refused", async () => {
+  const base = fakeNetwork({});
+  const f = (async (input: string, init: RequestInit = {}) => {
+    if (new Headers(init.headers).has("payment-signature")) {
+      return Response.json(
+        { ok: false, code: "settlement_pending", settlement: { success: false, transaction: "0xpending", network: SEPOLIA.caip2, errorReason: "settlement_pending" } },
+        { status: 202 },
+      );
+    }
+    return base.fetch(input, init);
+  }) as unknown as typeof fetch;
+  const r = await payForVerification({
+    url: URL, versionId: "e1adae18", verifier: "honest", mode: "screened", payer,
+    intercepta: { ...intercepta, client: { ...intercepta.client, fetch: base.fetch } }, fetch: f, record: false,
+  });
+  assert.equal(r.signed, true);
+  assert.equal(r.outcome, "pending");
 });
