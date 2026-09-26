@@ -39,7 +39,7 @@ export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVer
             <Glyph status={n.status} cx={8} cy={8} r={5.5} />
           </svg>
           <span className="t-text">
-            <span className="t-word" title={n.short}>{wordOf(n)}</span>
+            <span className="t-word" title={names.get(id)}>{wordOf(n)}</span>
             <span className="t-ens" title={names.get(id)}>{shortLabel(names.get(id) ?? n.short)}</span>
             <span className="t-hyp">{n.hypothesis}</span>
             <span className="t-num">{nodeNumbers(n, nodes, benchTotal, minVerifications)}</span>

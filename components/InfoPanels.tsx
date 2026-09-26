@@ -1,6 +1,7 @@
 import { signedBp, tasks } from "@/lib/format";
 import type { DigestResult } from "@/lib/tree";
 import type { PetriExport } from "@/lib/types";
+import { versionLabels } from "@/lib/ens/name";
 import type { PanelDef } from "./Panels";
 
 /** The content behind each chip. Server-rendered; the chips only toggle it. */
@@ -11,7 +12,8 @@ export function buildPanels(d: PetriExport, digest: DigestResult | null): PanelD
   const needBp = head ? head.detail.claimedMedianBp + d.policy.minDeltaBp : null;
   // The digest names nodes by their position in log order: n000, n001, ...
   const idKey = [...d.nodes].sort((a, b) => a.seq - b.seq)
-    .map((n, i) => `n${String(i).padStart(3, "0")} = ${n.short}`).join(" · ");
+    .map((n, i) => `n${String(i).padStart(3, "0")} = v${i + 1}`).join(" · ");
+  const label = versionLabels(d.nodes);
 
   // Only a real tree has a digest. An example tree skips this panel.
   const next = digest === null ? null : (
@@ -40,7 +42,7 @@ export function buildPanels(d: PetriExport, digest: DigestResult | null): PanelD
         </p>
       </div>
       <dl className="goal-facts">
-        <div><dt>Best so far</dt><dd>{head ? tasks(head.detail.claimedMedianBp, total) : "none yet"}<small>{head ? `${head.short} · ${head.detail.claimedMedianBp}bp` : ""}</small></dd></div>
+        <div><dt>Best so far</dt><dd>{head ? tasks(head.detail.claimedMedianBp, total) : "none yet"}<small>{head ? `${label.get(head.id)} · ${head.detail.claimedMedianBp}bp` : ""}</small></dd></div>
         <div><dt>To beat it</dt><dd>{needBp === null ? "—" : needBp <= 10000 ? tasks(needBp, total) : "cannot be beaten"}<small>{needBp !== null && needBp > 10000 ? `needs ${tasks(needBp, total)}` : `best plus ${signedBp(d.policy.minDeltaBp)}`}</small></dd></div>
         <div><dt>The test</dt><dd>{total} tasks<small>{d.bench.name} · unit tests only</small></dd></div>
         <div><dt>Runs</dt><dd>{d.runsPerVerification} each side<small>the median counts</small></dd></div>

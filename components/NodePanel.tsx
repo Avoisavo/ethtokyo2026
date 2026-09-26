@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { OBJECTIVES } from "@/lib/catalog";
-import { isBlocked, wordOf } from "@/lib/format";
+import { wordOf } from "@/lib/format";
 import { ensAppUrl, ensNames, shortLabel } from "@/lib/ens/name";
-import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
+import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, descriptionText, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
 import { explorerAddress } from "@/app/ens/_lib/ens/contracts";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -22,8 +20,6 @@ interface Props {
   /** The status on screen is a stage-demo override, so ENS is not called stale. */
   staged?: boolean;
   onSelect: (id: string) => void;
-  /** Called when the verify command is copied. See TreeWorkspace. */
-  onVerifyCopied?: () => void;
 }
 
 /** One text record as the panel lists it. `local` is set when the log has moved on since publishing. */
@@ -38,8 +34,7 @@ const shortAddress = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
  * values are the resolver's. Until then they are the records `npm run
  * ens:publish` writes, built from the local log.
  */
-export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, ens, staged = false, onSelect, onVerifyCopied }: Props) {
-  const p = node.detail.proposal;
+export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, ens, staged = false, onSelect }: Props) {
   const names = ensNames(nodes, harness);
   const name = names.get(node.id)!;
   const lookup = ens?.lookup && !ens.lookup.error ? ens.lookup : undefined;
@@ -51,7 +46,9 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
   const rows: Row[] = ALL_RECORD_KEYS.map((key) => {
     // A stage-demo status is listed as the tree draws it, not as ENS holds it.
     if (!onEns || (staged && VERDICT_KEYS.includes(key))) return { key, value: local[key], local: null };
-    const value = lookup!.texts[key] ?? "";
+    // The description also carries every record for the explorer. The panel lists the text only.
+    const raw = lookup!.texts[key] ?? "";
+    const value = key === RECORD_KEYS.description ? descriptionText(raw) : raw;
     return { key, value, local: value === local[key] ? null : local[key] };
   });
   const set = rows.filter((r) => r.value !== "").length;
@@ -63,7 +60,7 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
     <aside className="node-panel" aria-live="polite">
       <div className="np-head">
         <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
-        <p className="eyebrow" title={node.id}>{wordOf(node)} · {shortLabel(name)} · <code>{node.short}</code></p>
+        <p className="eyebrow" title={node.id}>{wordOf(node)} · {shortLabel(name)}</p>
       </div>
 
       <section className="ens-profile" aria-label={`ENS records of ${name}`}>
@@ -98,10 +95,6 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
         </div>
       </section>
 
-      <Fork parentId={node.short} area={p.primaryArea} />
-
-      <CheckIt short={node.short} scored={!isBlocked(node)} onVerifyCopied={onVerifyCopied} />
-
       {node.diff.trim() && (
         <details className="np-block diff">
           <summary>Show the change</summary>
@@ -130,97 +123,4 @@ function RecordSource({ state, lookup, onEns, foreign, changed }: {
   if (!lookup) return <p className="ens-state">Reading the resolver… {publishes}</p>;
   if (foreign) return <p className="ens-state">This name holds another version&apos;s record (petri.id {foreign.slice(0, 8)}). {publishes}</p>;
   return <p className="ens-state">Not on ENS yet. {publishes}</p>;
-}
-
-/** Branch from this version toward your own direction. Prints the real CLI command. */
-/** The commands anyone can run, in the order the demo follows. */
-const CHECK_STEPS = (short: string, scored: boolean): { what: string; why: string; cmds: string[] }[] => [
-  {
-    what: "How it works",
-    why: "The record every agent reads before it proposes a change: what won, what failed, and why.",
-    cmds: ["pnpm petri digest"],
-  },
-  {
-    what: "Run it",
-    why: scored
-      ? "The harness reads a task, the model writes the code, the tests run in the sandbox. 3 tasks by default, and nothing is signed."
-      : "This version has no recorded answers, so it runs only against a real model. It needs ANTHROPIC_API_KEY.",
-    cmds: [scored ? `pnpm petri run ${short}` : `ANTHROPIC_API_KEY=... pnpm petri run ${short} --mode live`],
-  },
-  {
-    what: "Evals",
-    why: scored
-      ? "The whole benchmark, 5 times: every task passed or failed, and the median score."
-      : "The whole benchmark, 5 times, against a real model. Replay cannot score this version.",
-    cmds: [scored ? `pnpm petri evals ${short}` : `ANTHROPIC_API_KEY=... pnpm petri evals ${short} --mode live`],
-  },
-  {
-    what: "Verify it",
-    why: scored
-      ? "Your key re-runs this version and its parent, then signs the result. The author's own key is refused."
-      : "A version with no score cannot be verified. Score it live first, then another key signs it.",
-    cmds: [
-      "PETRI_HOME=~/my-verifier pnpm petri id create --label me",
-      `PETRI_HOME=~/my-verifier pnpm petri verify ${short} --show`,
-    ],
-  },
-  {
-    what: "Check the record",
-    why: "Every signature and the hash chain of the log.",
-    cmds: ["pnpm petri fsck"],
-  },
-];
-
-function CheckIt({ short, scored, onVerifyCopied }: { short: string; scored: boolean; onVerifyCopied?: () => void }) {
-  const [copied, setCopied] = useState("");
-  const steps = CHECK_STEPS(short, scored);
-  return (
-    <div className="np-block checkit">
-      <h3>Check it yourself</h3>
-      <p className="muted">Clone the repo, then run these from the repository root. Nothing here needs an API key.</p>
-      <ol className="checkit-steps">
-        {steps.map((s) => (
-          <li key={s.what}>
-            <p className="checkit-what">{s.what}</p>
-            <p className="muted">{s.why}</p>
-            {s.cmds.map((cmd) => (
-              <div className="checkit-cmd" key={cmd}>
-                <code>{cmd}</code>
-                <button type="button" className="btn btn-sm" onClick={() => {
-                  void navigator.clipboard?.writeText(cmd);
-                  setCopied(cmd);
-                  if (cmd.includes("petri verify")) onVerifyCopied?.();
-                }}>
-                  {copied === cmd ? "Copied" : "Copy"}
-                </button>
-              </div>
-            ))}
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}
-
-function Fork({ parentId, area }: { parentId: string; area: string }) {
-  const [direction, setDirection] = useState(OBJECTIVES[0]!);
-  const [copied, setCopied] = useState(false);
-  const motif = direction.replace(/\s+/g, "-");
-  const cmd = `pnpm petri propose --parent ${parentId} --area ${area} --motif ${motif} \\\n  --hypothesis "This change improves ${direction}, because ..."`;
-  return (
-    <div className="np-block fork">
-      <h3>Fork this version</h3>
-      <p className="muted">Copy it, change one idea toward your own goal, and submit it. Your fork becomes a new branch.</p>
-      <label className="fork-row" htmlFor={`fork-dir-${parentId}`}>
-        <span>Direction</span>
-        <select id={`fork-dir-${parentId}`} value={direction} onChange={(e) => { setDirection(e.target.value); setCopied(false); }}>
-          {OBJECTIVES.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-      </label>
-      <pre className="fork-cmd">{cmd}</pre>
-      <button type="button" className="btn btn-sm" onClick={() => { void navigator.clipboard?.writeText(cmd); setCopied(true); }}>
-        {copied ? "Copied" : "Copy command"}
-      </button>
-    </div>
-  );
 }

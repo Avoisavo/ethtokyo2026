@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, type KeyboardEvent } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
 import { changesOf, estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
@@ -53,9 +54,11 @@ interface Props {
   harness?: string;
   /** The statuses the layout is computed from. Defaults to `nodes`. */
   layoutNodes?: ExportNode[];
+  /** The demo version, once its vote is in: a × on it turns it back to pending. */
+  undo?: { id: string; run: () => void } | null;
 }
 
-export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, minVerifications, harness, layoutNodes }: Props) {
+export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, minVerifications, harness, layoutNodes, undo = null }: Props) {
   const status = new Map((layoutNodes ?? nodes).map((n) => [n.id, n.status]));
   const { slots, rows, maxDepth } = tidySlots(forest, (id) => status.get(id));
   const names = ensNames(nodes, harness);
@@ -74,6 +77,19 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   const svgRef = useRef<SVGSVGElement>(null);
   const focus = slots[selected] === undefined ? null : at(selected);
   const zoom = usePanZoom(svgRef, width, height, focus && { x: focus.x + FOCUS_DX, y: focus.y });
+  const router = useRouter();
+  const [deleting, setDeleting] = useState<string | null>(null);
+  /** Removes a version proposed from the web app from the tree, then reloads it. ENS keeps the name. */
+  const remove = async (id: string) => {
+    if (deleting) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/market/proposal?id=${id}`, { method: "DELETE" });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (!data.ok) window.alert(data.error ?? "The remove failed.");
+      router.refresh();
+    } finally { setDeleting(null); }
+  };
 
   // Where a branch rejoins the accepted line.
   //
@@ -188,14 +204,40 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
               {sel && <circle className="ring" cx={x} cy={y} r={R + 5} />}
               <Glyph status={n.status} cx={x} cy={y} r={R} />
               <text className="h-word" x={x + 18} y={y - 19 - up}>{word}</text>
-              <title>{`${name} · ${n.short}`}</title>
+              <title>{name}</title>
               <text className="h-ens" x={x + 18} y={y - 4 - up}>
                 {lines.map((l, i) => (
                   <tspan key={i} x={x + 18} dy={i === 0 ? 0 : NAME_LINE}>{l}</tspan>
                 ))}
               </text>
+              {n.worldId && (
+                <g className="h-world">
+                  <title>{n.worldId.real
+                    ? `A World ID human ${n.worldId.kind} it, with a real proof`
+                    : `Example badge: a World ID human ${n.worldId.kind} it. Not a real proof`}</title>
+                  <WorldTick real={n.worldId.real} cx={x + 18 + (lines[0]?.length ?? 3) * 8.6 + 9} cy={y - 9 - up} />
+                </g>
+              )}
               <text className="h-hyp" x={x + 18} y={y + 16}>{hyp}</text>
               <text className="h-num" x={x + 18} y={y + 29}>{num}</text>
+              {undo?.id === n.id && (
+                <g className="h-del h-undo" role="button" tabIndex={0} aria-label={`Turn ${name} back to pending`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); undo.run(); }}>
+                  <title>Turn it back to pending, to run the demo again</title>
+                  <circle cx={x + 18 + labelW + 10} cy={y - 22 - up} r={9} />
+                  <text x={x + 18 + labelW + 10} y={y - 18 - up} textAnchor="middle">×</text>
+                </g>
+              )}
+              {n.author === "web" && (
+                <g className={`h-del${deleting === n.id ? " busy" : ""}`} role="button" tabIndex={0} aria-label={`Remove ${name} from the tree`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); void remove(n.id); }}>
+                  <title>{deleting === n.id ? "Removing…" : "Remove from the tree. The ENS name stays."}</title>
+                  <circle cx={x + 18 + labelW + 10} cy={y - 22 - up} r={9} />
+                  <text x={x + 18 + labelW + 10} y={y - 18 - up} textAnchor="middle">{deleting === n.id ? "…" : "×"}</text>
+                </g>
+              )}
             </g>
           );
         })}
@@ -238,6 +280,16 @@ export function TradeIcon({ kind, x, y }: { kind: TradeKind; x: number; y: numbe
     <g className="t-icon" transform={`translate(${x} ${y})`}>
       <circle className="t-outer" r={4.4} />
       <path d="M0 -2.6 V0 L1.9 1.3" />
+    </g>
+  );
+}
+
+/** The World ID badge: filled for a real proof, hollow for an example. */
+export function WorldTick({ real, cx, cy }: { real: boolean; cx: number; cy: number }) {
+  return (
+    <g className={real ? "world-tick real" : "world-tick example"}>
+      <circle cx={cx} cy={cy} r={6} />
+      <path d={`M ${cx - 3} ${cy} l 2 2.2 l 4 -4.4`} />
     </g>
   );
 }

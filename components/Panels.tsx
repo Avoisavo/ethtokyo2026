@@ -6,14 +6,14 @@ export interface PanelDef { id: string; label: string; hint: string; content: Re
 
 /**
  * Press a chip to open its panel. Press it again to close. One panel at a time.
- * `lead` is an extra first chip for the selected version, such as Buy.
+ * `leads` are extra first chips for the selected version: Propose, Verify and Buy.
  */
-export function Panels({ panels, lead = null }: { panels: PanelDef[]; lead?: PanelDef | null }) {
-  // The first tree panel is open by default, so the tab bar never shows an empty page.
-  const [open, setOpen] = useState<string | null>(panels[0]?.id ?? null);
-  const all = lead ? [lead, ...panels] : panels;
-  // A lead chip leaves when another version is selected. Its panel falls back to the first.
-  const active = open === null ? null : all.find((p) => p.id === open) ?? panels[0] ?? null;
+export function Panels({ panels, leads = [] }: { panels: PanelDef[]; leads?: PanelDef[] }) {
+  const all = [...leads, ...panels];
+  // The first chip is open by default, so the tab bar never shows an empty page.
+  const [open, setOpen] = useState<string | null>(all[0]?.id ?? null);
+  // A lead chip, such as Buy, leaves when another version is selected. Its panel falls back to the first.
+  const active = open === null ? null : all.find((p) => p.id === open) ?? all[0] ?? null;
 
   return (
     <div className="panels">

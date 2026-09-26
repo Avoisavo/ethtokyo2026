@@ -586,3 +586,81 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .buy-name { color: var(--pass); font-weight: 600; text-decoration: none; white-space: nowrap; }
 .buy-name code { font-size: 12px; }
 .buy-name:hover { text-decoration: underline; }
+
+/* The Propose and Verify tabs: the commands at full width. */
+.act-tab { max-width: 860px; }
+.act-tab .lede { margin-bottom: 14px; }
+.act-direction { max-width: 360px; margin: 0 0 12px; font-size: 13.5px; }
+.act-steps { gap: 18px; }
+.act-steps .checkit-what { font-size: 15px; }
+.act-steps .muted { font-size: 13.5px; }
+.act-steps .checkit-cmd { padding: 10px 10px 10px 14px; }
+.act-steps .checkit-cmd code { font-size: 13px; white-space: pre-wrap; }
+
+/* The Propose tab: the change, the demo terminal, and the submit. */
+.propose-step { margin-top: 22px; }
+.propose-step.is-off { opacity: .45; }
+.propose-step h3 { display: flex; align-items: center; gap: 10px; font-size: 15px; margin: 0 0 10px; }
+.propose-n { width: 22px; height: 22px; border-radius: 50%; background: var(--sunk); border: 1px solid var(--rule); font-size: 12px; display: grid; place-items: center; }
+.tag-demo { font-size: 11px; font-weight: 600; color: var(--ink-mid); border: 1px dashed var(--rule); border-radius: 999px; padding: 1px 8px; }
+.claim-text { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-mid); }
+.claim-text textarea { font: inherit; font-size: 14px; color: var(--ink); background: var(--sunk); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; resize: vertical; }
+.claim-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 6px; }
+.claim-num { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-mid); }
+.claim-input { display: flex; align-items: center; gap: 6px; }
+.claim-input input { width: 100%; font: inherit; font-size: 15px; color: var(--ink); background: var(--sunk); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 10px; }
+.term { border-radius: 10px; overflow: hidden; background: #111418; color: #d8dee6; border: 1px solid #22272e; }
+.term-bar { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: #1b1f25; }
+.term-bar span { width: 10px; height: 10px; border-radius: 50%; background: #3a4048; }
+.term-bar em { margin-left: 8px; font-style: normal; font-size: 12px; color: #8b949e; }
+.term pre { margin: 0; padding: 12px 14px; min-height: 120px; font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.term-cmd { color: #7ee0a1; }
+.term-claim { color: #f2cc60; }
+.term-cursor { display: inline-block; width: 8px; height: 14px; background: #d8dee6; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.propose-row { display: flex; align-items: flex-start; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+.term-diff { flex: 1; min-width: 240px; }
+.term-diff summary { cursor: pointer; font-size: 13px; padding: 6px 0; }
+.term-diff pre { margin: 6px 0 0; font-size: 12px; line-height: 1.5; background: var(--sunk); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.d-add { color: var(--pass); }
+.d-del { color: var(--fail); }
+.d-head { color: var(--ink-faint); }
+.pay-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.pay-pick label { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; border: 1px solid var(--rule); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+.pay-pick label.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.pay-pick small { grid-column: 2; color: var(--ink-mid); font-size: 12.5px; }
+.propose-done { margin-top: 10px; font-weight: 600; }
+@media (max-width: 640px) { .claim-nums, .pay-pick { grid-template-columns: 1fr; } }
+.spinner-inline { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 6px; }
+.found { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+.found p { margin: 0 0 8px; }
+.found-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.found-stats span { display: flex; flex-direction: column; min-width: 120px; border: 1px dashed var(--rule); border-radius: 8px; padding: 6px 10px; font-size: 18px; font-weight: 600; }
+.found-stats em { font-style: normal; font-size: 12px; font-weight: 400; color: var(--ink-mid); }
+/* The delete button of a web proposal: hidden until you hover on the version. */
+.h-del { opacity: 0; cursor: pointer; transition: opacity .15s; }
+.h-node:hover .h-del, .h-del:focus, .h-del.busy { opacity: 1; }
+.h-del circle { fill: var(--surface); stroke: var(--fail); stroke-width: 1.5; }
+.h-del text { fill: var(--fail); font-size: 13px; font-weight: 700; }
+.h-del:hover circle { fill: var(--fail); }
+.h-del:hover text { fill: #fff; }
+.scan { display: flex; gap: 16px; align-items: center; border: 1px solid var(--rule); border-radius: 10px; padding: 14px; background: #fff; flex-wrap: wrap; }
+.scan p { margin: 0 0 6px; }
+.scan-code { font-family: var(--mono, monospace); font-size: 20px; letter-spacing: 2px; font-weight: 700; }
+.vfile { margin: 6px 0 0 10px; }
+.vfile summary { cursor: pointer; font-size: 13px; }
+.vfile pre { max-height: 320px; overflow: auto; }
+.act-steps .checkit-cmd code { white-space: pre-wrap; }
+.h-node.s-accepted .h-undo, .h-undo { opacity: 0; }
+.h-node:hover .h-undo { opacity: 1; }
+.said-yes, .said-no { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 8px; margin: 0 4px; }
+.said-yes { color: #fff; background: var(--pass); }
+.said-no { color: #fff; background: var(--fail); }
+.vkey { font-size: 12px; overflow-wrap: anywhere; }
+/* The World ID badge on a version: filled for a real proof, hollow for an example. */
+.world-tick circle { stroke: #2f6fed; stroke-width: 1.4; }
+.world-tick path { fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.world-tick.real circle { fill: #2f6fed; }
+.world-tick.real path { stroke: #fff; }
+.world-tick.example circle { fill: var(--surface, #fff); stroke-dasharray: 2 1.5; }
+.world-tick.example path { stroke: #2f6fed; }

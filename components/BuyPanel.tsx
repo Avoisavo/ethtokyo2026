@@ -278,7 +278,7 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
 }
 
 /** A name as a short link to its explorer page: "buyer2.v2.accepted…petri.eth". The full name shows on hover. */
-function NameLink({ name }: { name: string }) {
+export function NameLink({ name }: { name: string }) {
   const parts = name.split(".");
   const text = parts.length > 4 ? `${parts.slice(0, 3).join(".")}…${parts.slice(-2).join(".")}` : name;
   return (

@@ -8,9 +8,10 @@ import type { ExportNode } from "@/lib/types";
 import { BuyTab } from "./BuyTab";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
-import { LineageHero, TradeIcon } from "./LineageHero";
+import { LineageHero, TradeIcon, WorldTick } from "./LineageHero";
 import { NodePanel } from "./NodePanel";
 import { Panels, type PanelDef } from "./Panels";
+import { ProposeTab, VerifyTab } from "./ProposeTab";
 import { TreeView } from "./TreeView";
 import { useEnsRecords } from "./useEnsRecords";
 
@@ -38,7 +39,22 @@ type View = "tree" | "stats" | "compare";
  * unchanged and still reaches this page; the moment a new record arrives, the
  * real status is shown. Set it to "" to always show the recorded status.
  */
-const DEMO_PENDING = "ae0acec3";
+const DEMO_PENDING: string = "ae0acec3";
+
+/**
+ * World ID badges. A real one comes only from a real World ID proof (see
+ * lib/trees.ts). To show the idea on the older versions, which never had a
+ * World ID check, some get an example badge, drawn hollow and titled as an
+ * example. The same versions every time, picked by their id.
+ */
+function withWorldBadges(nodes: ExportNode[], verifiedId: string | null): ExportNode[] {
+  return nodes.map((n) => {
+    if (n.worldId) return n;
+    if (n.id === verifiedId) return { ...n, worldId: { kind: "verified", real: false } };
+    if (n.parent === "root" || n.author === "web") return n;
+    return parseInt(n.id.slice(0, 2), 16) % 3 === 0 ? { ...n, worldId: { kind: "submitted", real: false } } : n;
+  });
+}
 
 /**
  * Draw an accepted version as "waiting for its second key": its first check
@@ -106,10 +122,13 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
   // True until a new record arrives from the engine in this tab.
   const [beforeUpdate, setBeforeUpdate] = useState(true);
 
+  // The version the Verify demo joined with the World ID scan. The scan is a demo, so its badge is an example.
+  const [worldVerified, setWorldVerified] = useState<string | null>(null);
   const nodes = useMemo(() => {
     const base = beforeUpdate ? showAsPending(recorded, DEMO_PENDING) : recorded;
-    return simulatedId === null ? base : simulateAccepted(base, simulatedId);
-  }, [beforeUpdate, simulatedId, recorded]);
+    const shown = simulatedId === null ? base : simulateAccepted(base, simulatedId);
+    return withWorldBadges(shown, worldVerified);
+  }, [beforeUpdate, simulatedId, recorded, worldVerified]);
 
   const names = useMemo(() => ensNames(nodes, harness), [nodes, harness]);
   // The version names are read from ENS for the trees that are on chain.
@@ -136,6 +155,41 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
+  // The demo vote is in: the demo version stays accepted, on every load, until its × is pressed.
+  useEffect(() => {
+    if (DEMO_PENDING === "") return;
+    void fetch("/api/market/demo-verify", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ round?: { id: string; vote?: string; closed?: boolean; human?: string } | null }>)
+      .then((d) => {
+        if (d.round?.human === "world") setWorldVerified(d.round.id);
+        if (d.round?.id.startsWith(DEMO_PENDING) && d.round.closed && d.round.vote?.startsWith("yes")) {
+          setBeforeUpdate(false);
+          setSimulatedId(d.round.id);
+        }
+      })
+      .catch(() => {});
+    // STAGE DEMO. A yes vote on chain shows the demo version accepted, the same
+    // simulation the Space key does, even when the saved tree still has 1 of 2 keys.
+    const onVoted = (e: Event) => {
+      setBeforeUpdate(false);
+      const id = (e as CustomEvent<string>).detail;
+      if (id) setSimulatedId(id);
+    };
+    window.addEventListener("petri:voted", onVoted);
+    return () => window.removeEventListener("petri:voted", onVoted);
+  }, []);
+  const demoNode = DEMO_PENDING === "" ? undefined : recorded.find((n) => n.id.startsWith(DEMO_PENDING));
+  const undo = !beforeUpdate && demoNode ? {
+    id: demoNode.id,
+    run: () => {
+      setBeforeUpdate(true);
+      setSimulatedId(null);
+      setWorldVerified(null);
+      void fetch("/api/market/demo-verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ step: "reset" }) });
+      window.dispatchEvent(new CustomEvent("petri:demo-reset"));
+    },
+  } : null;
+
   const node = nodes.find((n) => n.id === selected) ?? nodes[0]!;
   // The status on screen is a stage-demo override, not the record, so the panel
   // does not call the ENS copy stale.
@@ -148,6 +202,14 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
   const buy: PanelDef | null = harness === REAL_TREE && name.split(".")[1] === "accepted"
     ? { id: "buy", label: "Buy", hint: "1 USDC, then the files", content: <BuyTab key={node.id} id={node.id} name={name} /> }
     : null;
+  const scored = !isBlocked(node);
+  const leads: PanelDef[] = [
+    { id: "propose", label: "Propose", hint: "branch from this version",
+      content: <ProposeTab key={node.id} parentId={node.id} name={name} /> },
+    { id: "verify", label: "Verify", hint: "re-run it with your key",
+      content: <VerifyTab key={node.id} versionId={node.id} name={name} scored={scored} status={node.status} verifications={node.verifications} reason={node.statusReason} /> },
+    ...(buy ? [buy] : []),
+  ];
 
   return (
     <>
@@ -167,19 +229,20 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="rejected" cx={7} cy={7} r={5} /></svg>Rejected — kept, with the reason</span>
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="pending" cx={7} cy={7} r={5} /></svg>Pending — waiting for keys</span>
               <span><svg width="22" height="14" aria-hidden="true"><line className="h-edge restore" x1="1" x2="21" y1="7" y2="7" /></svg>Runs the same harness as that version again</span>
+              <span><svg width="14" height="14" aria-hidden="true"><WorldTick real cx={7} cy={7} /></svg>A World ID human submitted it · <svg width="14" height="14" aria-hidden="true"><WorldTick real={false} cx={7} cy={7} /></svg>example badge</span>
               <span className="legend-trade">
                 <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="perf" x={6} y={6} /></svg>performance
                 <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="tokens" x={6} y={6} /></svg>token savings
                 <svg width="12" height="12" aria-hidden="true"><TradeIcon kind="speed" x={6} y={6} /></svg>speed · against the parent, + is better
               </span>
             </div>
-            <LineageHero {...shared} layoutNodes={recorded} />
+            <LineageHero {...shared} layoutNodes={recorded} undo={undo} />
             <TreeView {...shared} />
           </div>
 
           <div className={`selected-strip s-${node.status}`} aria-live="polite">
             <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
-            <span className="sel-word" title={node.short}>{wordOf(node)} · {names.get(node.id)}</span>
+            <span className="sel-word" title={node.id}>{wordOf(node)} · {names.get(node.id)}</span>
             <span className="sel-hyp">{clip(node.hypothesis, 96)}</span>
             <span className="sel-num">{nodeNumbers(node, nodes, benchTotal, minVerifications)}</span>
             <a href="#record">Full record ↓</a>
@@ -194,14 +257,8 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
       <section id="record" className="record">
         <NodePanel node={node} nodes={nodes} harness={harness} minVerifications={minVerifications}
           benchTotal={benchTotal} onSelect={setSelected}
-          ens={{ state: ens.state, lookup: ens.byName.get(names.get(node.id)!) }} staged={staged}
-          onVerifyCopied={() => {
-            // STAGE DEMO. Copying the verify command shows this version accepted,
-            // the same simulation the Space key does. Display only, in this tab.
-            const target = node.id;
-            window.setTimeout(() => setSimulatedId((current) => current ?? target), 1200);
-          }} />
-        <div className="record-info"><Panels panels={panels} lead={buy} /></div>
+          ens={{ state: ens.state, lookup: ens.byName.get(names.get(node.id)!) }} staged={staged} />
+        <div className="record-info"><Panels panels={panels} leads={leads} /></div>
       </section>
     </>
   );
