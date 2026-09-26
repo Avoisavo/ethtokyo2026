@@ -258,18 +258,27 @@ ul.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-directi
 .why { font-size: 12px; color: var(--fail); }
 details.diff summary { cursor: pointer; font-size: 12.5px; color: var(--ink-mid); }
 details.diff pre { margin: 6px 0 0; font-size: 11.5px; line-height: 1.55; background: var(--sunk); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 10px; overflow: auto; max-height: 320px; white-space: pre; }
-.parent-link code { font-size: 12px; color: var(--ink-mid); }
-/* Where the card comes from: the version's ENS resolver, or the local log. Quiet, on its own line under the eyebrow. */
-.np-source { flex-basis: 100%; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--ink-faint); }
-.np-source a { font-family: var(--f-mono), monospace; font-size: 11px; color: var(--pass); text-decoration: none; }
-.np-source a:hover { text-decoration: underline; }
-.np-records summary { cursor: pointer; width: fit-content; }
-.np-records dl { margin: 6px 0 0; display: grid; grid-template-columns: fit-content(45%) minmax(0, 1fr); gap: 3px 10px; background: var(--sunk); border: 1px solid var(--rule-soft); border-radius: 6px; padding: 8px 10px; font-family: var(--f-mono), monospace; font-size: 11px; line-height: 1.45; }
-.np-records dt { font-size: inherit; color: var(--ink-faint); overflow-wrap: anywhere; }
-.np-records dd { font-size: inherit; font-weight: 400; letter-spacing: 0; line-height: inherit; color: var(--ink-mid); overflow-wrap: anywhere; white-space: pre-wrap; }
-/* The ENS copy's verdict, when it lags the one shown. Sits under the verdict it qualifies. */
-.np-stale { margin-top: -6px; font-size: 12px; color: var(--ink-faint); }
-.np-stale code { font-size: 11px; }
+/* The version as ENS stores it: its name, its resolver and every text record, one key above its value. */
+.ens-profile { display: flex; flex-direction: column; gap: 12px; }
+.ens-kicker { font-family: var(--f-mono), monospace; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.ens-name { margin-top: 2px; font-family: var(--f-mono), monospace; font-size: 16px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.ens-resolver { margin-top: 2px; font-size: 12px; color: var(--ink-faint); }
+.ens-resolver a { font-family: var(--f-mono), monospace; font-size: 11.5px; color: var(--pass); text-decoration: none; }
+.ens-resolver a:hover { text-decoration: underline; }
+.ens-state { font-size: 12.5px; line-height: 1.45; color: var(--ink-mid); background: var(--sunk); border: 1px solid var(--rule-soft); border-radius: 8px; padding: 8px 10px; }
+.ens-state.on { color: var(--pass); background: var(--pass-soft); border-color: color-mix(in srgb, var(--pass) 25%, transparent); }
+.ens-state code { font-size: 11px; }
+.ens-records { margin: 0; border: 1px solid var(--rule-soft); border-radius: 8px; overflow: hidden; }
+.ens-row { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border-top: 1px solid var(--rule-soft); }
+.ens-row:first-child { border-top: 0; }
+.ens-row dt { font-family: var(--f-mono), monospace; font-size: 11px; color: var(--ink-faint); overflow-wrap: anywhere; }
+.ens-row dd { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; font-family: var(--f-mono), monospace; font-size: 12px; font-weight: 400; letter-spacing: 0; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; }
+.ens-row dd > * { max-width: 100%; }
+.ens-unset { color: var(--ink-faint); font-style: italic; }
+.ens-row.changed { background: var(--fail-soft); }
+.ens-local { font-size: 11.5px; color: var(--fail); }
+.ens-link { font: inherit; font-size: 11.5px; color: var(--pass); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; overflow-wrap: anywhere; }
+.ens-link:hover { text-decoration: underline; }
 
 /* ---- info tabs ---- */
 .panels { display: flex; flex-direction: column; gap: 10px; }
@@ -343,13 +352,7 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .zoom-level { min-width: 42px; text-align: center; font-family: var(--f-mono), monospace; font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
 /* ---- Tree | Branches toggle ---- */
-.view-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: -10px; }
-/* The trade-off triangle in the space above the tree, right of the tabs. */
-.tree-tri { width: min(100%, 340px); margin-bottom: 18px; }
-.tree-tri .cmp-pane { padding: 10px 12px 4px; }
-.tree-tri .cmp-chart svg { max-width: 316px; }
-.tri-selected { margin: 0; padding: 0 12px 10px; font-size: 12px; color: var(--ink-mid); font-variant-numeric: tabular-nums; }
-.tri-empty { margin: 0; padding: 12px; font-size: 12.5px; }
+.view-bar { display: flex; margin-bottom: -10px; }
 .seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--sunk); border: 1px solid var(--rule); border-radius: 9px; }
 .seg button { border: 0; background: transparent; padding: 5px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; color: var(--ink-mid); cursor: pointer; }
 .seg button:hover { color: var(--ink); }
