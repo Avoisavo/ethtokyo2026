@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { STATUS_WORD, claimBp, counted, ignored, isBlocked, isRoot, objectiveOf, rootRerunBp, signedBp, tasks, wordOf } from "@/lib/format";
-import { hashscanRecordUrl, hashscanTopicUrl } from "@/lib/hashscan";
 import { ensNames } from "@/lib/ens-name";
-import type { ExportNode, HederaTopic } from "@/lib/types";
+import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
 interface Props {
@@ -15,13 +14,11 @@ interface Props {
   minVerifications: number;
   benchTotal: number;
   onSelect: (id: string) => void;
-  /** The Hedera topic that holds a copy of every record. */
-  hedera?: HederaTopic | null;
   /** Called when the verify command is copied. See TreeWorkspace. */
   onVerifyCopied?: () => void;
 }
 
-export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, onSelect, hedera = null, onVerifyCopied }: Props) {
+export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, onSelect, onVerifyCopied }: Props) {
   const p = node.detail.proposal;
   const c = counted(node);
   const ig = ignored(node);
@@ -33,20 +30,8 @@ export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, o
       <div className="np-head">
         <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
         <p className="eyebrow">
-          {wordOf(node)} · <span className="np-ens">{ensNames(nodes).get(node.id)}</span> ·{" "}
-          {hedera && node.hedera ? (
-            <a className="hs-id" href={hashscanRecordUrl(hedera, node.hedera)} target="_blank" rel="noreferrer"
-              title={`Open this record on HashScan: topic ${hedera.topicId}, message #${node.hedera.seq}`}>{node.short}</a>
-          ) : node.short}
+          {wordOf(node)} · <span className="np-ens">{ensNames(nodes).get(node.id)}</span> · {node.short}
         </p>
-        {hedera && node.hedera && (
-          <a className="hs-chip" href={hashscanRecordUrl(hedera, node.hedera)} target="_blank" rel="noreferrer">
-            Hedera #{node.hedera.seq} ↗
-          </a>
-        )}
-        {hedera && !node.hedera && (
-          <a className="hs-chip hs-chip-off" href={hashscanTopicUrl(hedera)} target="_blank" rel="noreferrer">Not on Hedera yet</a>
-        )}
       </div>
 
       <h2 className="np-hyp">{node.hypothesis}</h2>
@@ -112,10 +97,6 @@ export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, o
               <div className="check-top">
                 <span className="check-state">{v.counted ? "COUNTED" : "IGNORED"}</span>
                 <code>{v.runnerLabel || `key ${v.runner.slice(0, 8)}`}</code>
-                {hedera && v.hedera && (
-                  <a className="hs-chip" href={hashscanRecordUrl(hedera, v.hedera)} target="_blank" rel="noreferrer"
-                    title={`Signed report ${v.reportId.slice(0, 12)} on HashScan`}>Hedera #{v.hedera.seq} ↗</a>
-                )}
               </div>
               <p>
                 Parent {tasks(v.parent.medianBp, v.parent.total)} → this {tasks(v.candidate.medianBp, v.candidate.total)} ·{" "}
@@ -129,7 +110,7 @@ export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, o
 
       <Fork parentId={node.short} area={p.primaryArea} />
 
-      <CheckIt short={node.short} hedera={hedera} scored={!isBlocked(node)} onVerifyCopied={onVerifyCopied} />
+      <CheckIt short={node.short} scored={!isBlocked(node)} onVerifyCopied={onVerifyCopied} />
 
       {node.diff.trim() && (
         <details className="np-block diff">
@@ -143,7 +124,7 @@ export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, o
 
 /** Branch from this version toward your own direction. Prints the real CLI command. */
 /** The commands anyone can run, in the order the demo follows. */
-const CHECK_STEPS = (short: string, hasTopic: boolean, scored: boolean): { what: string; why: string; cmds: string[] }[] => [
+const CHECK_STEPS = (short: string, scored: boolean): { what: string; why: string; cmds: string[] }[] => [
   {
     what: "How it works",
     why: "The record every agent reads before it proposes a change: what won, what failed, and why.",
@@ -175,16 +156,14 @@ const CHECK_STEPS = (short: string, hasTopic: boolean, scored: boolean): { what:
   },
   {
     what: "Check the record",
-    why: hasTopic
-      ? "Every signature and the hash chain, then the public Hedera copy compared byte for byte."
-      : "Every signature and the hash chain of the log.",
-    cmds: hasTopic ? ["pnpm petri fsck", "pnpm petri hedera check"] : ["pnpm petri fsck"],
+    why: "Every signature and the hash chain of the log.",
+    cmds: ["pnpm petri fsck"],
   },
 ];
 
-function CheckIt({ short, hedera, scored, onVerifyCopied }: { short: string; hedera: HederaTopic | null; scored: boolean; onVerifyCopied?: () => void }) {
+function CheckIt({ short, scored, onVerifyCopied }: { short: string; scored: boolean; onVerifyCopied?: () => void }) {
   const [copied, setCopied] = useState("");
-  const steps = CHECK_STEPS(short, hedera !== null, scored);
+  const steps = CHECK_STEPS(short, scored);
   return (
     <div className="np-block checkit">
       <h3>Check it yourself</h3>
