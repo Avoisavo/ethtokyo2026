@@ -255,3 +255,44 @@ test("a broadcast settlement that is not confirmed: recorded as pending, never r
   assert.equal(r.signed, true);
   assert.equal(r.outcome, "pending");
 });
+
+test("markdown: the agent buys a version's file with GET, screened the same way", async () => {
+  const methods: string[] = [];
+  const base = fakeNetwork({});
+  const f = (async (input: string, init: RequestInit = {}) => {
+    if (!String(input).startsWith("http://intercepta.test")) methods.push(init.method ?? "GET");
+    if (new Headers(init.headers).has("payment-signature")) {
+      return Response.json({ ok: true, file: "petri-e1adae18.md", markdown: "# Petri version e1adae18\n", settlement: { success: true, transaction: "0xmd", network: SEPOLIA.caip2 } });
+    }
+    return base.fetch(input, init);
+  }) as unknown as typeof fetch;
+  const r = await payForVerification({
+    url: "http://verifier.test/api/versions/e1adae18/markdown?seller=honest", versionId: "e1adae18", verifier: "honest", mode: "screened", product: "markdown",
+    payer, intercepta: { ...intercepta, client: { ...intercepta.client, fetch: base.fetch } }, fetch: f, record: false,
+  });
+  assert.equal(r.outcome, "paid");
+  assert.equal(r.product, "markdown");
+  assert.deepEqual(methods, ["GET", "GET"]);
+  assert.equal(r.delivered?.file, "petri-e1adae18.md");
+  assert.equal(r.delivered?.markdown, "# Petri version e1adae18\n");
+  assert.equal((r.verifierReply as Record<string, unknown>).markdown, undefined, "the file is stored once, in delivered");
+  assert.deepEqual(r.decision?.checks.map((c) => c.id), ["limit", "asset", "validity", "payto", "authorization", "message"]);
+});
+
+test("markdown: a rogue seller is blocked before anything is signed", async () => {
+  const net = fakeNetwork({ payTo: ROGUE });
+  const r = await run(net, { product: "markdown", verifier: "rogue", url: "http://verifier.test/api/versions/e1adae18/markdown?seller=rogue" });
+  assert.equal(r.outcome, "rejected");
+  assert.equal(r.decision?.code, "intercepta_block:sanction_address");
+  assert.equal(r.delivered, undefined);
+  assert.equal(net.paidCalls(), 0);
+});
+
+test("demo repeat: the record says the buyer allowed a report that may not count", async () => {
+  const net = fakeNetwork({});
+  const r = await run(net, { repeat: true, url: `${URL}&repeat=1` });
+  assert.equal(r.outcome, "paid");
+  assert.equal(r.repeat, true);
+  const plain = await run(fakeNetwork({}));
+  assert.equal(plain.repeat, undefined);
+});

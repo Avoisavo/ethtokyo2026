@@ -54,6 +54,8 @@ export type PayInput = {
   mode: PayMode;
   /** Defaults to a verification run. */
   product?: Product;
+  /** Demo: the url asks for a repeat run (&repeat=1). Recorded so the page can say it will not count. */
+  repeat?: boolean;
   payer: PayerConfig;
   /** Null when INTERCEPTA_API_KEY is missing: every payment then holds. */
   intercepta: InterceptaConfig | null;
@@ -77,6 +79,7 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
     at: t0,
     mode: p.mode,
     product: p.product ?? "verification",
+    ...(p.repeat ? { repeat: true } : {}),
     versionId: p.versionId,
     verifier: p.verifier,
     url: p.url,

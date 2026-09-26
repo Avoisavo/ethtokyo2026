@@ -27,7 +27,7 @@ const petri = (args: string[]) =>
  * .petri/identity.json is never committed) the site serves the snapshot that
  * `npm run petri:snapshot` wrote from a real `petri export`. PETRI_SNAPSHOT=1 forces it.
  */
-const snapshotMode = (): boolean => process.env.PETRI_SNAPSHOT === "1" || !existsSync(TSX);
+export const snapshotMode = (): boolean => process.env.PETRI_SNAPSHOT === "1" || !existsSync(TSX);
 
 const errorText = (e: unknown): string => {
   const err = e as { stderr?: string; message: string };
