@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
-import { compareData, fmtPerf, fmtShare, fmtTokens, fmtWall, type ComparePoint } from "@/lib/compare";
+import { compareData, fmtPerf, fmtShare, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
 import { STATUS_WORD, clip } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -82,18 +82,21 @@ const niceStep = (range: number, count: number): number => {
   return (r <= 1 ? 1 : r <= 2 ? 2 : r <= 2.5 ? 2.5 : r <= 5 ? 5 : 10) * mag;
 };
 
-/** A padded range with round ends, so the points spread out and the ticks read cleanly. */
-function niceDomain(values: number[]): { lo: number; hi: number; ticks: number[] } {
+/** A range fitted to the values, with a little room at each end, and round ticks inside it. */
+function fitDomain(values: number[], max = Infinity): { lo: number; hi: number; ticks: number[] } {
   let lo = Math.min(...values);
   let hi = Math.max(...values);
-  const pad = (hi - lo) * 0.12 || Math.max(hi * 0.1, 1);
+  if (hi === lo) {
+    const half = Math.max(Math.abs(hi) * 0.05, 1);
+    lo -= half;
+    hi += half;
+  }
+  const pad = (hi - lo) * 0.08;
   lo = Math.max(0, lo - pad);
-  hi += pad;
-  const step = niceStep(hi - lo, 3);
-  lo = Math.floor(lo / step) * step;
-  hi = Math.ceil(hi / step) * step;
+  hi = Math.min(max, hi + pad);
+  const step = niceStep(hi - lo, 4);
   const ticks: number[] = [];
-  for (let i = 0; lo + i * step <= hi + step / 2; i++) ticks.push(Math.round((lo + i * step) * 1e6) / 1e6);
+  for (let i = Math.ceil(lo / step); i * step <= hi + 1e-9; i++) ticks.push(Math.round(i * step * 1e6) / 1e6);
   return { lo, hi, ticks };
 }
 
@@ -237,6 +240,8 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
 
 export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
   const { points, unplotted } = useMemo(() => compareData(nodes, benchTotal), [nodes, benchTotal]);
+  const links = useMemo(() => treeLinks(nodes, points), [nodes, points]);
+  const lineage = useMemo(() => lineageOf(selected, links, nodes, points), [selected, links, nodes, points]);
   const byId = useMemo(() => new Map(points.map((p) => [p.n.id, p])), [points]);
   const [hover, setHover] = useState<Hover>(null);
 
@@ -280,8 +285,8 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
 
       <figure className="cmp-figure">
         <div className="plate compare-plate">
-          <Triangle {...shared} />
-          <Axes3D {...shared} />
+          <Triangle {...shared} links={links} lineage={lineage} />
+          <Axes3D {...shared} links={links} lineage={lineage} />
         </div>
         <div className="legend">
           <span><svg width="14" height="14" aria-hidden="true"><Glyph status="accepted" cx={7} cy={7} r={5} /></svg>Accepted</span>
@@ -290,10 +295,17 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
             <span><svg width="14" height="14" aria-hidden="true"><Glyph status="pending" cx={7} cy={7} r={5} /></svg>Pending</span>
           )}
           <span><svg width="18" height="18" aria-hidden="true"><circle className="cmp-ring" cx={9} cy={9} r={7.5} /></svg>Selected</span>
+          {links.length > 0 && (
+            <>
+              <span><svg width="26" height="12" aria-hidden="true"><path className="cmp-link" d="M2 6 H18" /><path className="cmp-link-head" d="M24 6 L17 2.5 L17 9.5 Z" /></svg>Parent to child, as in the tree</span>
+              <span><svg width="26" height="12" aria-hidden="true"><path className="cmp-link on-path" d="M2 6 H18" /><path className="cmp-link-head on-path" d="M24 6 L17 2.5 L17 9.5 Z" /></svg>Path to the selected version</span>
+            </>
+          )}
         </div>
         <figcaption>
           Performance is the benchmark score, re-run by other keys where it was. Cost is the median tokens per task. Speed is the median time of one benchmark run.
-          In the triangle, Speed and Cost are measured against the fastest and cheapest version in this tree.
+          Both charts stretch each measure across this tree, from the worst version to the best, so even small differences spread the dots apart.
+          The numbers in the tooltips, on the 3D axes and in the table are the real ones. Arrows join each version to its parent.
           {unplotted.length > 0 && ` ${unplotted.length} ${unplotted.length === 1 ? "version was" : "versions were"} never measured and ${unplotted.length === 1 ? "is" : "are"} not plotted.`}
         </figcaption>
         <details className="table-view">
@@ -339,7 +351,53 @@ interface ChartProps {
 
 const TGAP = 6;
 
-function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartProps) {
+/** The point `r` from `from` toward `to`: trims a link to the edge of its dot. */
+const toward = (from: Pt, to: Pt, r: number): Pt => {
+  const d = Math.hypot(to[0] - from[0], to[1] - from[1]) || 1;
+  return [from[0] + ((to[0] - from[0]) / d) * r, from[1] + ((to[1] - from[1]) / d) * r];
+};
+const DEAD = new Set(["rejected", "withdrawn", "superseded"]);
+
+interface TreeProps { links: Link[]; lineage: Set<string> }
+
+/**
+ * The tree drawn over a chart: a gentle curve from each version to its child, dashed
+ * when the child was rejected. The path to the selected version is drawn last, on top.
+ */
+function TreeLinks({ links, lineage, byId, spot }: TreeProps & { byId: Map<string, ComparePoint>; spot: (id: string) => { at: Pt; r: number } | undefined }) {
+  const onPath = (l: Link) => lineage.has(l.child) && lineage.has(l.parent);
+  return (
+    <g aria-hidden="true">
+      {[...links].sort((a, b) => Number(onPath(a)) - Number(onPath(b))).map((l) => {
+        const from = spot(l.parent);
+        const to = spot(l.child);
+        if (!from || !to) return null;
+        const [a, b] = [from.at, to.at];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        if (Math.hypot(dx, dy) < from.r + to.r + 6) return null;
+        // Bend each curve to its right, so a link and its way back never overlap.
+        const c: Pt = [(a[0] + b[0]) / 2 - dy * 0.16, (a[1] + b[1]) / 2 + dx * 0.16];
+        const start = toward(a, c, from.r + 2);
+        const end = toward(b, c, to.r + 3);
+        const len = Math.hypot(b[0] - c[0], b[1] - c[1]) || 1;
+        const ux = (b[0] - c[0]) / len;
+        const uy = (b[1] - c[1]) / len;
+        const path = onPath(l);
+        const cls = `cmp-link${path ? " on-path" : ""}${DEAD.has(byId.get(l.child)!.n.status) ? " dead" : ""}${l.direct ? "" : " skip"}`;
+        return (
+          <g key={`l-${l.child}`}>
+            <path className={cls} d={`M${start[0]} ${start[1]} Q${c[0]} ${c[1]} ${end[0]} ${end[1]}`} />
+            <path className={`cmp-link-head${path ? " on-path" : ""}`}
+              d={`M${end[0]} ${end[1]} L${end[0] - ux * 7 - uy * 3.5} ${end[1] - uy * 7 + ux * 3.5} L${end[0] - ux * 7 + uy * 3.5} ${end[1] - uy * 7 - ux * 3.5} Z`} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+function Triangle({ points, byId, selected, onSelect, hover, setHover, links, lineage }: ChartProps & TreeProps) {
   const at = new Map<string, Pt>(points.map((p) => [p.n.id, tri(p.mix.perf, p.mix.speed, p.mix.cost)]));
   // Versions with near-equal numbers share a spot. They fan out around it, accepted
   // first at the top, then the fastest, so each one can be seen and picked.
@@ -388,6 +446,8 @@ function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartPr
           <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Cost</text>
           <text className="cmp-corner-sub" x={RIGHT[0]} y={RIGHT[1] + 39} textAnchor="middle">fewer tokens</text>
 
+          <TreeLinks links={links} lineage={lineage} byId={byId} spot={(id) => { const d = drawn.get(id); return d && { at: d.at, r: TR }; }} />
+
           {/* A thin line from where a moved dot really sits to where it is drawn. */}
           <g aria-hidden="true">
             {points.map((p) => {
@@ -431,7 +491,7 @@ function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartPr
   );
 }
 
-function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProps) {
+function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, lineage }: ChartProps & TreeProps) {
   const [view, setView] = useState<View>(HOME);
   // null until the viewer chooses: then it follows prefers-reduced-motion.
   const [spin, setSpin] = useState<boolean | null>(null);
@@ -486,11 +546,13 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
     setView((v) => ({ yaw: v.yaw + dYaw, pitch: clamp(v.pitch + dPitch, -PI / 2, PI / 2) }));
   };
 
-  // Map each number onto the cube, -1 to 1. Cost and time run backwards: fewer tokens
-  // and less time sit further along their arrows, so every arrow points to better.
-  const cost = niceDomain(points.map((p) => p.tokens));
-  const time = niceDomain(points.map((p) => p.wallMs));
-  const X = (bp: number) => -1 + 2 * clamp(bp / 10000, 0, 1);
+  // Map each number onto the cube, -1 to 1. Each axis spans this tree's own range, so
+  // the dots fill the cube. Cost and time run backwards: fewer tokens and less time
+  // sit further along their arrows, so every arrow points to better.
+  const perf = fitDomain(points.map((p) => p.perfBp), 10000);
+  const cost = fitDomain(points.map((p) => p.tokens));
+  const time = fitDomain(points.map((p) => p.wallMs));
+  const X = (bp: number) => -1 + (2 * (bp - perf.lo)) / (perf.hi - perf.lo);
   const Y = (t: number) => -1 + (2 * (cost.hi - t)) / (cost.hi - cost.lo);
   const Z = (ms: number) => -1 + (2 * (time.hi - ms)) / (time.hi - time.lo);
   const P = (v: Vec) => project(v, view);
@@ -502,7 +564,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
     return project(e, view).depth;
   };
   const back = ([0, 1, 2] as const).map((a) => (faceDepth(a) > 0 ? -1 : 1));
-  const perfTicks = [0, 2500, 5000, 7500, 10000];
+  const perfTicks = perf.ticks;
   const tickPos: number[][] = [perfTicks.map(X), cost.ticks.map(Y), time.ticks.map(Z)];
   const planes: ReactNode[] = [];
   ([0, 1, 2] as const).forEach((a) => {
@@ -546,11 +608,12 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
     return `M${b.x} ${b.y} L${b.x - ux * s - uy * s * 0.5} ${b.y - uy * s + ux * s * 0.5} L${b.x - ux * s + uy * s * 0.5} ${b.y - uy * s - ux * s * 0.5} Z`;
   };
   const OFF = 0.17;
-  // Where the three axes meet, their first labels would collide. Only x keeps its 0% there.
+  // Where the three axes meet, their first labels would collide. Only x keeps its label there.
+  const nearOrigin = (pos: number) => pos < -0.8;
   const ticks = [
     ...perfTicks.map((t) => ({ k: `x-${t}`, at: [X(t), -1 - OFF, -1 - OFF] as Vec, text: fmtPerf(t) })),
-    ...cost.ticks.filter((t) => t !== cost.hi).map((t) => ({ k: `y-${t}`, at: [-1 - OFF, Y(t), -1 - OFF] as Vec, text: Math.round(t).toLocaleString("en-US") })),
-    ...time.ticks.filter((t) => t !== time.hi).map((t) => ({ k: `z-${t}`, at: [-1 - OFF, -1 - OFF, Z(t)] as Vec, text: fmtWall(t) })),
+    ...cost.ticks.filter((t) => !nearOrigin(Y(t))).map((t) => ({ k: `y-${t}`, at: [-1 - OFF, Y(t), -1 - OFF] as Vec, text: Math.round(t).toLocaleString("en-US") })),
+    ...time.ticks.filter((t) => !nearOrigin(Z(t))).map((t) => ({ k: `z-${t}`, at: [-1 - OFF, -1 - OFF, Z(t)] as Vec, text: fmtWall(t) })),
   ];
 
   const projected = points.map((p) => {
@@ -561,6 +624,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
   // frame, so each stays visible while the plot turns; a thin line marks the true spot.
   const apart = separate(projected.map((q) => ({ id: q.p.n.id, at: [q.s.x, q.s.y], r: PR * q.s.f })), PGAP, 0);
   const placed = projected.map((q) => ({ ...q, d: apart.get(q.p.n.id)!.at }));
+  const spot3d = new Map(placed.map((q) => [q.p.n.id, { at: q.d, r: PR * q.s.f }]));
   const sel = placed.find((q) => q.p.n.id === selected);
   const selLabel = sel && placeLabels(
     [{ id: sel.p.n.id, at: sel.d, r: PR * sel.s.f + 4, text: sel.p.n.short, dir: null, size: 11, must: true }],
@@ -630,8 +694,8 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
             const lab = P(a.label);
             return (
               <g key={a.name}>
-                <line className="cmp-axis" x1={O.x} y1={O.y} x2={end.x} y2={end.y} />
-                <path className="cmp-arrow" d={arrow(O, end)} />
+                <line className={`cmp-axis ax-${a.name}`} x1={O.x} y1={O.y} x2={end.x} y2={end.y} />
+                <path className={`cmp-arrow ax-${a.name}`} d={arrow(O, end)} />
                 <text className="cmp-axis-title" x={lab.x} y={lab.y + 4} textAnchor="middle">
                   <tspan className="cmp-axis-name">{a.name} </tspan>{a.title}
                 </text>
@@ -660,6 +724,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
               )}
             </g>
           ))}
+          <TreeLinks links={links} lineage={lineage} byId={byId} spot={(id) => spot3d.get(id)} />
           {placed.map(({ p, s, d: [x, y] }) => {
             const isSel = p.n.id === selected;
             const r = PR * s.f;
