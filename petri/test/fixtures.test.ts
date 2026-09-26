@@ -2,8 +2,8 @@
  * The shipped fixture store. SPEC.md sections 4.3, 10.10 and 11.5.
  *
  * These checks keep design rule 6 honest: a fresh clone with no ANTHROPIC_API_KEY
- * and no Hedera account must be able to measure two harness versions, and the gap
- * between them must clear the acceptance margin of section 9.
+ * must be able to measure two harness versions, and the gap between them must
+ * clear the acceptance margin of section 9.
  *
  * The checks are cheap on purpose. They read the store and the schemas. They never
  * spawn a sandbox, so `pnpm test` stays fast. The real measurement is proved by
