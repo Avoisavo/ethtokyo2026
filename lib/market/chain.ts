@@ -46,8 +46,8 @@ export type Deployment = {
   registry: Address;
 };
 
-/** The largest uint64: no expiry of its own. */
-export const NEVER = (1n << 64n) - 1n;
+/** One year from now: the default expiry of every name the platform makes. */
+export const oneYear = (): bigint => BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 3600);
 
 const registryAbi = parseAbi([
   "function register(string label, address owner, address registry, address resolver, uint256 roleBitmap, uint64 expiry) returns (uint256)",
@@ -156,8 +156,9 @@ export async function stateOf(name: string) {
  * the platform resolver. The owner is the server wallet unless given. Returns
  * the tx, or null when it exists.
  */
-export async function registerSubname(name: string, expiry: bigint = NEVER, owner?: Address): Promise<Hex | null> {
+export async function registerSubname(name: string, expiry?: bigint, owner?: Address): Promise<Hex | null> {
   const dep = loadDeployment();
+  expiry ??= oneYear();
   const { label, registry, exists } = await stateOf(name);
   if (exists) return null;
   return send(`register ${name}`, { address: registry, abi: registryAbi, functionName: "register", args: [label, owner ?? dep.owner, zeroAddress, dep.resolver, 0n, expiry] });

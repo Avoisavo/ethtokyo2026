@@ -55,8 +55,6 @@ class Fail extends Error {}
 const LABEL = ENS_SUFFIX.replace(/\.eth$/, "");
 const DURATION = BigInt(365 * 24 * 60 * 60);
 const COMMIT_WAIT_MS = 65_000;
-/** The largest uint64: a subname that never expires on its own. */
-const NEVER = (1n << 64n) - 1n;
 const OUT = path.join(process.cwd(), "lib", "ens", "deployment.json");
 
 const usdcAbi = parseAbi(["function mint(address to, uint256 amount)"]);
