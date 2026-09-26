@@ -139,6 +139,7 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
     }
   };
 
+  const low = balance.data !== undefined && balance.data < PRICE;
   if (owned) {
     return (
       <section className="buy">
@@ -148,6 +149,12 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
           Download all {Object.keys(owned.files).length} files (.zip)
         </button>
         <p>The zip holds <code>harness.md</code> and a <code>harness/</code> folder with the same layout as <code>petri/harness</code>.</p>
+        <p>Buy again to get a new name, the next <code>buyer</code> number, with a fresh 30 days. Your test USDC: {balance.data === undefined ? "…" : (Number(balance.data) / 1e6).toFixed(2)}</p>
+        {low && <button type="button" className="ghost" disabled={!!step} onClick={() => void mint()}>Get 10 test USDC</button>}
+        <button type="button" className="ghost" disabled={!!step || low || !isConnected || chainId !== CHAIN_ID} onClick={() => void buy()}>Buy again · 1 USDC</button>
+        {step && <p>{step}</p>}
+        {payTx && <p>Payment: <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a></p>}
+        {error && <p className="err">{error}</p>}
         <div className="buy-files">
           {Object.entries(owned.files).map(([f, text]) => (
             <details key={f}>
@@ -160,7 +167,6 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
     );
   }
 
-  const low = balance.data !== undefined && balance.data < PRICE;
   return (
     <section className="buy">
       <h3>Use this harness · 1 USDC</h3>
