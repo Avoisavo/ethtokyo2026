@@ -39,24 +39,16 @@ export type LoadResult =
   | { ok: false; error: string; root: string };
 
 /**
- * The engine's export carries Hedera receipts (`hedera` on the tree, each node and
- * each verification). The site does not use Hedera, so they are dropped here and
- * never reach the browser.
- */
-const withoutHedera = (json: string): PetriExport =>
-  JSON.parse(json, (key, value) => (key === "hedera" ? undefined : value)) as PetriExport;
-
-/**
  * Runs the real `petri export` and reads its JSON.
  * The UI never reads .petri/ itself and never recomputes a verdict:
  * evaluate() in src/policy/acceptance.ts stays the one source of truth.
  */
 export async function loadTree(): Promise<LoadResult> {
-  if (snapshotMode()) return { ok: true, data: withoutHedera(JSON.stringify(snapshotExport)) };
+  if (snapshotMode()) return { ok: true, data: snapshotExport as unknown as PetriExport };
   const out = path.join(os.tmpdir(), `petri-ui-${process.pid}-${Date.now()}.json`);
   try {
     await petri(["export", "--out", out]);
-    const data = withoutHedera(await readFile(out, "utf8"));
+    const data = JSON.parse(await readFile(out, "utf8")) as PetriExport;
     if (data.protocol !== "petri/export/1") {
       return { ok: false, error: `Unexpected export protocol: ${String(data.protocol)}`, root: PETRI_ROOT };
     }
