@@ -72,9 +72,7 @@ export default async function TreePage({ params, searchParams }: {
                 forest={buildForest(d.nodes)}
                 initial={d.stats.head || d.nodes[d.nodes.length - 1]!.id}
                 minVerifications={d.policy.minVerifications}
-                minDeltaBp={d.policy.minDeltaBp}
                 benchTotal={d.bench.total}
-                hedera={d.hedera ?? null}
                 initialView={view === "stats" || view === "compare" ? view : "tree"}
                 stats={<Stats d={d} />}
                 info={<Panels panels={buildPanels(d, load.digest)} />}

@@ -60,7 +60,7 @@ export function buildPanels(d: PetriExport, digest: DigestResult | null): PanelD
         <li><b>Rejected versions are never deleted.</b> A failure tells the next agent where not to go.</li>
         <li><b>Every version states what its author expected.</b> A diff alone does not say why.</li>
         <li><b>The score is pass or fail on unit tests.</b> No model grades the answer, so nobody argues about the number.</li>
-        <li><b>Reading and verifying the shipped tree needs no API key and no Hedera account.</b></li>
+        <li><b>Reading and verifying the shipped tree needs no API key.</b></li>
       </ol>
     </div>
   );
@@ -111,7 +111,6 @@ export function buildPanels(d: PetriExport, digest: DigestResult | null): PanelD
       <ul className="limits">
         <li><b>A lazy verifier can sign without running the test.</b> Petri cannot catch this yet. It needs an evidence and dispute process.</li>
         <li><b>Two distinct keys are not two distinct people.</b> On a local log, one person can hold every key.</li>
-        <li><b>Hedera gives shared order and a timestamp.</b> It does not prove a verifier ran the benchmark.</li>
         <li><b>The test is {total} small coding tasks.</b> A gain here may not help your own agent.</li>
         <li><b>One shared test invites people to fit it.</b> Repeat runs and a wide margin slow this down. They do not stop it.</li>
       </ul>
