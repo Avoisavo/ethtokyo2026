@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { getVerifierConfig } from "@/lib/pay/config";
 import { preflight, runVerify } from "@/lib/pay/petri-verify";
-import { getVerifierServer, nextAdapter, nonceOf, profileOf } from "@/lib/pay/verifier";
+import { getVerifierServer, nextAdapter, paymentKeyOfHeader, profileOf } from "@/lib/pay/verifier";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,14 +45,23 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     runnerId = pf.runnerId;
   }
 
-  // Gate 2: one run per authorization. The nonce is reserved before any await.
+  // Gate 2: one run per authorization, and one paid run per version at a time.
+  // Both are reserved before any await.
   const server = getVerifierServer(cfg.config);
-  const nonce = header ? nonceOf(header) : null;
-  if (header && nonce === null) return json(400, { ok: false, code: "bad_payment_header", detail: "PAYMENT-SIGNATURE does not decode." });
+  const nonce = header ? paymentKeyOfHeader(header) : null;
+  if (header && nonce === null) {
+    return json(400, { ok: false, code: "unsupported_payment", detail: "PAYMENT-SIGNATURE must hold exactly one EIP-3009 authorization." });
+  }
   if (nonce && (server.usedNonces.has(nonce) || server.pendingNonces.has(nonce))) {
     return json(409, { ok: false, code: "authorization_reused", detail: "This authorization was already used." });
   }
-  if (nonce) server.pendingNonces.add(nonce);
+  if (nonce && server.busyVersions.has(versionId)) {
+    return json(409, { ok: false, code: "version_busy", detail: "A paid run of this version is in progress. Its report would make a second one not count." });
+  }
+  if (nonce) {
+    server.pendingNonces.add(nonce);
+    server.busyVersions.add(versionId);
+  }
 
   try {
     // Gate 3: x402. No header: 402. A header: facilitator verify, then the payer screen.
@@ -82,8 +91,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     if (result.type !== "payment-verified") return json(500, { ok: false, code: "route_not_priced" });
     if (nonce) server.usedNonces.add(nonce);
 
-    // Gate 4: the paid work, with the verifier's own key.
-    const verification = await runVerify(versionId, cfg.config.petriHome!);
+    // Gate 4: the paid work, with the verifier's own key. Preflight runs again inside
+    // the lock, so a report that could no longer count is never charged for.
+    const home = cfg.config.petriHome!;
+    const verification = await runVerify(versionId, home, () => preflight(versionId, home));
     if (!verification.ok) {
       await result.cancellationDispatcher.cancel({ reason: "handler_failed", responseStatus: verification.status }).catch(() => undefined);
       return json(verification.status, {
@@ -118,16 +129,23 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
       payer: settled.payer,
       errorReason: settled.success ? undefined : settled.errorReason,
     };
+    // Broadcast but not yet confirmed: the money may already be on its way. Never call it refused.
+    const pending = !settled.success && settled.errorReason === "settlement_pending" && !!settled.transaction;
     return new Response(
       JSON.stringify(
         settled.success
           ? { ok: true, payerScreen, verification, settlement }
-          : { ok: false, code: "settle_failed", detail: settled.errorReason, payerScreen, verification, settlement },
+          : pending
+            ? { ok: false, code: "settlement_pending", detail: "The transfer was broadcast and is not confirmed yet. Check the transaction.", payerScreen, verification, settlement }
+            : { ok: false, code: "settle_failed", detail: settled.errorReason, payerScreen, verification, settlement },
       ),
-      { status: settled.success ? 200 : 502, headers: h },
+      { status: settled.success ? 200 : pending ? 202 : 502, headers: h },
     );
   } finally {
-    if (nonce) server.pendingNonces.delete(nonce);
+    if (nonce) {
+      server.pendingNonces.delete(nonce);
+      server.busyVersions.delete(versionId);
+    }
   }
 }
 
