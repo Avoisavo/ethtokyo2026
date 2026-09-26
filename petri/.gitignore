@@ -15,7 +15,6 @@ dist/
 .petri/index/
 .petri/scratch/
 .petri/log.lock
-.petri/mirror-cache.jsonl
 
 # OS noise
 .DS_Store
