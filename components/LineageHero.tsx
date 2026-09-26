@@ -233,15 +233,15 @@ export function TradeIcon({ kind, x, y }: { kind: TradeKind; x: number; y: numbe
   }
   if (kind === "tokens") {
     return (
-      <g className="t-icon t-line" transform={`translate(${x} ${y})`}>
-        <circle r={4.4} />
-        <circle r={2} />
+      <g className="t-icon" transform={`translate(${x} ${y})`}>
+        <circle className="t-outer" r={4.4} />
+        <circle className="t-inner" r={2} />
       </g>
     );
   }
   return (
-    <g className="t-icon t-line" transform={`translate(${x} ${y})`}>
-      <circle r={4.4} />
+    <g className="t-icon" transform={`translate(${x} ${y})`}>
+      <circle className="t-outer" r={4.4} />
       <path d="M0 -2.6 V0 L1.9 1.3" />
     </g>
   );

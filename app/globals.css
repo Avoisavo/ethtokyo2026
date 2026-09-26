@@ -369,7 +369,7 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .branch-foot button { border: 0; background: none; padding: 0; color: var(--pass); font-size: 12.5px; cursor: pointer; }
 
 /* ---- direction pills on tree lines ---- */
-.objective rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
+.objective > rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
 .objective text { font-family: var(--f-mono), monospace; font-size: 9.5px; fill: var(--ink-mid); }
 .card-domain { margin-bottom: 6px; }
 
@@ -537,9 +537,12 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .tradeoffs td.flat { color: var(--ink-faint); }
 .legend-trade { display: inline-flex; align-items: center; gap: 4px; color: var(--ink-mid); font-size: 12px; }
 .legend-trade svg { margin-left: 6px; }
-.t-icon { fill: var(--ink-mid); }
-.t-icon.t-line { fill: none; stroke: var(--ink-mid); stroke-width: 1.3; stroke-linecap: round; }
+/* The three trade-off icons. Better: solid colour. Worse: a red outline. About the same: grey outline. */
+.t-icon rect, .t-icon circle, .t-icon path { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.tradeoff .up .t-icon rect, .tradeoff .up .t-icon circle.t-outer { fill: var(--pass); stroke: var(--pass); }
+.tradeoff .up .t-icon circle.t-inner, .tradeoff .up .t-icon path { stroke: var(--surface); }
+.tradeoff .down .t-icon rect, .tradeoff .down .t-icon circle, .tradeoff .down .t-icon path { stroke: var(--fail); }
+.legend-trade .t-icon rect, .legend-trade .t-icon circle.t-outer { fill: var(--ink-mid); stroke: var(--ink-mid); }
+.legend-trade .t-icon circle.t-inner, .legend-trade .t-icon path { stroke: var(--paper); }
 .tradeoff .up text { fill: var(--pass); font-weight: 600; }
 .tradeoff .down text { fill: var(--fail); font-weight: 600; }
-.tradeoff .up .t-icon { fill: var(--pass); } .tradeoff .up .t-icon.t-line { fill: none; stroke: var(--pass); }
-.tradeoff .down .t-icon { fill: var(--fail); } .tradeoff .down .t-icon.t-line { fill: none; stroke: var(--fail); }
