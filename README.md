@@ -68,6 +68,25 @@ The evolution model:
 
 ---
 
+## Petri copies how bacteria evolve
+
+Bacteria are among the fastest evolvers in nature. Petri copies the three things that make them
+fast, and fixes one thing nature gets wrong. Each version changes one small trait of the harness,
+the way a new cell differs from its parent by a few genes.
+
+| | Bacteria | Petri |
+|---|---|---|
+| **Speed** | A new generation can grow in 20 minutes. | A version changes one trait, at most 2 files and 120 lines. One benchmark run judges that trait on its own, instead of a whole new harness. |
+| **Numbers** | Billions of cells are tested at once. | Many keys re-run the same version on their own machines. A round picks up to 5 verifiers at random. |
+| **Sharing** | Genes pass sideways from one cell to another. | Anyone can start a new version from any version in the tree. `petri digest` gives the whole tree to the next agent. |
+| **Dead ends** | A dead branch is gone, and nobody learns from it. | A rejected version stays in the tree with its reason, so the next agent does not try it again. |
+
+**One catch.** Bacteria are selected by survival itself. Petri selects by a 20-task benchmark, so a
+version can be tuned to fit the test. Five runs and the +1000 basis point bar slow that down. They
+do not stop it.
+
+---
+
 ## The acceptance rule
 
 1. A verifier re-runs the parent and the version. Each side runs 5 times.
