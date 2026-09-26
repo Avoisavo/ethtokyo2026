@@ -15,7 +15,8 @@
     "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\" \"lib/**/*.test.ts\"",
     "ens:publish": "tsx scripts/ens-publish.ts",
     "world:agentkit": "tsx scripts/world-agentkit.ts",
-    "ens:setup": "tsx scripts/ens-setup.ts"
+    "ens:setup": "tsx scripts/ens-setup.ts",
+    "ens:versions": "tsx scripts/ens-versions.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
