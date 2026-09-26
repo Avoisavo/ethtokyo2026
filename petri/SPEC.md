@@ -1281,7 +1281,7 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 ### 7.3 `.petri/log.jsonl`, one canonical JSON object per line
 
 ```json
-{"chain":"bd79f478865074e46bb76eaf75a6311afd4c63850d62c53413af31710a2e4a2c","consensusNanos":"1789200000000000000","envelope":{"body":{"bench":"aa80a75294768bd3bc81ed688e6fd0b4ea2741b68c3508fa37b023f1d70b5cb8","hyp":"Because the prompt sends only symbol names, sending full signatures will raise the median by at least 500bp.","node":"a3572a8d3168357ad34c4afbebc65a4f55ccfa2c0bc5f157d4f65391dea75fa4","parent":"a5966c17a7d5ee36571983655df9c4c7e168b7602b90ae0b373d10b6b51e78a6","tree":"petri-main","type":"NodeSubmitted"},"pub":"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737","sig":"38ce1b0a46fe537a42956f6c31421679faa238e18dc1b935ba2373b1f11ecdf36b529b149682ddd71bb81f9976310e906734618e5bd3fe97f8e70dcac889610e","ver":1},"payer":"local","seq":1,"source":"local","topic":"local:petri-main"}
+{"chain":"bd79f478865074e46bb76eaf75a6311afd4c63850d62c53413af31710a2e4a2c","consensusNanos":"1789200000000000000","envelope":{"body":{"bench":"aa80a75294768bd3bc81ed688e6fd0b4ea2741b68c3508fa37b023f1d70b5cb8","hyp":"Because the prompt sends only symbol names, sending full signatures will raise the median by at least 500bp.","node":"a3572a8d3168357ad34c4afbebc65a4f55ccfa2c0bc5f157d4f65391dea75fa4","parent":"a5966c17a7d5ee36571983655df9c4c7e168b7602b90ae0b373d10b6b51e78a6","tree":"petri-main","type":"NodeSubmitted"},"pub":"d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737","sig":"38ce1b0a46fe537a42956f6c31421679faa238e18dc1b935ba2373b1f11ecdf36b529b149682ddd71bb81f9976310e906734618e5bd3fe97f8e70dcac889610e","ver":1},"seq":1}
 ```
 
 This is the one file written with `canonicalJson`, not with the pretty writer. The
@@ -1363,29 +1363,18 @@ export interface LogEntry {
   chain: string;           // The sha256 hash chain of §8.6, as hex.
   consensusNanos: string;  // Decimal nanoseconds since the epoch. Exactly 19 digits.
   envelope: SignedEnvelope<PetriMessage>;
-  payer: string;           // Always "local".
   seq: number;             // A per-log sequence number. 1-based. Gap-free.
-  source: 'local';
-  topic: string;           // "local:<treeId>".
 }
 
 export interface PublishReceipt {
-  seq: number; source: 'local'; topic: string; txId: string;
+  seq: number; unverified: boolean; warning: string;
 }
 
 export interface ConsensusLog {
-  readonly kind: 'local';
-  readonly topic: string;
   publish(body: PetriMessage): Promise<PublishReceipt>;
   read(afterSeq?: number): AsyncIterable<LogEntry>;
-  /** The honest one-line trust label. The CLI MUST print this. */
-  trustLabel(): string;
   close(): Promise<void>;
 }
-
-/** `seq` IS the total order. The local log assigns it under an exclusive file lock. */
-export const orderKey = (e: LogEntry): string =>
-  `${e.topic}:${String(e.seq).padStart(12, '0')}`;
 
 /** Open the tree's log. This is the ONLY place a log is constructed. */
 export function openLog(cfg: PetriConfig, identity: Identity, root: string): ConsensusLog {
@@ -3414,7 +3403,7 @@ needs the behaviour imports it.
 | `src/trust/envelope.ts` | trust | `signingBytes`, `seal`, `openEnvelope`, `SignedEnvelope` |
 | `src/trust/report.ts` | trust | `VerificationReport`, `buildReport`, `checkReport`, `seedFor`, `reportId` |
 | `src/consensus/messages.ts` | consensus | `NodeSubmitted`, `VerificationSigned`, `StatusChanged`, `PetriMessage` |
-| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog`, `orderKey` |
+| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog` |
 | `src/consensus/local.ts` | consensus | `LocalLog`, the hash chain, the file lock |
 | `src/consensus/replay.ts` | consensus | `replay`, `ReplayNode`, `ReplayResult` |
 | `src/policy/acceptance.ts` | policy | `evaluate`, `Verdict`, `DecisionCode`, `NodeFacts` |
