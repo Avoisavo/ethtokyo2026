@@ -28,9 +28,9 @@ export const ROOT = 'root';
 export type Mode = 'live' | 'replay';
 export const ModeSchema = z.enum(['live', 'replay']);
 
-/** Where does the consensus log live? Section 1. */
-export type Ledger = 'hcs' | 'local';
-export const LedgerSchema = z.enum(['hcs', 'local']);
+/** Where does the consensus log live? Section 1. The append-only file .petri/log.jsonl. */
+export type Ledger = 'local';
+export const LedgerSchema = z.literal('local');
 
 /** Count the escaped JSON bytes, not the characters. The wire limit is bytes. */
 export const byteLen = (max: number) => (s: string) =>
@@ -512,7 +512,7 @@ export interface PetriNode {
   verifiedDeltaBp: number | null;
   disputed: boolean;            // A StatusChanged claim disagreed with the computed status.
   mode: Mode;
-  trust: 'hcs' | 'local-unverified';
+  trust: 'local-unverified';
   seq: number;                  // The log sequence number of its NodeSubmitted.
   consensusNanos: string;
 }
