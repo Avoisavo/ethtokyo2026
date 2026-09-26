@@ -43,9 +43,9 @@ export const configPath = (root: string = REPO_ROOT): string => join(petriDir(ro
  * The private key of this runner.
  *
  * `PETRI_HOME` moves this ONE file, and nothing else. Set it to give a second
- * process on this machine a second identity against the SAME tree. That is how a
- * multi-machine protocol is demonstrated on one box: two runners, two keys, one
- * shared log. The tree, the objects and the log stay under `--root`.
+ * process on this machine a second identity against the SAME tree. That is how
+ * two runners with two keys use one tree on one machine. The tree, the objects
+ * and the log stay under `--root`.
  *
  * This is the only environment variable that changes a path under `.petri/`.
  */
@@ -56,7 +56,6 @@ export const identityPath = (root: string = REPO_ROOT): string => {
 };
 export const logPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'log.jsonl');
 export const lockPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'log.lock');
-export const cursorPath = (root: string = REPO_ROOT): string => join(petriDir(root), 'cursor.json');
 
 /** One World ID check per verification, written only when the check is on. */
 export const worldChecksPath = (root: string = REPO_ROOT): string =>
