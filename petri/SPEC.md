@@ -1209,8 +1209,7 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 ├── config.json                  PetriConfig.               §7.1
 ├── identity.json                mode 0600. NEVER commit.   §7.2
 ├── log.jsonl                    The local consensus log.   §7.3
-├── log.lock                     Transient. A write lock.
-├── cursor.json                  The last log seq consumed. §7.4
+├── log.lock                     Transient. A write lock.   §7.4
 ├── objects/
 │   └── <aa>/<rest>.json         Content-addressed. HarnessObject, NodeDetail,
 │                                BenchSpec, SignedReport, RunResult.
@@ -1288,11 +1287,12 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 This is the one file written with `canonicalJson`, not with the pretty writer. The
 reason is the hash chain: `chain` covers the envelope, so the line must be stable.
 
-### 7.4 `.petri/cursor.json`
+### 7.4 `.petri/log.lock`
 
-```json
-{ "lastSeq": 42, "topic": "local:petri-main", "updatedAt": "2026-09-12T08:10:00.000Z" }
-```
+`LocalLog.publish` creates this file with `open(path, 'wx')` before it appends a
+line, and deletes it after the `fsyncSync`. The file holds the process id and the
+time. A writer that finds a lock older than 30 seconds deletes it and takes the lock.
+A writer that waits more than 10 seconds stops with an error.
 
 ### 7.5 `.petri/nodes/a3/572a8d…/manifest.json`
 
