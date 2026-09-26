@@ -167,6 +167,7 @@ export function TreeWorkspace({ nodes: given, forest, initial, minVerifications,
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="rejected" cx={7} cy={7} r={5} /></svg>Rejected — kept, with the reason</span>
               <span><svg width="14" height="14" aria-hidden="true"><Glyph status="pending" cx={7} cy={7} r={5} /></svg>Pending — waiting for keys</span>
               <span><svg width="22" height="14" aria-hidden="true"><line className="h-edge restore" x1="1" x2="21" y1="7" y2="7" /></svg>Runs the same harness as that version again</span>
+              <span className="legend-note">On each line: perf, tokens and speed against the parent. + is better on all three.</span>
             </div>
             <LineageHero {...shared} layoutNodes={recorded} />
             <TreeView {...shared} />

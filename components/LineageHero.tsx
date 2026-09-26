@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, costChange, fmtPct } from "@/lib/metrics";
+import { changesOf, fmtPct, fmtTradeOff, tradeOffOf } from "@/lib/metrics";
 import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -132,10 +132,11 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
         {/* The direction each change aimed for, on the line just before the child. */}
         {nodes.filter((n) => slots[n.parent] !== undefined && slots[n.id] !== undefined).map((n) => {
           const b = at(n.id);
-          const ch = changesOf(n, nodes);
-          const cost = costChange(n, nodes);
-          // What went up, and what it cost: "accuracy +280% · tokens +32%". A pure gain reads "tokens 0%".
-          const label = ch.local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(ch.local)}${cost === null ? "" : ` · tokens ${fmtPct(cost)}`}`;
+          // The three results of the change, against its parent: what went up, and what it cost.
+          // A version that was never measured shows the direction it aimed for.
+          const t = tradeOffOf(n, nodes, benchTotal);
+          const local = changesOf(n, nodes).local;
+          const label = t ? fmtTradeOff(t) : local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(local)} (claimed)`;
           const w = label.length * 5.5 + 14;
           return (
             <g key={`o-${n.id}`} className="objective">

@@ -42,7 +42,7 @@ function rootRerunRuns(root: ExportNode, nodes: ExportNode[]): RunRecord[] {
   return [];
 }
 
-function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTotal: number): Omit<ComparePoint, "n" | "rating" | "mix"> | null {
+export function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTotal: number): Omit<ComparePoint, "n" | "rating" | "mix"> | null {
   if (isBlocked(n)) return null;
   const root = isRoot(n, ids);
   const perfBp = root

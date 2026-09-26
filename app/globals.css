@@ -527,3 +527,12 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .rd-key.rd-wait { fill: color-mix(in srgb, var(--ink-faint) 22%, transparent); stroke: var(--ink-mid); stroke-width: 1.5; }
 .rd-parent-key { fill: none; stroke: var(--ink-mid); stroke-width: 1.4; stroke-dasharray: 4 3; }
 .rd-face-key { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; }
+
+.tradeoffs { margin-top: 22px; }
+.tradeoffs h3 { margin: 0 0 4px; font-size: 15px; }
+.tradeoffs table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.tradeoffs th, .tradeoffs td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); }
+.tradeoffs td.up { color: var(--pass); font-weight: 600; }
+.tradeoffs td.down { color: var(--fail); font-weight: 600; }
+.tradeoffs td.flat { color: var(--ink-faint); }
+.legend-note { color: var(--ink-faint); font-size: 12px; }

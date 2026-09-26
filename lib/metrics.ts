@@ -1,5 +1,6 @@
 import { claimBp, isBlocked, isRoot, objectiveOf, rootRerunBp } from "./format";
 import type { ExportNode } from "./types";
+import { measure } from "./compare";
 
 /** The quantity a direction is judged on. */
 export type Metric = "score" | "tokens" | "time";
@@ -61,15 +62,33 @@ export function changesOf(n: ExportNode, nodes: ExportNode[]): Changes {
   };
 }
 
-/**
- * The cost side of an edge: tokens per task against the parent, in percent.
- * Null when either side never ran (a blocked change has no cost).
- */
-export function costChange(n: ExportNode, nodes: ExportNode[]): number | null {
-  const parent = nodes.find((x) => x.id === n.parent);
-  if (!parent || isBlocked(n) || isBlocked(parent)) return null;
-  const a = parent.costs.tokensPerTask;
-  const b = n.costs.tokensPerTask;
-  if (a <= 0) return null;
-  return ((b - a) / a) * 100;
+/** The three results of a change, against its parent. Positive is better on every one. */
+export interface TradeOff {
+  /** Benchmark score: up is better. */
+  perf: number;
+  /** Tokens per task: fewer is better, so a positive number is a saving. */
+  tokens: number;
+  /** Time of one benchmark run: shorter is better, so a positive number is a speed-up. */
+  speed: number;
 }
+
+/**
+ * What a change gained and what it cost, against its parent, from the same
+ * measurements the Compare view uses (re-run by other keys where they were).
+ * Null when either side was never measured, for example a blocked change.
+ */
+export function tradeOffOf(n: ExportNode, nodes: ExportNode[], benchTotal: number): TradeOff | null {
+  const ids = new Set(nodes.map((x) => x.id));
+  const parent = nodes.find((x) => x.id === n.parent);
+  if (!parent) return null;
+  const a = measure(parent, nodes, ids, benchTotal);
+  const b = measure(n, nodes, ids, benchTotal);
+  if (!a || !b) return null;
+  const perf = gain(a.perfBp, b.perfBp, "score");
+  const tokens = gain(a.tokens, b.tokens, "tokens");
+  const speed = gain(a.wallMs, b.wallMs, "time");
+  return perf === null || tokens === null || speed === null ? null : { perf, tokens, speed };
+}
+
+/** "perf +280% · tokens −32% · speed +4%": every number, + is better. */
+export const fmtTradeOff = (t: TradeOff): string => `perf ${fmtPct(t.perf)} · tokens ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}`;

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type Keyboa
 import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
 import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
+import { fmtPct, tradeOffOf } from "@/lib/metrics";
 import { Glyph } from "./Glyph";
 
 interface Props {
@@ -36,7 +37,7 @@ type Measure = "perf" | "speed" | "cost";
 /** Each spoke wears the colour of the same measure's axis in the 3D plot. */
 const SPOKES: { key: Measure; title: string; axis: Axis; angle: number }[] = [
   { key: "perf", title: "Performance", axis: "x", angle: -PI / 2 },
-  { key: "cost", title: "Cost", axis: "y", angle: PI / 6 },
+  { key: "cost", title: "Token savings", axis: "y", angle: PI / 6 },
   { key: "speed", title: "Speed", axis: "z", angle: (5 * PI) / 6 },
 ];
 const spokeAt = (angle: number, r: number): Pt => [RC[0] + Math.cos(angle) * RR * r, RC[1] + Math.sin(angle) * RR * r];
@@ -323,7 +324,7 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           )}
         </div>
         <figcaption>
-          Performance is the benchmark score, re-run by other keys where it was. Cost is the median tokens per task. Speed is the median time of one benchmark run.
+          Performance is the benchmark score, re-run by other keys where it was. Token savings is the median tokens per task: fewer is better. Speed is the median time of one benchmark run.
           Both charts stretch each measure across this tree, from the weakest version to the best, so even small differences show.
           On the radar, the tip of each spoke is the best version in this tree (100) and the weakest sits near the centre (10); the real value is printed under each rating.
           The 3D axes, the tooltips and the table show real values. In the 3D plot and the triangle, arrows join each version to its parent.
@@ -334,7 +335,7 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           <summary>Show as a table</summary>
           <table className="cmp-table">
             <thead>
-              <tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Cost</th><th scope="col">Speed</th><th scope="col">Rating · perf / speed / cost</th></tr>
+              <tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Tokens</th><th scope="col">Speed</th><th scope="col">Against the parent · perf / tokens / speed</th><th scope="col">Rating · perf / speed / tokens</th></tr>
             </thead>
             <tbody>
               {points.map((p) => (
@@ -344,6 +345,7 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
                   <td>{fmtPerf(p.perfBp)}</td>
                   <td>{fmtTokens(p.tokens)}</td>
                   <td>{fmtWall(p.wallMs)}</td>
+                  <td>{(() => { const t = tradeOffOf(p.n, nodes, benchTotal); return t ? `${fmtPct(t.perf)} / ${fmtPct(t.tokens)} / ${fmtPct(t.speed)}` : "—"; })()}</td>
                   <td>{fmtRating(p.rating.perf)} / {fmtRating(p.rating.speed)} / {fmtRating(p.rating.cost)}</td>
                 </tr>
               ))}
@@ -619,7 +621,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
           <text className="cmp-corner-sub" x={TOP[0]} y={TOP[1] - 11} textAnchor="middle">higher score</text>
           <text className="cmp-corner" x={LEFT[0]} y={LEFT[1] + 24} textAnchor="middle">Speed</text>
           <text className="cmp-corner-sub" x={LEFT[0]} y={LEFT[1] + 39} textAnchor="middle">less time</text>
-          <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Cost</text>
+          <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Token savings</text>
           <text className="cmp-corner-sub" x={RIGHT[0]} y={RIGHT[1] + 39} textAnchor="middle">fewer tokens</text>
 
           <TreeLinks links={links} lineage={lineage} byId={byId} spot={(id) => { const d = drawn.get(id); return d && { at: d.at, r: TR }; }} />
@@ -774,7 +776,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
   const O = P([-1, -1, -1]);
   const axes = [
     { name: "x" as Axis, title: "Performance", end: [1.7, -1, -1] as Vec, label: [1.98, -1, -1] as Vec },
-    { name: "y" as Axis, title: "Cost", end: [-1, 1.62, -1] as Vec, label: [-1, 1.85, -1] as Vec },
+    { name: "y" as Axis, title: "Token savings", end: [-1, 1.62, -1] as Vec, label: [-1, 1.85, -1] as Vec },
     { name: "z" as Axis, title: "Speed", end: [-1, -1, 1.7] as Vec, label: [-1, -1, 1.98] as Vec },
   ];
   const arrow = (a: Proj, b: Proj) => {

@@ -1,4 +1,5 @@
 import { claimBp, isBlocked, isRoot, rootRerunBp, signedBp, STATUS_WORD, tasks, tasksOf } from "@/lib/format";
+import { fmtPct, tradeOffOf } from "@/lib/metrics";
 import type { ExportNode, PetriExport } from "@/lib/types";
 
 /** The score a node was measured at by other keys. Falls back to the author claim. */
@@ -141,6 +142,25 @@ export function Stats({ d }: { d: PetriExport }) {
           A version passes only if it beats its parent by {signedBp(d.policy.minDeltaBp)}.
           {unscored > 0 && ` ${unscored} ${unscored === 1 ? "version was" : "versions were"} stopped before scoring and ${unscored === 1 ? "is" : "are"} not plotted. See the table.`}
         </figcaption>
+        <div className="tradeoffs">
+          <h3>Every change is a trade-off</h3>
+          <p className="muted">Each change against its parent, on three results. + is better on all three. A gain on one often costs another.</p>
+          <table>
+            <thead><tr><th scope="col">Version</th><th scope="col">Status</th><th scope="col">Performance</th><th scope="col">Token savings</th><th scope="col">Speed</th></tr></thead>
+            <tbody>
+              {nodes.filter((n) => !isRoot(n, ids)).map((n) => {
+                const t = tradeOffOf(n, nodes, total);
+                const cell = (v: number | null) => <td className={v === null ? "" : v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>{fmtPct(v)}</td>;
+                return (
+                  <tr key={n.id}>
+                    <td><code>{n.short}</code></td><td>{STATUS_WORD[n.status]}</td>
+                    {t ? <>{cell(t.perf)}{cell(t.tokens)}{cell(t.speed)}</> : <td colSpan={3} className="muted">{isBlocked(n) ? "stopped before scoring" : "not measured yet"}</td>}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
         <details className="table-view">
           <summary>Show as a table</summary>
           <table>
