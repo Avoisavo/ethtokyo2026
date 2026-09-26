@@ -15,7 +15,6 @@
     "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\""
   },
   "dependencies": {
-    "@hashgraph/sdk": "^2.81.0",
     "@noble/hashes": "^2.4.0",
     "@tanstack/react-query": "^5.104.0",
     "@worldcoin/agentkit": "^0.2.1",
