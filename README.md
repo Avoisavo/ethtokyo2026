@@ -92,40 +92,55 @@ pnpm petri dead-ends # every rejected version with its reason
 
 ## The recorded tree
 
-`petri/.petri/` holds 16 versions: 3 accepted, 2 rejected and 11 pending. Each version
-and each verification is one signed line in `petri/.petri/log.jsonl`, and the statuses
-are computed from those lines. Each line carries a hash of the line before it, so Petri
-refuses a log with an edited line or a gap.
+`petri/.petri/` holds 18 versions: 4 accepted, 2 rejected and 12 pending, plus the baseline.
+Each version and each verification is one signed line in `petri/.petri/log.jsonl`, and the
+statuses are computed from those lines. Each line carries a hash of the line before it, so
+Petri refuses a log with an edited line or a gap.
 
-| Version | Status | What it tried |
-|---|---|---|
-| `0a54718a` | pending (the start) | Single-shot prompt, no retry. 5 of 20 tasks. |
-| `ecc7cdb0` | accepted, +7000bp | Full symbol signatures and one worked example. 19 of 20 tasks. |
-| `872aaa3d` | rejected, -7000bp | Removing the signatures and the example again |
-| `ea3b7532` | accepted, +7000bp | Restoring them, one step after the rejected version |
-| `f07e0c55` | rejected, -7000bp | Trimming the prompt again to save tokens |
-| `92dc9c49` | accepted, +7000bp | Restoring the signatures after the trim |
-| `ec1d39e6` | pending, 1 of 2 keys | An independent re-test of signatures and example, +7000bp so far |
-| `e1adae18` | pending, 1 of 2 keys | A short prompt without the reply-shape block, -7000bp so far |
-| `2e7f6b5b` | pending, not scored | Stating every prompt rule as a positive directive |
-| 7 more | pending, not scored | Changes stopped by a guard or by the typecheck |
+Each version has a number, `v1` to `v18`, in log order. The number is also its ENS label (see below).
+
+| Version | Id | Status | What it tried |
+|---|---|---|---|
+| v1 | `0a54718a` | baseline | Single-shot prompt, no retry. 5 of 20 tasks. |
+| v2 | `ecc7cdb0` | accepted, +7000bp | Full symbol signatures and one worked example. 19 of 20 tasks. |
+| v3 | `872aaa3d` | rejected, −7000bp | Removing the signatures and the example again |
+| v8 | `ea3b7532` | accepted, +7000bp | Restoring them, one step after the rejected version |
+| v13 | `ec1d39e6` | accepted, +7000bp | An independent re-test of signatures and example |
+| v14 | `f07e0c55` | rejected, −7000bp | Trimming the prompt again to save tokens |
+| v15 | `92dc9c49` | accepted, +7000bp | Restoring the signatures after the trim |
+| v16 | `e1adae18` | pending, 1 of 2 keys | A short prompt without the reply-shape block, −7000bp so far |
+| v18 | `ae0acec3` | pending, 1 of 2 keys | Restoring the signatures and the example, +7000bp so far |
+| v12, v17 | `2e7f6b5b`, `c34b88da` | pending, not scored | Stating every prompt rule as a positive directive |
+| v4 to v7, v9 to v11 | | pending, stopped | Changes stopped by a guard or by the typecheck |
 
 All scores are from **replay mode**. Replay runs recorded model answers through the real
 sandbox, and the tests really run. It does not call a model.
+
+### Every change is a trade-off
+
+A change is judged on three results against its parent, not one: **performance** (the score),
+**token savings** (tokens per task) and **speed** (the time of one benchmark run). All three come
+from the runs the other keys re-ran. For example v2 raises the score by 280% but uses 32% more
+tokens per task, and v3 saves 24% of the tokens but loses 74% of the score. `lib/metrics.ts`
+(`tradeOffOf`) computes them, and `petri.cost` puts the token cost on chain next to the gain.
+
+A change that never ran has no measurement. The site shows an estimate for it
+(`estimateTradeOff`): the author's claim on its own direction, and placeholders for the other two.
+It is drawn dashed and never counts as data.
 
 ---
 
 ## Demo: a second key accepts a version
 
-`ec1d39e6` has 1 verification. One more verification from a different key accepts it.
+v18 (`ae0acec3`) has 1 verification. One more verification from a different key accepts it.
 
 1. Open http://localhost:3000/tree/coding--petri-harness-v1--claude-sonnet-5.
-2. Find "An independent re-test confirms…". It shows `1 of 2 keys`.
+2. Find v18, "Restoring the full symbol signatures…". It shows `1 of 2 keys`.
 3. Run the second verification:
 
    ```bash
    cd petri
-   PETRI_HOME=~/petri-demo-keys/k3 pnpm petri verify ec1d39e6
+   PETRI_HOME=~/petri-demo-keys/k3 pnpm petri verify ae0acec3
    ```
 
 4. Refresh the page. The version is now accepted and shows purple.
@@ -135,7 +150,7 @@ create a new key first. Any key that is not the author's key works:
 
 ```bash
 PETRI_HOME=~/my-verifier pnpm petri id create --label verifier
-PETRI_HOME=~/my-verifier pnpm petri verify ec1d39e6
+PETRI_HOME=~/my-verifier pnpm petri verify ae0acec3
 ```
 
 To reset the tree after a demo:
@@ -230,6 +245,57 @@ their wallet, with the file key sealed to them.
 Every name is registered with no roles, so nobody can transfer it. Every registry names its parent
 (`setParent`), and the ENSv2 Universal Resolver walks from `petri.eth` down.
 
+### Buy an accepted version
+
+A user pays 1 test USDC once and gets the harness files. Open an accepted version on the tree,
+connect a wallet (top right), and use the **Buy** tab.
+
+1. **Sign** a message in MetaMask. It proves that an access key made in this browser belongs to the wallet.
+2. **Pay** 1 USDC (Sepolia MockUSDC) to the platform wallet.
+3. The payment is **confirmed** on Sepolia.
+4. The platform **checks** the payment: the signature, the amount, the payer, and that the
+   transaction was not used before.
+5. The **encrypted files** are on the version name, `petri.doc.<file>`. The first buyer of a version
+   makes the platform encrypt and publish them. Later buys reuse them.
+6. The platform **creates the buyer name**, `buyer<n>.v2.accepted.…`, owned by the buyer's wallet,
+   for 30 days.
+7. It writes the **file key, sealed to the buyer's access key**, as `petri.key` on that name.
+8. The browser **opens the key** and decrypts the files. They download as one zip in the
+   `petri/harness` layout.
+
+The page shows all eight steps live: `POST /api/market/buy` streams one JSON line per step, with
+each transaction. **Buy again** makes the next buyer name with a fresh 30 days. Nothing is copied:
+the files stay once on the version name, and each buy adds one name with three small records
+(`petri.wallet`, `petri.access-key`, `petri.key`). Every write pays a tip of at least 3 gwei, so it
+lands in the next block.
+
+### How it was set up
+
+The order matters for the explorer, which follows events to find each registry:
+
+1. Deploy the platform resolver (a `PermissionedResolver`) and a `UserRegistry` through the
+   `VerifiableFactory`.
+2. Register `petri.eth` with the ETH Registrar: commit, wait 60 seconds, register, paid in MockUSDC,
+   with **no subregistry** in the call.
+3. `setSubregistry` on the .eth registry, then `setParent` on the new registry. Every registry below
+   is linked the same way: deploy, `setSubregistry` on the parent, `setParent` back.
+4. Register each name with role bitmap 0 (nobody can transfer it) and a 1-year expiry, then write its
+   records with the resolver's `multicall`, a few kilobytes per transaction.
+
+| On Sepolia | Address |
+|---|---|
+| Platform wallet, owns `petri.eth` | `0xF1122BbDb1970aF6eb04a5B43e3864193f050c06` |
+| Resolver (every name's records) | `0x599F57D68C77911060B0A64118C5ac9781f117eC` |
+| `petri.eth` registry | `0x484fa8c8F4D8aFB5aA45d46c60F90284FD0e729A` |
+
+Three things in the deployed ENSv2 contracts differ from the docs, and each one cost time:
+
+- `setText` takes the name as **DNS-encoded bytes**, not a `bytes32` namehash.
+- After `unregister`, a name's records still resolve through its parent's resolver. The close also
+  calls `linkToRecord(name, 0)`.
+- A resolver role scoped to a text key covers that key on **every** name the resolver serves, not
+  one name.
+
 ### Run it
 
 ```bash
@@ -240,6 +306,29 @@ npm run market:smoke -- ae0acec3   # one full round on Sepolia: submit, join, pi
 
 Each needs `PETRI_ENS_PRIVATE_KEY` in `.env.local`, and Sepolia ETH on that wallet. `ens:tree`
 writes only what differs from the chain, and moves a version whose status changed.
+`market:smoke` works once per pending version: at the end the version is accepted.
+
+### What is real, and what is not yet
+
+| Part | State |
+|---|---|
+| The two trees, their folders, versions and records on Sepolia | Done. Read live by the tree page. |
+| Buy an accepted version, and buy again | Done in the browser, with a real wallet |
+| A round: submit, join, random pick, vote, close, move | Done on Sepolia from the terminal (`market:smoke`). No web page yet. |
+| World ID on submit (Selfie Check) and on join (World ID for Agents) | The server checks are written. Not yet run with a phone. |
+
+### Limits
+
+- **The ciphertext stays on Sepolia forever.** A buyer or verifier who leaks the file key leaks the
+  files. Paying once is a promise, not an enforcement.
+- **The access key lives in the browser.** In another browser the buyer cannot open the files, even
+  though their wallet paid.
+- **The platform wallet holds every role** on the resolver and the registries. It could rewrite any
+  record. A contract with narrower roles would remove that trust.
+- **The vote role is per text key.** During the vote window a verifier could write `petri.vote` on
+  another name. The close revokes it.
+- **The random pick runs on the server.** The seed (the round, its pool and the latest block hash)
+  is written on the round, so anyone can replay it.
 
 ### The explorer
 
@@ -402,7 +491,12 @@ The live path has not been run on this tree yet.
 | `lib/showcase.ts` | The showcase trees for other domains |
 | `lib/ens/` | ENSv2: each version's name, its text records, and the reader. See `lib/ens/README.md`. |
 | `app/ens/`, `app/api/ens/` | The ENSv2 playground on Sepolia, and the ENS API. See `app/ens/README.md`. |
-| `scripts/ens-publish.ts` | Writes the records to the resolver on `petri.eth` (`npm run ens:publish`) |
+| `scripts/ens-setup.ts` | Registers `petri.eth`, its resolver and registry (`npm run ens:setup`) |
+| `scripts/ens-tree.ts` | Puts both trees on ENS and moves versions between folders (`npm run ens:tree`) |
+| `lib/market/` | The market: encryption, the round, the pick, votes, the buy, and every ENS write |
+| `app/api/market/` | The market API: submit, round (open, join, pick, close), buy, bought, state |
+| `scripts/market-smoke.ts` | One full round on Sepolia from the terminal (`npm run market:smoke`) |
+| `lib/metrics.ts`, `lib/compare.ts` | The three results of each change, and the Compare view's data |
 | `lib/world/` | World: IDKit Selfie Check, World ID for Agents, AgentKit AgentBook. See `lib/world/README.md`. |
 | `app/world/`, `app/api/world/` | The `/world` page and the World API |
 | `scripts/world-agentkit.ts` | Registers an agent in AgentBook (`npm run world:agentkit`) |
