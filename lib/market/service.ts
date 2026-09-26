@@ -23,7 +23,6 @@ import { addresses } from "@/app/ens/_lib/ens/contracts";
 import { SEPOLIA_RPC_URL } from "@/lib/ens/resolve";
 import { ensNames, versionName } from "@/lib/ens/name";
 import { loadTree } from "@/lib/tree";
-import { getAttempt } from "@/lib/world/agent/store";
 
 import { grantTextKey, loadDeployment, readTexts, registerSubname, revokeSubname, revokeTextKey, writeTexts } from "./chain";
 import { docsHash, encryptText, newFileKey, sealFileKey } from "./crypto";
@@ -175,6 +174,8 @@ export async function joinRound(label: string, n: number, input: { wallet: strin
 
   let human: RoundMember["human"] = "none";
   if (input.attemptId) {
+    // The agent store is server-only, so the terminal scripts never load it.
+    const { getAttempt } = await import("@/lib/world/agent/store");
     const a = getAttempt(input.attemptId);
     if (!a || a.status !== "approved") throw new MarketError("The World ID approval is missing, or it did not succeed. Join without it, with weight 1.");
     if ((a.authTime ?? 0) < now() - FRESH_SECONDS) throw new MarketError("The World ID approval is not fresh. Ask again.");

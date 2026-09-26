@@ -40,16 +40,26 @@ export function newAccessKeyPair(): { secretKey: Hex0x; publicKey: Hex0x } {
 /** The public key of an access secret key, compressed (33 bytes). */
 export const accessPublicKey = (secretKey: string): Hex0x => hex(getPublicKey(bytes(secretKey), true));
 
-/** Encrypts text with a file key. The result is nonce ‖ ciphertext, as hex. */
-export function encryptText(fileKey: string, text: string): Hex0x {
+/** Base64 for the big blobs: a third smaller than hex on chain, where every byte costs gas. */
+function toBase64(b: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function fromBase64(s: string): Uint8Array {
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+}
+
+/** Encrypts text with a file key. The result is nonce ‖ ciphertext, as base64. */
+export function encryptText(fileKey: string, text: string): string {
   const nonce = randomBytes(NONCE_BYTES);
   const sealed = xchacha20poly1305(bytes(fileKey), nonce).encrypt(utf8ToBytes(text));
-  return hex(concatBytes(nonce, sealed));
+  return toBase64(concatBytes(nonce, sealed));
 }
 
 /** The reverse of encryptText. Throws when the key is wrong or the data was changed. */
 export function decryptText(fileKey: string, blob: string): string {
-  const data = bytes(blob);
+  const data = fromBase64(blob);
   const plain = xchacha20poly1305(bytes(fileKey), data.slice(0, NONCE_BYTES)).decrypt(data.slice(NONCE_BYTES));
   return new TextDecoder().decode(plain);
 }

@@ -78,17 +78,34 @@ async function send(tx: { address: Address; abi: readonly unknown[]; functionNam
   return hash;
 }
 
-/** Writes the records that differ from what the name holds now. Returns the tx hash, or null when nothing changed. */
-export async function writeTexts(name: string, records: Record<string, string>): Promise<Hex | null> {
+/** About 750 gas per stored byte, so one transaction carries at most this many bytes of values. */
+const BYTES_PER_TX = 8_000;
+
+/**
+ * Writes the records that differ from what the name holds now, a few
+ * kilobytes per transaction. Returns the tx hashes; none when nothing changed.
+ */
+export async function writeTexts(name: string, records: Record<string, string>): Promise<Hex[]> {
   const dep = loadDeployment();
   const keys = Object.keys(records);
   const [have] = await resolveRecords([name], { keys, rpcUrl: SEPOLIA_RPC_URL });
   const changed = have.error ? keys : keys.filter((k) => (have.texts[k] ?? "") !== records[k]);
-  if (changed.length === 0) return null;
-  const calls = changed.map((k) =>
-    encodeFunctionData({ abi: PermissionedResolverImplAbi, functionName: "setText", args: [dnsEncode(name), k, records[k]] }),
-  );
-  return send({ address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "multicall", args: [calls] });
+  const batches: string[][] = [];
+  let size = 0;
+  for (const k of changed) {
+    const n = records[k].length + k.length;
+    if (batches.length === 0 || size + n > BYTES_PER_TX) { batches.push([]); size = 0; }
+    batches[batches.length - 1].push(k);
+    size += n;
+  }
+  const txs: Hex[] = [];
+  for (const batch of batches) {
+    const calls = batch.map((k) =>
+      encodeFunctionData({ abi: PermissionedResolverImplAbi, functionName: "setText", args: [dnsEncode(name), k, records[k]] }),
+    );
+    txs.push(await send({ address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "multicall", args: [calls] }));
+  }
+  return txs;
 }
 
 /** The registry that holds the subnames of `parent`, deployed and linked when missing. */

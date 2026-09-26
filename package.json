@@ -16,7 +16,8 @@
     "ens:publish": "tsx scripts/ens-publish.ts",
     "world:agentkit": "tsx scripts/world-agentkit.ts",
     "ens:setup": "tsx scripts/ens-setup.ts",
-    "ens:versions": "tsx scripts/ens-versions.ts"
+    "ens:versions": "tsx scripts/ens-versions.ts",
+    "market:smoke": "tsx scripts/market-smoke.ts"
   },
   "dependencies": {
     "@noble/ciphers": "^2.4.0",
