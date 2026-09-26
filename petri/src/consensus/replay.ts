@@ -4,10 +4,9 @@
  * It is pure and deterministic. The same entries in the same order always give
  * the same result. It never throws on unexpected content.
  *
- * This reducer needs no key, no account and no local state. Feed it
- * `readTopic(...)` from src/consensus/mirror.ts and a stranger on a fresh
- * machine rebuilds every node and every status. That is the proof that nobody
- * owns the tree. `petri tree`, `petri status` and `petri export` all run it.
+ * This reducer needs no key and no local state. Feed it a copy of the log and
+ * a stranger on a fresh machine rebuilds every node and every status.
+ * `petri tree`, `petri status` and `petri export` all run it.
  */
 
 import type { Policy } from '../config.js';
