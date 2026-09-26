@@ -40,12 +40,6 @@ tag `pre-ethtokyo2026`.
 | **Recorded tree** | 16 versions: 3 accepted, 2 rejected, 11 pending | 18 versions, `v1` to `v18`: the baseline, 4 accepted, 2 rejected, 11 pending |
 | **Tests** | 102 engine tests | 100 engine tests, 55 web tests, and the Intercepta tests |
 
-**What we gave up.** The Hedera topic held a copy of every log line. ENS holds each version's result,
-not every line. So the full log is again one file on one machine, guarded by its hash chain.
-
-**What is not done yet.** A round runs on Sepolia from the terminal (`npm run market:smoke`), with no
-web page yet. The World ID checks on submit and on join are written, but not yet run with a phone. See
-[What is real, and what is not yet](#what-is-real-and-what-is-not-yet).
 
 ---
 
