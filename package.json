@@ -10,18 +10,29 @@
     "petri:snapshot": "node scripts/petri-snapshot.mjs",
     "petri": "pnpm --dir petri petri",
     "demo": "bash petri/demo/verify-demo.sh",
-    "demo:full": "bash petri/demo/verify-full.sh"
+    "demo:full": "bash petri/demo/verify-full.sh",
+    "gen:ens-abis": "node scripts/gen-ens-abis.mjs",
+    "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\""
   },
   "dependencies": {
     "@hashgraph/sdk": "^2.81.0",
+<<<<<<< HEAD
     "@noble/hashes": "^2.4.0",
+=======
+    "@tanstack/react-query": "^5.104.0",
+>>>>>>> 5f547c8e44a41f2b0ab630974c19d9c2f267852e
     "@worldcoin/agentkit": "^0.2.1",
     "@worldcoin/idkit": "^4.3.0",
     "next": "16.3.4",
     "qrcode.react": "^4.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+<<<<<<< HEAD
     "server-only": "^0.0.1"
+=======
+    "viem": "^2.56.9",
+    "wagmi": "^3.7.7"
+>>>>>>> 5f547c8e44a41f2b0ab630974c19d9c2f267852e
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -31,6 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

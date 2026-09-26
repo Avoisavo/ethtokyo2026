@@ -12,8 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+<<<<<<< HEAD
     // Vendored skill cache — third-party sources, not project code.
     ".skill-cache/**",
+=======
+    // Generated ENSv2 ABIs (npm run gen:ens-abis).
+    "app/ens/_lib/ens/abis/**",
+>>>>>>> 5f547c8e44a41f2b0ab630974c19d9c2f267852e
   ]),
 ]);
 
