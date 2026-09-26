@@ -4,6 +4,7 @@ import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { STATUS_WORD, claimBp, counted, ignored, isBlocked, isRoot, objectiveOf, rootRerunBp, signedBp, tasks, wordOf } from "@/lib/format";
 import { hashscanRecordUrl, hashscanTopicUrl } from "@/lib/hashscan";
+import { ensNames } from "@/lib/ens-name";
 import type { ExportNode, HederaTopic } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
@@ -32,7 +33,7 @@ export function NodePanel({ node, parent, nodes, minVerifications, benchTotal, o
       <div className="np-head">
         <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
         <p className="eyebrow">
-          {wordOf(node)} ·{" "}
+          {wordOf(node)} · <span className="np-ens">{ensNames(nodes).get(node.id)}</span> ·{" "}
           {hedera && node.hedera ? (
             <a className="hs-id" href={hashscanRecordUrl(hedera, node.hedera)} target="_blank" rel="noreferrer"
               title={`Open this record on HashScan: topic ${hedera.topicId}, message #${node.hedera.seq}`}>{node.short}</a>
