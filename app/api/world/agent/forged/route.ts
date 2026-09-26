@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getAgentConfig } from "@/lib/world-agent/config";
-import { firstKid, forgeIdToken, validateIdToken } from "@/lib/world-agent/oidc";
+import { getAgentConfig } from "@/lib/world/agent/config";
+import { firstKid, forgeIdToken, validateIdToken } from "@/lib/world/agent/oidc";
 
 /**
  * Run the real validator on a token signed by a key the IdP never published,
