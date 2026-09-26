@@ -564,3 +564,17 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 /* Points off the selected version's path are greyed out, so the path stands out. */
 .cmp-off { filter: grayscale(1); opacity: .28; }
 .cmp-off:hover { opacity: .7; }
+
+.buy-flow { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 8px; }
+.buy-step { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; }
+.buy-step small { color: var(--ink-faint); font-size: 12px; }
+.buy-step.wait { color: var(--ink-faint); }
+.buy-step.done b { color: var(--pass); }
+.buy-step.fail b { color: var(--fail); }
+.buy-mark { flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; border: 1.5px solid var(--rule); color: var(--ink-faint); }
+.buy-step.done .buy-mark { background: var(--pass); border-color: var(--pass); color: #fff; }
+.buy-step.fail .buy-mark { background: var(--fail); border-color: var(--fail); color: #fff; }
+.buy-step.run .buy-mark { border-color: transparent; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--pass) 25%, transparent); border-top-color: var(--pass); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
