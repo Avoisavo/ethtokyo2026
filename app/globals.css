@@ -443,9 +443,9 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-dot { cursor: pointer; outline: none; }
 .cmp-hit { fill: transparent; }
 .cmp-dot:focus-visible .cmp-hit { stroke: var(--pass); stroke-width: 2; }
-.cmp-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
+.cmp-ring { fill: none; stroke: var(--pass); stroke-width: 3; }
 .cmp-ring-hover { stroke: var(--ink-faint); stroke-dasharray: 2.5 2.5; }
-.cmp-label { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.cmp-label { font-family: var(--f-mono), monospace; font-size: 12px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
 .cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
 .cmp-anchor { fill: var(--ink-faint); }
@@ -552,3 +552,8 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .rd-trade-one { display: inline-flex; align-items: center; gap: 2px; }
 .rd-trade-one.up { color: var(--pass); } .rd-trade-one.down { color: var(--fail); } .rd-trade-one.flat { color: var(--ink-faint); }
 .rd-node.est { border-style: dashed; }
+
+.rd-est polygon { stroke-dasharray: 5 4; fill-opacity: .12; }
+.rd-est circle { fill: var(--surface); }
+.cmp-tip-trade { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-family: var(--f-mono), monospace; font-size: 11px; }
+.cmp-tip-vs { color: var(--ink-faint); font-family: var(--f-body), sans-serif; }

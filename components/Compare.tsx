@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
 import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
-import { estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { estimateTradeOff, fmtPct, tradeOffOf, type TradeOff } from "@/lib/metrics";
 import { TradeIcon } from "./LineageHero";
 import { withVersionLabels } from "@/lib/ens/name";
 import { Glyph } from "./Glyph";
@@ -245,6 +245,25 @@ function placeLabels(wants: LabelWant[], dots: Spot[], w: number, h: number): Ma
   return out;
 }
 
+/** Each version's three results against its parent: measured, or an estimate for a change that never ran. */
+const TradeCtx = createContext<(id: string) => { t: TradeOff; measured: boolean } | null>(() => null);
+
+function TradeRows({ id }: { id: string }) {
+  const r = useContext(TradeCtx)(id);
+  if (!r) return null;
+  return (
+    <span className="cmp-tip-trade">
+      {([["perf", r.t.perf], ["tokens", r.t.tokens], ["speed", r.t.speed]] as const).map(([kind, v]) => (
+        <span key={kind} className={`rd-trade-one ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}>
+          <svg width="11" height="11" aria-hidden="true"><g className={`tradeoff ${v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}`}><g className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}><TradeIcon kind={kind} x={5.5} y={5.5} /></g></g></svg>
+          {fmtPct(v)}
+        </span>
+      ))}
+      <span className="cmp-tip-vs">vs parent{r.measured ? "" : " · estimate"}</span>
+    </span>
+  );
+}
+
 function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: number; w: number; h: number; also: string[]; byId: Map<string, ComparePoint> }) {
   return (
     <div className={`cmp-tip${y < h * 0.3 ? " below" : ""}`} role="presentation"
@@ -252,6 +271,7 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
       <span className="cmp-tip-word">{STATUS_WORD[p.n.status]} · {p.n.short}</span>
       <span className="cmp-tip-hyp">{clip(p.n.hypothesis, 72)}</span>
       <span className="cmp-tip-nums">{fmtPerf(p.perfBp)} · {fmtTokens(p.tokens)} · {fmtWall(p.wallMs)}</span>
+      <TradeRows id={p.n.id} />
       <span className="cmp-tip-mix">Rating in this tree: {fmtRating(p.rating.perf)} performance · {fmtRating(p.rating.speed)} speed · {fmtRating(p.rating.cost)} cost</span>
       {also.length > 0 && (
         <span className="cmp-tip-also">Shares its spot with {also.slice(0, 5).map((id) => byId.get(id)?.n.short ?? id).join(", ")}{also.length > 5 ? ` +${also.length - 5}` : ""}</span>
@@ -268,6 +288,16 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
   const lineage = useMemo(() => lineageOf(selected, links, nodes, points), [selected, links, nodes, points]);
   const byId = useMemo(() => new Map(points.map((p) => [p.n.id, p])), [points]);
   const [hover, setHover] = useState<Hover>(null);
+  const tradeOf = useMemo(() => {
+    const ids = new Set(nodes.map((n) => n.id));
+    const cache = new Map<string, { t: TradeOff; measured: boolean } | null>();
+    for (const n of nodes) {
+      if (!ids.has(n.parent)) { cache.set(n.id, null); continue; }
+      const m = tradeOffOf(n, nodes, benchTotal);
+      cache.set(n.id, m ? { t: m, measured: true } : { t: estimateTradeOff(n, nodes), measured: false });
+    }
+    return (id: string) => cache.get(id) ?? null;
+  }, [nodes, benchTotal]);
 
   if (points.length === 0) {
     return (
@@ -307,6 +337,7 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
         {fact("Fastest", fastest, fmtWall(fastest.wallMs))}
       </div>
 
+      <TradeCtx.Provider value={tradeOf}>
       <figure className="cmp-figure">
         <div className="plate compare-plate">
           <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} benchTotal={benchTotal} />
@@ -364,6 +395,7 @@ export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props)
           </table>
         </details>
       </figure>
+      </TradeCtx.Provider>
     </section>
   );
 }
@@ -493,6 +525,12 @@ function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<stri
   };
 
   const rings = [0.25, 0.5, 0.75];
+  // A version that never ran: its parent's shape, moved by the estimated change on each measure.
+  const est = !p && parentNode ? estimateTradeOff(node, nodes) : null;
+  const clamp = (r: number) => Math.min(1, Math.max(0.1, r));
+  const estRating = est && parent
+    ? { perf: clamp(parent.rating.perf * (1 + est.perf / 100)), cost: clamp(parent.rating.cost * (1 + est.tokens / 100)), speed: clamp(parent.rating.speed * (1 + est.speed / 100)) }
+    : null;
   const tone = node.status === "accepted" ? "pass" : node.status === "rejected" ? "fail" : "wait";
 
   return (
@@ -551,12 +589,13 @@ function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<stri
                 return <circle key={sp.key} cx={x} cy={y} r={4.5} />;
               })}
             </g>
-          ) : (
-            <g aria-hidden="true">
-              <text className="rd-empty" x={RC[0]} y={RC[1] - 4} textAnchor="middle">Not measured</text>
-              <text className="rd-empty-sub" x={RC[0]} y={RC[1] + 14} textAnchor="middle">
-                {isBlocked(node) ? blockedText(node.detail.mechanical!.cls) : "no score, tokens or time yet"}
-              </text>
+          ) : estRating && (
+            <g className={`rd-shape rd-${tone} rd-est`} aria-hidden="true">
+              <polygon points={shapeOf(estRating)} />
+              {SPOKES.map((sp) => {
+                const [x, y] = spokeAt(sp.angle, estRating[sp.key]);
+                return <circle key={sp.key} cx={x} cy={y} r={4} />;
+              })}
             </g>
           )}
 
@@ -565,8 +604,11 @@ function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<stri
             const top = sp.key === "perf";
             // Outward from the corner: above the top one, below and a little out for the others.
             const x = top ? vx : vx + Math.cos(sp.angle) * 14;
-            const rating = p ? fmtRating(p.rating[sp.key]) : "—";
-            const detail = p ? `${realValue(sp.key, p)}${parent ? ` · ${change(sp.key, p, parent)}` : ""}` : "not measured";
+            const estPct = est ? (sp.key === "perf" ? est.perf : sp.key === "cost" ? est.tokens : est.speed) : null;
+            const rating = p ? fmtRating(p.rating[sp.key]) : estPct !== null ? fmtPct(estPct) : "—";
+            const detail = p
+              ? `${realValue(sp.key, p)}${parent ? ` · ${change(sp.key, p, parent)}` : ""}`
+              : estPct !== null ? `estimate · vs ${parentNode?.short ?? "parent"}` : isBlocked(node) ? "stopped before scoring" : "not run yet";
             const chipY = top ? vy - 38 : vy + 12;
             const nameY = top ? chipY - 20 : chipY + 42;
             const detailY = top ? chipY - 6 : chipY + 56;
@@ -582,7 +624,7 @@ function Radar({ byId, nodes, selected, onSelect, benchTotal }: { byId: Map<stri
       </div>
 
       <div className="legend rd-legend">
-        <span><svg width="22" height="12" aria-hidden="true"><rect className={`rd-key rd-${tone}`} x="1" y="1" width="20" height="10" rx="2" /></svg>{node.short}{p ? "" : " (not measured)"}</span>
+        <span><svg width="22" height="12" aria-hidden="true"><rect className={`rd-key rd-${tone}`} x="1" y="1" width="20" height="10" rx="2" /></svg>{node.short}{p ? "" : est ? " (estimate, never measured)" : " (never measured)"}</span>
         {parentNode && (
           <span><svg width="22" height="12" aria-hidden="true"><path className="rd-parent-key" d="M1 6 H21" /></svg>
             Parent {parentNode.short}{parent ? "" : " (not measured)"}</span>
@@ -623,7 +665,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
   }
   const mid = tri(1 / 3, 1 / 3, 1 / 3);
   const order = [...points].sort((a, b) => Number(a.n.id === selected) - Number(b.n.id === selected) || rankOf(a) - rankOf(b));
-  const hp = hover === null ? undefined : byId.get(hover);
+  const hp = byId.get(hover ?? selected);
 
   const key = (e: KeyboardEvent, id: string) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(id); }
@@ -838,7 +880,8 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
   ).get(sel.p.n.id);
   const at2d = new Map<string, Pt>(placed.map((q) => [q.p.n.id, [q.s.x, q.s.y]]));
   const ideal = P([1, 1, 1]);
-  const hp = hover === null ? undefined : placed.find((q) => q.p.n.id === hover);
+  // The hovered point's card, or the selected one's when nothing is hovered, so a click pins it.
+  const hp = placed.find((q) => q.p.n.id === (hover ?? selected));
 
   const onKey = (e: KeyboardEvent) => {
     const step = 0.12;
