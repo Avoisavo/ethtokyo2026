@@ -163,7 +163,7 @@ export async function writeGenesis(ctx: Ctx, input: GenesisInput): Promise<Genes
   } catch (err) {
     process.stderr.write(
       `petri: the node was written but not published: ${(err as Error).message}\n` +
-        `       Run \`petri publish ${nodeId.slice(0, 12)}\` when the log is reachable.\n`,
+        `       Run \`petri publish ${nodeId.slice(0, 12)}\` to try again.\n`,
     );
   }
 
