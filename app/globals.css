@@ -329,8 +329,18 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .tree-plate { position: relative; }
 .legend-overlay { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 6px 0; padding: 6px 10px; font-size: 12px; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: 8px; width: fit-content; }
 @media (min-width: 700px) {
-  .legend-overlay { position: absolute; top: 10px; right: 10px; margin: 0; flex-direction: column; box-shadow: var(--shadow); z-index: 1; }
+  /* A wheel or pinch over the legend reaches the tree under it. */
+  .legend-overlay { position: absolute; top: 10px; right: 10px; margin: 0; flex-direction: column; box-shadow: var(--shadow); z-index: 1; pointer-events: none; }
 }
+/* Zoom: the buttons sit bottom right, and a drag pans the tree once zoomed in. */
+.hero svg { user-select: none; -webkit-user-select: none; }
+.hero svg.pannable { cursor: grab; }
+.hero svg.panning, .hero svg.panning .h-node { cursor: grabbing; }
+.zoom { position: absolute; right: 10px; bottom: 10px; z-index: 1; display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--surface); border: 1px solid var(--rule-soft); border-radius: 8px; box-shadow: var(--shadow); }
+.zoom button { min-width: 28px; height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; font-size: 13px; font-weight: 500; color: var(--ink-mid); cursor: pointer; }
+.zoom button:hover:not(:disabled) { background: var(--sunk); color: var(--ink); }
+.zoom button:disabled { opacity: .4; cursor: default; }
+.zoom-level { min-width: 42px; text-align: center; font-family: var(--f-mono), monospace; font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
 /* ---- Tree | Branches toggle ---- */
 .view-bar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; margin-bottom: -10px; }
