@@ -489,7 +489,7 @@ export function registerPublish(program: Command): void {
   program
     .command('publish')
     .argument('<nodeId>')
-    .description('re-publish a stored node\'s NodeSubmitted, after a topic change')
+    .description('re-publish a stored node\'s NodeSubmitted to the log')
     .action(async (nodeId: string, _opts: unknown, cmd: Command) => {
       const g = globalOptions(cmd);
       const ctx = openCtx(cmd);
