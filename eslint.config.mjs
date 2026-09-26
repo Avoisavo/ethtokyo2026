@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated ENSv2 ABIs (npm run gen:ens-abis).
+    "app/ens/_lib/ens/abis/**",
   ]),
 ]);
 
