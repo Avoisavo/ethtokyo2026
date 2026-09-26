@@ -12,44 +12,50 @@ record. Everything runs on the ENSv2 contracts on Sepolia (`ensdomains/contracts
 
 ## Names
 
-The root version takes the harness name. Each child adds one label for what it changed:
+A tree is domain × harness × model, and its name reads the same way, leaf first. Under the tree
+are three folders, and a version lives in the one that matches its status:
 
 ```
-petriharnessv1.petri.eth                     the root, 0a54718a
-addsigs.petriharnessv1.petri.eth             ecc7cdb0
-dropsigs.addsigs.petriharnessv1.petri.eth    872aaa3d
+claude-sonnet-5.petri-harness-v1.coding.petri.eth           the tree
+v1.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth   the baseline, 0a54718a
+v2.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth   ecc7cdb0
+v3.rejected.claude-sonnet-5.petri-harness-v1.coding.petri.eth   872aaa3d
+v18.pending.claude-sonnet-5.petri-harness-v1.coding.petri.eth   ae0acec3
 ```
 
-`name.ts` builds them. Two siblings with the same label get `2`, `3`… in proposal order.
+`name.ts` builds them. `v<n>` counts versions in log order, so a number never changes. When a
+status changes, `npm run ens:tree` burns the name in the old folder and registers it in the new one.
+The full hierarchy, with rounds, verifiers and buyers, is in the root README.
 
 ## Records
 
-`records.ts` defines 20 text records per version. `description` is the hypothesis, so any ENS
-app shows it. The rest are `petri.*`: the id, the parent, the status and verdict, the score and
-where it comes from, the checked change, the keys, each check as JSON, the cost and the tags.
-The root README lists every key.
+`records.ts` defines 9 text records per version: `description` (the hypothesis, so any ENS app
+shows it), `petri.id`, `petri.parent`, `petri.status`, `petri.score`, `petri.delta`,
+`petri.verifier.1`, `petri.verifier.2` and `petri.cost`. The market adds its own records after a
+submit or a buy (`lib/market/records.ts`).
 
-One resolver on `petri.eth` serves every version. It stores records per full name and answers
-wildcard lookups (ENSIP-10), so no subname registry is needed.
+One PermissionedResolver holds the records of every name. Every name is a real subname in its own
+`UserRegistry`, and every registry names its parent with `setParent`.
 
 ## Use it
 
 1. **Look at a version.** Open `/tree/coding--petri-harness-v1--claude-sonnet-5` and click a
-   version. The panel lists the name's text records. Before publishing it shows the records
-   that would be written. After publishing it shows what the resolver returns, and marks any
-   record the local log has changed since.
-2. **Set up `petri.eth`, once**, at `/ens` with a browser wallet on Sepolia:
-   - Section 1: mint test USDC and deploy your resolver.
-   - Section 2: register `petri.eth`.
-   - Section 3: point `petri.eth` at your resolver.
-3. **Publish.** Either use section 8 of `/ens` with the same wallet, or the script:
+   version. The panel lists the name's text records, read from the resolver. The name links to
+   explorer.ens.dev.
+2. **Set up `petri.eth`, once**, from the server wallet (`PETRI_ENS_PRIVATE_KEY` in `.env.local`):
 
    ```bash
-   npm run ens:publish -- --dry-run     # what would be written; needs no key
-   npm run ens:publish                  # needs PETRI_ENS_PRIVATE_KEY in .env.local
+   npm run ens:setup
    ```
 
-   Only records that differ from ENS are written, 60 `setText` calls per transaction.
+3. **Put the trees on ENS**, and keep them up to date:
+
+   ```bash
+   npm run ens:tree
+   ```
+
+   It registers the levels, the folders and every version, moves a version whose status changed,
+   and writes only the records that differ from the chain.
 
 ## API
 

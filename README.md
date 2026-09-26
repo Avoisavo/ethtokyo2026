@@ -70,11 +70,16 @@ npm run dev          # http://localhost:3000
 1. Open http://localhost:3000.
 2. Pick a domain, a model and a harness. The default is Research · Claude Sonnet 5 · Hermes Agent.
 3. Open **Coding · Claude Sonnet 5 · Petri harness v1** to see the real tree.
-4. Use the **Tree | Stats** switch to change the view.
+4. Use the **Tree | Stats | Compare** switch to change the view. Compare shows each version on
+   performance, token savings and speed.
+5. Click an accepted version, connect a wallet at the top right, and open the **Buy** tab to buy it
+   once for 1 test USDC.
 
 The Petri harness tree comes from the engine in `petri/`. The page runs `petri export`
 and `petri digest` on every request. The other trees are showcase trees. They show how
 other domains could look. Nobody measured them.
+
+`npm run test:ens` runs the 55 web tests: the ENS names and records, the market encryption and the zip.
 
 ### The engine
 

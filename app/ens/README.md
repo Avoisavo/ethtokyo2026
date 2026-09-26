@@ -37,7 +37,7 @@ Optional: put `NEXT_PUBLIC_SEPOLIA_RPC_URL=...` in `.env.local` to use your own 
 6. **Primary name**: set the name shown for your address (it must resolve back to your address).
 7. **Look up**: resolve any name or address through the ENSv2 Universal Resolver.
 8. **Publish the Petri tree**: write each tree version's record as text records on its name
-   (`addsigs.petriharnessv1.petri.eth`, …). One resolver on `petri.eth` serves every version, so set it up
+   (`v2.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth`, …). One resolver on `petri.eth` serves every version, so set it up
    first: deploy your resolver (1), register `petri.eth` (2) and point it at your resolver (3). The card shows
    how many records differ from ENS and sends only those, up to 60 per transaction. `npm run ens:publish` does
    the same from a terminal (see the root README).
