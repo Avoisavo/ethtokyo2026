@@ -15,9 +15,9 @@ import { useMyResolver } from "@/app/ens/_lib/hooks/useMyResolver";
 import { useNameInfo } from "@/app/ens/_lib/hooks/useNameInfo";
 import { useTx } from "@/app/ens/_lib/hooks/useTx";
 import { CHAIN_ID } from "@/app/ens/_lib/wagmi";
-import { ENS_SUFFIX } from "@/lib/ens-name";
-import { ALL_RECORD_KEYS, type RecordKey, type TreePlan, changedKeys } from "@/lib/ens-records";
-import { resolveRecords } from "@/lib/ens-resolve";
+import { ENS_SUFFIX } from "@/lib/ens/name";
+import { ALL_RECORD_KEYS, type RecordKey, type TreePlan, changedKeys } from "@/lib/ens/records";
+import { resolveRecords } from "@/lib/ens/resolve";
 
 /** setText calls per transaction, as in `npm run ens:publish`. */
 const CHUNK = 60;
@@ -38,14 +38,14 @@ export function PublishTreeCard({ onSelect }: { onSelect?: (name: string) => voi
   const plan = useQuery({
     queryKey: ["ens-plan"],
     queryFn: async (): Promise<TreePlan> => {
-      const res = await fetch("/api/ens-plan");
+      const res = await fetch("/api/ens/plan");
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
       return body as TreePlan;
     },
   });
 
-  // Read here rather than through /api/ens-records: that route caches each name
+  // Read here rather than through /api/ens/records: that route caches each name
   // for 15 s, and the counts should change as soon as a publish lands.
   const names = plan.data?.names.map((n) => n.name) ?? [];
   const onChain = useQuery({
