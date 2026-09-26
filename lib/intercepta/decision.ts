@@ -170,6 +170,11 @@ export function payToCheck(v: AddressVerdict): Check {
   }
 }
 
+/** Petri refuses a payTo that is not an address before Intercepta is asked about it. */
+export function payToFormatCheck(payTo: string): Check | null {
+  return /^0x[0-9a-fA-F]{40}$/.test(payTo) ? null : check("payto", "petri", "fail", "payto_not_an_address", `"${payTo.slice(0, 80)}" is not an EVM address.`);
+}
+
 export function authorizationCheck(problems: string[]): Check {
   return problems.length === 0
     ? check("authorization", "petri", "pass", "authorization_matches", "to, value, token, chain and lifetime match the 402.")
