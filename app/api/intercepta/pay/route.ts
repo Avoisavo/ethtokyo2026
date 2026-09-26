@@ -4,7 +4,7 @@ import { getInterceptaConfig } from "@/lib/intercepta/config";
 import { payForVerification } from "@/lib/pay/agent";
 import { getPayerConfig } from "@/lib/pay/config";
 import { readPaymentRecords } from "@/lib/pay/record";
-import type { PayMode } from "@/lib/pay/types";
+import type { PayMode, Product } from "@/lib/pay/types";
 import { profileOf } from "@/lib/pay/verifier";
 
 export const runtime = "nodejs";
@@ -14,9 +14,9 @@ export const maxDuration = 300;
 const NO_STORE = { "cache-control": "no-store" };
 
 /**
- * POST /api/intercepta/pay  {versionId, verifier: honest|rogue|greedy, mode: screened|preview}
+ * POST /api/intercepta/pay  {versionId, verifier: honest|rogue|greedy, mode: screened|preview, product: verification|markdown}
  *
- * Runs the Petri agent once against a verifier and returns its payment record:
+ * Runs the Petri agent once against a seller and returns its payment record:
  * the 402, every Intercepta call, the decision, and the settlement when it paid.
  * The payer key never leaves the server. One blocking request: an honest run
  * takes about a minute (Intercepta, `petri verify`, a Sepolia transaction).
@@ -31,13 +31,14 @@ export async function POST(request: NextRequest) {
       { status: 403, headers: NO_STORE },
     );
   }
-  const body = (await request.json().catch(() => ({}))) as { versionId?: unknown; verifier?: unknown; mode?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { versionId?: unknown; verifier?: unknown; mode?: unknown; product?: unknown };
   const versionId = String(body.versionId ?? "").trim().toLowerCase();
   if (!/^[0-9a-f]{8,64}$/.test(versionId)) {
     return Response.json({ ok: false, code: "bad_version_id", detail: "8 to 64 hex characters." }, { status: 400, headers: NO_STORE });
   }
   const verifier = profileOf(typeof body.verifier === "string" ? body.verifier : null);
   const mode: PayMode = body.mode === "preview" ? "preview" : "screened";
+  const product: Product = body.product === "markdown" ? "markdown" : "verification";
 
   const payer = getPayerConfig();
   if (!payer.ok) {
@@ -49,10 +50,14 @@ export async function POST(request: NextRequest) {
   const intercepta = getInterceptaConfig();
   const base = (process.env.PETRI_VERIFIER_URL?.trim() || request.nextUrl.origin).replace(/\/+$/, "");
   const record = await payForVerification({
-    url: `${base}/api/verifier/verify/${versionId}?verifier=${verifier}`,
+    url:
+      product === "markdown"
+        ? `${base}/api/versions/${versionId}/markdown?seller=${verifier}`
+        : `${base}/api/verifier/verify/${versionId}?verifier=${verifier}`,
     versionId,
     verifier,
     mode,
+    product,
     payer: payer.config,
     intercepta: intercepta.ok ? intercepta.config : null,
   });
