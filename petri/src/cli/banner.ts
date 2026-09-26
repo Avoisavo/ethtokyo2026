@@ -59,20 +59,6 @@ export function printBanner(cfg: PetriConfig, root: string): void {
   process.stderr.write(`${modeBanner(cfg.mode)}\n\n`);
 }
 
-/**
- * The banner for a command that runs before `.petri/config.json` exists, so it
- * has a mode but no config object to read it from.
- */
-export function printBareBanner(mode: Mode, detail: string): void {
-  const model = mode === 'live' ? 'live (calls claude-sonnet-5)' : 'replay (no model call)';
-  process.stderr.write(`PETRI  mode ${model}  |  trust ${detail}\n`);
-  process.stderr.write(
-    'TRUST  local  —  UNVERIFIED. This log is on this machine only.\n' +
-      '  It proves nothing about independence, time or non-deletion.\n',
-  );
-  process.stderr.write(`${modeBanner(mode)}\n\n`);
-}
-
 export const shortId = (id: string): string => (id === 'root' ? 'root' : id.slice(0, 8));
 
 export const fmtBp = (bp: number): string => `${bp >= 0 ? '+' : ''}${bp}bp`;
