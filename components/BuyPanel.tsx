@@ -65,6 +65,10 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
   const [error, setError] = useState<string | null>(null);
   const [payTx, setPayTx] = useState<string | null>(null);
   const [owned, setOwned] = useState<{ buyer: string; files: Record<string, string> } | null>(null);
+  // The buy flow on screen: which step runs now, and whether one failed.
+  const [stage, setStage] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [boughtName, setBoughtName] = useState<string | null>(null);
 
   const balance = useReadContract({
     address: USDC, abi: erc20Abi, functionName: "balanceOf", args: address ? [address] : undefined,
@@ -95,34 +99,62 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
   const buy = async () => {
     if (!address || !client || !PLATFORM) return;
     setError(null);
+    setFailed(false);
+    setPayTx(null);
+    setBoughtName(null);
     try {
-      setStep("Sign the access key in MetaMask…");
+      setStage(0);
+      setStep("buying");
       const key = accessKeyFor(address);
       const signature = await sign({ message: accessMessage(key.publicKey) });
 
-      setStep("Pay 1 USDC in MetaMask…");
+      setStage(1);
       const hash = await write({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [PLATFORM, PRICE], chainId: CHAIN_ID });
       setPayTx(hash);
-      setStep("Waiting for the payment on Sepolia…");
+      setStage(2);
       await client.waitForTransactionReceipt({ hash });
 
-      setStep("The platform checks the payment, publishes the files and creates your name (about a minute)…");
+      setStage(3);
       const res = await fetch("/api/market/buy", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, wallet: address, accessKey: key.publicKey, signature, txHash: hash }),
       });
-      const data = (await res.json()) as { ok: boolean; error?: string };
+      const data = (await res.json()) as { ok: boolean; error?: string; name?: string };
       if (!data.ok) throw new Error(data.error ?? "The purchase failed.");
+      setBoughtName(data.name ?? null);
 
-      setStep("Opening your key…");
+      setStage(4);
       if (!(await open(address))) throw new Error("Your name was created, but the key did not open. Reload the page.");
+      setStage(5);
       setStep(null);
       void balance.refetch();
     } catch (e) {
       setError((e as { shortMessage?: string }).shortMessage ?? (e as Error).message);
+      setFailed(true);
       setStep(null);
     }
   };
+
+  /** The buy flow as a checklist: done, running (with a spinner), waiting, or failed. */
+  const flow = stage === null ? null : (
+    <ol className="buy-flow" aria-live="polite">
+      {[
+        { what: "Sign the access key in MetaMask", note: "proves this browser's key belongs to your wallet" },
+        { what: "Pay 1 USDC in MetaMask", note: "a transfer to the platform wallet" },
+        { what: "Payment confirmed on Sepolia", note: payTx ? <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a> : null },
+        { what: "The platform checks the payment, publishes the files and creates your name", note: boughtName ? <code>{boughtName}</code> : "about a minute" },
+        { what: "Open your key and decrypt the files", note: "in this browser only" },
+      ].map((st, i) => {
+        const state = i < stage ? "done" : i === stage ? (failed ? "fail" : "run") : "wait";
+        return (
+          <li key={i} className={`buy-step ${state}`}>
+            <span className="buy-mark" aria-hidden="true">{state === "done" ? "✓" : state === "fail" ? "✕" : state === "run" ? <span className="spinner" /> : i + 1}</span>
+            <span><b>{st.what}</b>{st.note && <small> · {st.note}</small>}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   const mint = async () => {
     if (!address) return;
@@ -152,8 +184,7 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
         <p>Buy again to get a new name, the next <code>buyer</code> number, with a fresh 30 days. Your test USDC: {balance.data === undefined ? "…" : (Number(balance.data) / 1e6).toFixed(2)}</p>
         {low && <button type="button" className="ghost" disabled={!!step} onClick={() => void mint()}>Get 10 test USDC</button>}
         <button type="button" className="ghost" disabled={!!step || low || !isConnected || chainId !== CHAIN_ID} onClick={() => void buy()}>Buy again · 1 USDC</button>
-        {step && <p>{step}</p>}
-        {payTx && <p>Payment: <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a></p>}
+        {flow}
         {error && <p className="err">{error}</p>}
         <div className="buy-files">
           {Object.entries(owned.files).map(([f, text]) => (
@@ -184,8 +215,8 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
           <button type="button" disabled={!!step || low} onClick={() => void buy()}>Buy for 1 USDC</button>
         </>
       )}
-      {step && <p>{step}</p>}
-      {payTx && <p>Payment: <a href={explorerTx(payTx)} target="_blank" rel="noreferrer">{payTx.slice(0, 10)}…</a></p>}
+      {step && stage === null && <p>{step}</p>}
+      {flow}
       {error && <p className="err">{error}</p>}
     </section>
   );
