@@ -527,13 +527,11 @@ export function registerPublish(program: Command): void {
       await ctx.closeLog();
 
       if (g.json) {
-        emitJson(ctx, { node: id, seq: receipt.seq, topic: receipt.topic, txId: receipt.txId });
+        emitJson(ctx, { node: id, seq: receipt.seq });
         return;
       }
       out(`node    ${id}`);
-      out(`topic   ${receipt.topic}`);
       out(`seq     ${receipt.seq}`);
-      out(`tx      ${receipt.txId}`);
     });
 }
 
