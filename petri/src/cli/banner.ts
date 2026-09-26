@@ -1,5 +1,5 @@
 /**
- * The trust banner and the mode banner of SPEC.md §8.9.
+ * The trust banner and the mode banner of SPEC.md §8.7.
  *
  * The banner goes to stderr, so `--json` keeps stdout machine-readable.
  * There is no flag to hide it. `--quiet` never suppresses it.
@@ -24,7 +24,7 @@ export function bannerLine(cfg: PetriConfig): string {
   return `PETRI  mode ${model}  |  trust local-log (this machine only)`;
 }
 
-/** The `ledger` block of §8.9, verbatim. */
+/** The trust banner of §8.7, verbatim. */
 export function trustBanner(root: string): string {
   return [
     `TRUST  local log ${logPath(root)}  —  UNVERIFIED`,
@@ -34,7 +34,7 @@ export function trustBanner(root: string): string {
   ].join('\n');
 }
 
-/** The `mode` block of §8.9. `live` gets an equally plain one. */
+/** The `mode` block of §8.7. `live` gets an equally plain one. */
 export function modeBanner(mode: Mode): string {
   if (mode === 'replay') {
     return [
@@ -141,7 +141,7 @@ export interface StatusLineInput {
 }
 
 /**
- * The status line of §8.9. Every line carries the mode and the trust label, so a
+ * The status line of §8.7. Every line carries the mode and the trust label, so a
  * screenshot cannot hide which of the four states produced the number.
  *
  * The verifier field carries the counted set, so the number on the line and the
