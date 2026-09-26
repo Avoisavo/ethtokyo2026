@@ -1,0 +1,17 @@
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--radius); background: var(--surface); font: inherit; font-size: 13px; text-align: left; color: inherit; cursor: pointer; min-width: 0; }
+.card:hover { border-color: var(--ink-faint); }
+.cardOn { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink) inset; }
+.cardName { font-weight: 600; font-size: 14px; }
+.cardFee { font-family: var(--f-mono), monospace; }
+.cardAddr { color: var(--ink-mid); overflow-wrap: anywhere; }
+
+.verdict { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--rule); font-size: 13px; }
+.verdict ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.verdictWord { font-family: var(--f-mono), monospace; font-size: 26px; font-weight: 700; letter-spacing: .06em; line-height: 1.1; }
+.verdict_pay { color: var(--pass); background: var(--pass-soft); border-color: color-mix(in srgb, var(--pass) 30%, transparent); }
+.verdict_reject { color: var(--fail); background: var(--fail-soft); border-color: color-mix(in srgb, var(--fail) 30%, transparent); }
+.verdict_hold { color: #9A6B00; background: color-mix(in srgb, #E0A800 12%, transparent); border-color: color-mix(in srgb, #E0A800 35%, transparent); }
+.verdict code, .verdict li { color: var(--ink); }
+
+.raw { margin: 8px 0 0; padding: 12px; max-height: 360px; overflow: auto; border-radius: 8px; background: var(--sunk); font-size: 12px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
