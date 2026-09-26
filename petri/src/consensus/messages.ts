@@ -1,5 +1,5 @@
 /**
- * The exact HCS wire schemas. SPEC.md section 8.3.
+ * The exact wire schemas of the log. SPEC.md section 8.3.
  *
  * The chain holds commitments. The store holds evidence. A hash on the chain
  * lets anyone check that the bytes they fetched are the bytes the author signed.
@@ -14,7 +14,7 @@
  * Measured worst-case envelope sizes, with a 64-character tree id, every hex
  * field full, the hypothesis at its 240-byte cap and the reason at its 200-byte
  * cap: NodeSubmitted 797, VerificationSigned 749, StatusChanged (4 verifiers)
- * 911. One HCS chunk holds 1024.
+ * 911. Each one fits in 1024 bytes.
  */
 
 import { z } from 'zod';
