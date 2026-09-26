@@ -26,10 +26,9 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import type { Command } from 'commander';
 
 import type { Policy } from '../config.js';
-import { medianInt, type EnvDescriptor, type Mode, type NodeStatus, type PetriNode, type RunRecord } from '../core/schema.js';
+import { medianInt, type EnvDescriptor, type Ledger, type Mode, type NodeStatus, type PetriNode, type RunRecord } from '../core/schema.js';
 import type { DecisionCode } from '../policy/acceptance.js';
 import type { LogEntry } from '../consensus/log.js';
-import { anchorStatus, loadAnchorConfig, loadAnchorTimes, type AnchorReceipt } from '../consensus/anchor.js';
 import { checkReport, spreadBpOf } from '../trust/report.js';
 import { EXIT, fail } from './exit.js';
 import { globalOptions, note, openCtx, out, type Ctx } from './context.js';
@@ -64,17 +63,8 @@ export interface ExportStats {
   tips: string[];
 }
 
-/** Where one record sits on the Hedera topic. Null until `petri hedera push` sends it. */
-export interface ExportHedera {
-  seq: number;
-  txId: string;
-  /** Consensus time from the mirror node, or null until `petri hedera check` reads it. */
-  timestamp: string | null;
-}
-
 export interface ExportVerification {
   reportId: string;
-  hedera: ExportHedera | null;
   /** The ENVELOPE pub, never report.runner. §5.3. */
   runner: string;
   runnerLabel: string;
@@ -146,8 +136,6 @@ export interface ExportNode {
   diff: string;
   verifications: ExportVerification[];
   costs: { medianTokens: number; medianWallMs: number; tokensPerTask: number };
-  /** The NodeSubmitted record on the Hedera topic. */
-  hedera: ExportHedera | null;
 }
 
 export interface PetriExport {
@@ -158,14 +146,10 @@ export interface PetriExport {
   mode: Mode;
   trust: TrustLabel;
   ledger: {
-    kind: 'hcs' | 'local';
+    kind: Ledger;
     lastSeq: number;
     headHash: string;
-    topicId: string;
-    network: string;
   };
-  /** The Hedera topic that holds a copy of every record, or null. */
-  hedera: { topicId: string; network: string } | null;
   bench: { id: string; name: string; total: number };
   policy: Policy;
   runsPerVerification: number;
@@ -189,12 +173,8 @@ async function readLogFacts(ctx: Ctx): Promise<{
   lastSeq: number;
   headHash: string;
   wire: Map<string, WireFacts>;
-  nodeSeq: Map<string, number>;
-  reportSeq: Map<string, number>;
 }> {
   const wire = new Map<string, WireFacts>();
-  const nodeSeq = new Map<string, number>();
-  const reportSeq = new Map<string, number>();
   let lastSeq = 0;
   let headHash = '';
   const entries: AsyncIterable<LogEntry> = ctx.log().read();
@@ -202,14 +182,12 @@ async function readLogFacts(ctx: Ctx): Promise<{
     lastSeq = entry.seq;
     headHash = entry.chain;
     const body = entry.envelope.body;
-    if (body.type === 'NodeSubmitted' && !nodeSeq.has(body.node)) nodeSeq.set(body.node, entry.seq);
-    if (body.type === 'VerificationSigned' && !reportSeq.has(body.report)) reportSeq.set(body.report, entry.seq);
     // The first message from one key wins, exactly as the reducer decides it.
     if (body.type === 'VerificationSigned' && !wire.has(body.report)) {
       wire.set(body.report, { clean: body.clean, spreadBp: body.spreadBp });
     }
   }
-  return { lastSeq, headHash, wire, nodeSeq, reportSeq };
+  return { lastSeq, headHash, wire };
 }
 
 /** `n013`. Display only. It must never enter a hash. */
@@ -261,7 +239,6 @@ function detailOf(node: PetriNode): ExportDetail {
 
 function verificationsOf(
   view: TreeView, node: PetriNode, wire: Map<string, WireFacts>, labels: Map<string, string>,
-  hederaOfReport: (reportId: string) => ExportHedera | null,
 ): ExportVerification[] {
   const verdict = view.verdicts.get(node.id);
   // Keyed by report id, never by key: one key can store several reports and only
@@ -276,7 +253,6 @@ function verificationsOf(
     const facts = wire.get(checked.id);
     rows.push({
       reportId: checked.id,
-      hedera: hederaOfReport(checked.id),
       runner: signed.pub,
       runnerLabel: labels.get(signed.pub) ?? '',
       sig: signed.sig,
@@ -337,26 +313,7 @@ function runnersOf(view: TreeView, labels: Map<string, string>): RunnerRow[] {
 }
 
 export async function buildExport(ctx: Ctx, view: TreeView): Promise<PetriExport> {
-  const { lastSeq, headHash, wire, nodeSeq, reportSeq } = await readLogFacts(ctx);
-
-  // The Hedera copy of each record: its receipt, plus the consensus time once read back.
-  let anchor: { topicId: string; network: string } | null = null;
-  let receipts = new Map<number, AnchorReceipt>();
-  let times: ReturnType<typeof loadAnchorTimes> = {};
-  try {
-    const cfg = loadAnchorConfig(ctx.root);
-    if (cfg !== null) {
-      anchor = { topicId: cfg.topicId, network: cfg.network };
-      receipts = anchorStatus(ctx.root).logReceipts;
-      times = loadAnchorTimes(ctx.root);
-    }
-  } catch {
-    // A broken anchor file never stops the export. `petri hedera status` reports it.
-  }
-  const hederaAt = (logSeq: number | undefined): ExportHedera | null => {
-    const r = logSeq === undefined ? undefined : receipts.get(logSeq);
-    return r === undefined ? null : { seq: r.hcsSeq, txId: r.txId, timestamp: times[String(r.hcsSeq)]?.timestamp ?? null };
-  };
+  const { lastSeq, headHash, wire } = await readLogFacts(ctx);
 
   // The only label this machine can honestly supply is its own. Every other key
   // is a bare Hex64, which is the identity anyway.
@@ -393,9 +350,8 @@ export async function buildExport(ctx: Ctx, view: TreeView): Promise<PetriExport
       trust: node.trust,
       detail: detailOf(node),
       diff: node.diff,
-      verifications: verificationsOf(view, node, wire, labels, (id) => hederaAt(reportSeq.get(id))),
+      verifications: verificationsOf(view, node, wire, labels),
       costs: costsOf(node, taskTotal),
-      hedera: hederaAt(nodeSeq.get(node.id)),
     }));
 
   return {
@@ -408,11 +364,8 @@ export async function buildExport(ctx: Ctx, view: TreeView): Promise<PetriExport
     ledger: {
       kind: ctx.config.ledger,
       lastSeq,
-      headHash: ctx.config.ledger === 'local' ? headHash : '',
-      topicId: ctx.config.hedera?.topicId ?? '',
-      network: ctx.config.hedera?.network ?? '',
+      headHash,
     },
-    hedera: anchor,
     bench: { id: ctx.config.bench.id, name: ctx.config.bench.name, total: taskTotal },
     policy: ctx.config.policy,
     runsPerVerification: ctx.config.runsPerVerification,
