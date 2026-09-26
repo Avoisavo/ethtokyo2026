@@ -467,7 +467,7 @@ export interface SummaryOptions {
 /**
  * One node as one line, for `petri tree` and `petri tips`.
  *
- * Every field of §8.9 is here, so a screenshot cannot hide the trust label or
+ * Every field of §8.7 is here, so a screenshot cannot hide the trust label or
  * the mode. Only the hypothesis is shortened, and it ends in an ellipsis when
  * it is.
  */
