@@ -221,6 +221,73 @@ flows at `/world` (IDKit Selfie Check, World ID for Agents) are explained in `li
 
 ---
 
+## Intercepta: paid verification, screened before signing
+
+A version needs 2 other keys to re-run it. At `/intercepta` the Petri agent pays a verifier for that
+run over x402, in Circle test USDC on Ethereum Sepolia. Paying per verification run is item 3 on
+Petri's roadmap in `petri/CLAUDE.md`. Intercepta sits in the payment path on both sides:
+
+1. The verifier answers `POST /api/verifier/verify/:versionId` with HTTP 402: 0.01 USDC to its wallet.
+2. Petri checks its own limits first, with no network call: at most 0.50 USDC a payment, Circle USDC
+   only, and an authorization valid for at most 300 s.
+3. **Intercepta Quick Scan** screens the verifier's wallet (`payTo`), before the authorization exists.
+4. The x402 scheme builds the EIP-3009 authorization. Petri checks it against the 402, and
+   **Intercepta Scan Message** screens the exact typed data. Petri signs only if every check passed.
+5. The verifier checks the signature, screens the payer with **Quick Scan**, runs a real
+   `petri verify` with its own key, and settles on Sepolia only after the report exists.
+
+Any error, timeout or missing scan **holds** the payment. Nothing is paid by default.
+
+| Verifier | What happens | Signed? | Funds moved? |
+|---|---|---|---|
+| honest | Screened clean, paid 0.01 USDC, `petri verify` runs, settled on Sepolia | Yes | Yes |
+| rogue | Its wallet is a sanctioned mainnet address: Quick Scan rejects `intercepta_block:sanction_address` | No | No |
+| greedy | Asks 0.75 USDC: rejected `over_limit` before any Intercepta request | No | No |
+
+**Preview without screening** shows the agent before this feature: it builds the authorization it
+would sign to the rogue wallet, and stops. Every attempt is one line in `petri/.petri/payments.jsonl`.
+
+### Run it
+
+1. Add to `.env.local` (`.env.example` explains each one): `INTERCEPTA_API_KEY`,
+   `PETRI_PAY_PRIVATE_KEY` (holds Sepolia USDC from faucet.circle.com, needs no ETH),
+   `PETRI_X402_RELAYER_KEY` (a little Sepolia ETH, it settles), and `PETRI_VERIFIER_HOME`.
+2. Install the engine and create the verifier's Petri key:
+
+   ```bash
+   cd petri && npx pnpm@10 install
+   PETRI_HOME=~/petri-verifier npx pnpm@10 petri id create --label verifier
+   ```
+
+3. `npm run dev`, open http://localhost:3000/intercepta. Section 1 checks every key and balance
+   without spending an Intercepta request.
+4. `npm run test:intercepta` runs the decision engine and the agent against a fake verifier and a
+   fake Intercepta. No network.
+
+Intercepta has no testnet data. It scores an address by its mainnet history, so the Sepolia payment
+is screened as the same address on mainnet, and Scan Message runs under chain id 1.
+
+### Where the Intercepta API is called
+
+| File | Function | Endpoint | When |
+|---|---|---|---|
+| `lib/intercepta/client.ts` | `quickScanAddress()` | `GET /api/public/v2/extension/account/{address}/quick-scan` | The HTTP call |
+| `lib/intercepta/client.ts` | `scanMessage()` | `POST /api/public/v2/extension/analysis/signature` | The HTTP call |
+| `lib/pay/agent.ts` | `onBeforePaymentCreation` hook | Quick Scan on `payTo` | Before the authorization is built |
+| `lib/pay/agent.ts` | the screening signer's `signTypedData` | Scan Message on the EIP-712 authorization | Before the signature exists |
+| `lib/pay/verifier.ts` | `onAfterVerify` hook | Quick Scan on the payer | Before the verifier runs the work or settles |
+| `lib/intercepta/decision.ts` | `decide()` | none: pure | Turns every check into pay, hold or reject |
+
+### Feedback on the Intercepta API
+
+- One `X-API-KEY` header and `.md` doc pages with the OpenAPI inside made the client quick to write. Quick Scan answered in 0.7 to 1.5 s.
+- Scan Message documents `message` as a JSON string, but the string form parses nothing and still answers `riskGroup: "Low"`. The object form works. A 400 would be safer than a silent Low.
+- Scan Message classifies USDC `TransferWithAuthorization`, the x402 payment primitive, and flags a sanctioned `to` as `High` / `KNOWN_MALICIOUS`. The documented `messageType` enum does not list it. Saying so in the docs would help agent builders.
+- The responses differ from the docs: Scan Message answers 201, not 200, and Quick Scan traits leave out the required `txsCount`.
+- There are no testnet chain ids. The advice to screen mainnet addresses and the known-risk test addresses are only on the ETHGlobal page and in Discord, not in the API docs.
+
+---
+
 ## Add a new version
 
 ```bash
@@ -277,6 +344,9 @@ The live path has not been run on this tree yet.
 | `lib/world/` | World: IDKit Selfie Check, World ID for Agents, AgentKit AgentBook. See `lib/world/README.md`. |
 | `app/world/`, `app/api/world/` | The `/world` page and the World API |
 | `scripts/world-agentkit.ts` | Registers an agent in AgentBook (`npm run world:agentkit`) |
+| `lib/intercepta/` | The Intercepta client and the pay, hold or reject decision |
+| `lib/pay/` | x402 paid verification: the Petri agent (payer) and the verifier (seller) |
+| `app/intercepta/`, `app/api/intercepta/`, `app/api/verifier/` | The `/intercepta` page, its API, and the paid verifier route |
 | `petri/` | The engine: CLI, benchmark, harness, recorded tree. See `petri/README.md`. |
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
 | `petri/src/consensus/local.ts` | The local log and its hash chain |
