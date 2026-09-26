@@ -194,7 +194,7 @@ function factsOf(verifications: SignedReport[]): NodeFacts {
 }
 
 const build = (verifications: SignedReport[]): { node: PetriNode; verdict: Verdict } => {
-  const verdict = evaluate(factsOf(verifications), POLICY, 'local');
+  const verdict = evaluate(factsOf(verifications), POLICY);
   return { node: node(verifications, verdict), verdict };
 };
 
@@ -357,24 +357,17 @@ test('with nothing ignored the line says "2 counted" and names no reason', () =>
 /* The verdict may not claim independence a local log cannot prove.            */
 /* -------------------------------------------------------------------------- */
 
-test('a local ledger verdict never calls two keys independent', () => {
+test('a verdict never calls two keys independent', () => {
   const facts = factsOf([
     report(RUNNER_B, { parentPassed: 5, candidatePassed: 19 }),
     report(RUNNER_C, { parentPassed: 5, candidatePassed: 19 }),
   ]);
-  const local = evaluate(facts, POLICY, 'local');
-  assert.equal(local.status, 'accepted');
-  assert.doesNotMatch(local.reason, /independent/);
-  assert.match(local.reason, /2 verifications from distinct keys/);
-  assert.match(local.reason, /one person can hold every key/);
-
-  const hcs = evaluate(facts, POLICY, 'hcs');
-  assert.equal(hcs.status, 'accepted');
-  assert.match(hcs.reason, /2 independent verifications/);
-  assert.doesNotMatch(hcs.reason, /one person can hold every key/);
-
-  // A caller that does not know the ledger gets the WEAKEST claim.
-  assert.equal(evaluate(facts, POLICY).reason, local.reason);
+  const verdict = evaluate(facts, POLICY);
+  assert.equal(verdict.status, 'accepted');
+  assert.doesNotMatch(verdict.reason, /independent/);
+  assert.match(verdict.reason, /2 verifications from distinct keys/);
+  assert.match(verdict.reason, /one person can hold every key/);
+  assert.ok(verdict.reason.endsWith('Distinct keys are not proof of distinct people.'));
 });
 
 /* -------------------------------------------------------------------------- */
