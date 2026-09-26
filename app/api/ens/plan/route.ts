@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { treePlan } from "@/lib/ens-records";
+import { treePlan } from "@/lib/ens/records";
 import { TREES, loadTreeEntry } from "@/lib/trees";
 
 export const dynamic = "force-dynamic";
