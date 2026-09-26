@@ -67,7 +67,7 @@ const short = (k: string): string => k.slice(0, 8);
  *
  * A local log proves nothing about who holds the keys. One person can hold every
  * key in it, so the verdict never calls two keys "independent". This mirrors the
- * trust banner of §8.9, which says the same thing.
+ * trust banner of §8.7, which says the same thing.
  */
 const NOUN = 'verifications from distinct keys';
 
