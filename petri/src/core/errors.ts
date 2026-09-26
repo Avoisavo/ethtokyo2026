@@ -19,8 +19,6 @@ export const EXIT_CODES = {
   REFUSED: 4,
   /** A doctor check failed. Node too old. The sandbox is broken. */
   ENVIRONMENT: 5,
-  /** A mirror node or Hedera failure, after retries. */
-  NETWORK: 6,
   /** SIGINT or SIGTERM. */
   INTERRUPTED: 7,
 } as const;
@@ -46,7 +44,6 @@ export const notFoundError = (message: string): PetriError => new PetriError('NO
 export const integrityError = (message: string): PetriError => new PetriError('INTEGRITY', message);
 export const refusedError = (message: string): PetriError => new PetriError('REFUSED', message);
 export const environmentError = (message: string): PetriError => new PetriError('ENVIRONMENT', message);
-export const networkError = (message: string): PetriError => new PetriError('NETWORK', message);
 export const interruptedError = (message: string): PetriError => new PetriError('INTERRUPTED', message);
 
 export const isPetriError = (e: unknown): e is PetriError => e instanceof PetriError;
