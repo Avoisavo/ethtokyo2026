@@ -37,25 +37,23 @@ These rules are not negotiable. Each section says how it enforces them.
 | 3 | Rejected nodes are first-class records. Nothing is ever deleted. | §7, §9.5, §13.5, §19 |
 | 4 | Every node states a HYPOTHESIS in plain English. | §6.3, §8.3 |
 | 5 | The benchmark is deterministic to score. Unit tests pass or fail. No LLM judge. | §10 |
-| 6 | It runs end to end with NO API key and NO Hedera account. | §4.3, §8.6, §10.10, §14.7 |
+| 6 | It runs end to end with NO API key. | §4.3, §8.6, §10.10, §14.7 |
 
 ---
 
-## 1. Vocabulary, and the two mode axes
+## 1. Vocabulary, and the mode axis
 
-Four designs used four different words for the same two ideas. Petri uses two axes.
-They are orthogonal. Never conflate them.
+Four designs used four different words for the same ideas. Petri fixes one field
+for each. Never conflate them.
 
 | Axis | Field name | Values | Question it answers |
 |---|---|---|---|
 | Measurement | `mode` | `'live'` \| `'replay'` | Did the harness call a real model? |
-| Ledger | `ledger` | `'hcs'` \| `'local'` | Where does the consensus log live? |
+| Ledger | `ledger` | `'local'` | Where does the consensus log live? |
 
 > **Reconciled.** The `sim`/`real` pair and the `live`/`replay` pair named one axis.
-> The `hedera`/`offline` pair named a different axis. Petri keeps `mode` for the
-> first and `ledger` for the second. Reason: a judge can run `mode: replay` with
-> `ledger: local`, or `mode: live` with `ledger: hcs`, or either cross pair. One
-> combined word cannot express four states.
+> Petri keeps `mode` for it. `ledger` has one value, `'local'`: the append-only
+> file of §8.6.
 
 Other terms, fixed:
 
@@ -73,7 +71,7 @@ Other terms, fixed:
 
 ### 1.1 Every id is bare hexadecimal
 
-An id on disk, in a record, or on the wire is **bare Hex64**. There is no
+An id on disk, in a record, or in a log message is **bare Hex64**. There is no
 `sha256:`, `petri1:`, `petriv1:` or `ed25519:` prefix in any stored byte.
 
 A prefix may appear in terminal output only, to help a human read it. `petri show`
@@ -82,9 +80,9 @@ may print `node petri1:a3572a8d…`. The bytes it read carried `a3572a8d…`.
 > **Reconciled.** One design prefixed every id. Another used bare hex everywhere.
 > Petri takes bare hex. Reasons: one regex `^[0-9a-f]{64}$` validates every id in
 > the system; the ed25519 public key is already bare hex, so a prefixed id and a
-> bare key would need two rules; and prefixes cost 28 to 63 bytes in a Hedera
-> message that has a hard 1024-byte limit. The cost is that you cannot tell a node
-> id from a bench id by looking. The field name tells you instead.
+> bare key would need two rules; and prefixes cost 28 to 63 bytes in every log
+> message. The cost is that you cannot tell a node id from a bench id by looking.
+> The field name tells you instead.
 
 ### 1.2 The root sentinel
 
@@ -402,7 +400,6 @@ import { z } from 'zod';
 
 export const Hex64 = z.string().regex(/^[0-9a-f]{64}$/);
 export const TreeId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
-export const AccountId = z.string().regex(/^\d+\.\d+\.\d+$/);
 
 export const PolicySchema = z.strictObject({
   maxRunSpreadBp: z.int().min(0).max(10000).default(3000),
@@ -416,13 +413,7 @@ export type Policy = z.infer<typeof PolicySchema>;
 
 export const PetriConfigSchema = z.strictObject({
   bench: z.strictObject({ id: Hex64, name: z.string().min(1).max(64) }),
-  hedera: z.strictObject({
-    mirrorRest: z.array(z.url()).min(1),
-    network: z.enum(['testnet', 'mainnet', 'previewnet']),
-    operatorId: AccountId,
-    topicId: AccountId,
-  }).optional(),
-  ledger: z.enum(['hcs', 'local']),
+  ledger: z.literal('local'),
   mode: z.enum(['live', 'replay']),
   policy: PolicySchema,
   runsPerVerification: z.int().min(3).max(99).default(5),
@@ -487,8 +478,8 @@ unusable, so Petri refuses to judge and asks for more runs.
 ### 4.3 The offline default
 
 `petri init` with no `ANTHROPIC_API_KEY` writes `mode: 'replay'`.
-`petri init` with no `HEDERA_OPERATOR_KEY` writes `ledger: 'local'`.
-Both defaults are correct with zero setup. Design rule 6 holds.
+`petri init` always writes `ledger: 'local'`.
+Both are correct with zero setup. Design rule 6 holds.
 
 ---
 
@@ -798,7 +789,7 @@ export const NodeManifestSchema = z.strictObject({
 
 ### 6.4 `NodeDetail` — the evidence bundle
 
-`NodeDetail` is a separate object because it is large and because the wire message
+`NodeDetail` is a separate object because it is large and because the log message
 must stay small. `NodeManifest.detail` commits to it, so it is tamper-evident.
 
 ```ts
@@ -977,7 +968,7 @@ export interface SideSummary {
 export interface EnvDescriptor {
   arch: string;        // process.arch
   benchId: string;     // Hex64.
-  ledger: string;      // 'hcs' | 'local'
+  ledger: string;      // 'local'
   mode: string;        // 'live' | 'replay'
   model: string;       // 'claude-sonnet-5', or 'none' in replay mode.
   nodeVersion: string; // process.version
@@ -1016,7 +1007,7 @@ export const SideSummarySchema = z.strictObject({
 });
 export const EnvDescriptorSchema = z.strictObject({
   arch: z.string().min(1).max(32), benchId: Hex64,
-  ledger: z.enum(['hcs', 'local']), mode: ModeSchema,
+  ledger: z.literal('local'), mode: ModeSchema,
   model: z.string().min(1).max(64), nodeVersion: z.string().min(1).max(32),
   petriCommit: z.union([z.string().regex(/^[0-9a-f]{40}$/), z.literal('unknown')]),
   platform: z.string().min(1).max(32),
@@ -1185,7 +1176,7 @@ export interface PetriNode {
   verifiedDeltaBp: number | null;
   disputed: boolean;            // A StatusChanged claim disagreed with the computed status.
   mode: Mode;
-  trust: 'hcs' | 'local-unverified';
+  trust: 'local-unverified';
   seq: number;                  // The log sequence number of its NodeSubmitted.
   consensusNanos: string;
 }
@@ -1220,7 +1211,6 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
 ├── log.jsonl                    The local consensus log.   §7.3
 ├── log.lock                     Transient. A write lock.
 ├── cursor.json                  The last log seq consumed. §7.4
-├── mirror-cache.jsonl           Cached mirror entries. ledger: hcs only.
 ├── objects/
 │   └── <aa>/<rest>.json         Content-addressed. HarnessObject, NodeDetail,
 │                                BenchSpec, SignedReport, RunResult.
@@ -1274,19 +1264,6 @@ const _bench: Exact<BenchSpec, z.infer<typeof BenchSpecSchema>> = true;
   "version": 1
 }
 ```
-
-With `ledger: "hcs"` the file also carries:
-
-```json
-  "hedera": {
-    "mirrorRest": ["https://testnet.mirrornode.hedera.com"],
-    "network": "testnet",
-    "operatorId": "0.0.98765",
-    "topicId": "0.0.5551234"
-  },
-```
-
-`HEDERA_OPERATOR_KEY` is an environment variable. It is **never** written here.
 
 ### 7.2 `.petri/identity.json`, mode 0600
 
@@ -1379,25 +1356,25 @@ import type { SignedEnvelope } from '../trust/envelope.js';
 import type { PetriMessage } from './messages.js';
 
 /**
- * One entry in the consensus log. The shape is identical for Hedera and for the
- * local file. Replay cannot tell the two apart, except through `source`.
+ * One entry in the consensus log. A line of `.petri/log.jsonl` is the canonical
+ * JSON of this object.
  */
 export interface LogEntry {
-  chain: string;           // hcs: the running hash, as hex. local: our own sha256 chain.
+  chain: string;           // The sha256 hash chain of §8.6, as hex.
   consensusNanos: string;  // Decimal nanoseconds since the epoch. Exactly 19 digits.
   envelope: SignedEnvelope<PetriMessage>;
-  payer: string;           // hcs: the payer account id. local: "local".
-  seq: number;             // A per-topic sequence number. 1-based. Gap-free.
-  source: 'hcs' | 'local';
-  topic: string;           // hcs: "0.0.5551234". local: "local:<treeId>".
+  payer: string;           // Always "local".
+  seq: number;             // A per-log sequence number. 1-based. Gap-free.
+  source: 'local';
+  topic: string;           // "local:<treeId>".
 }
 
 export interface PublishReceipt {
-  seq: number; source: 'hcs' | 'local'; topic: string; txId: string;
+  seq: number; source: 'local'; topic: string; txId: string;
 }
 
 export interface ConsensusLog {
-  readonly kind: 'hcs' | 'local';
+  readonly kind: 'local';
   readonly topic: string;
   publish(body: PetriMessage): Promise<PublishReceipt>;
   read(afterSeq?: number): AsyncIterable<LogEntry>;
@@ -1406,46 +1383,26 @@ export interface ConsensusLog {
   close(): Promise<void>;
 }
 
-/** Inside one topic, `seq` IS the total order. Hedera assigns it in consensus order. */
+/** `seq` IS the total order. The local log assigns it under an exclusive file lock. */
 export const orderKey = (e: LogEntry): string =>
   `${e.topic}:${String(e.seq).padStart(12, '0')}`;
 
-/** Parse "1789201331.867291917" with no loss. NEVER use parseFloat here. */
-export function parseConsensusTimestamp(ts: string): string {
-  const m = /^(\d+)\.(\d{1,9})$/.exec(ts);
-  if (!m) throw new Error(`bad consensus timestamp: ${ts}`);
-  const nanos = BigInt(m[1]!) * 1_000_000_000n + BigInt(m[2]!.padEnd(9, '0'));
-  return nanos.toString().padStart(19, '0'); // Width 19 keeps a lexical sort valid to 2262.
-}
-
-export function formatConsensusTimestamp(nanos: string): string {
-  const n = BigInt(nanos);
-  return `${n / 1_000_000_000n}.${String(n % 1_000_000_000n).padStart(9, '0')}`;
-}
-
-export function openLog(cfg: PetriConfig, identity: Identity): ConsensusLog {
-  if (cfg.ledger === 'local' || !cfg.hedera) return new LocalLog(cfg.treeId, identity);
-  return new HederaLog(cfg.hedera.topicId, cfg.hedera.network,
-    makeClient(cfg.hedera.network, cfg.hedera.operatorId), identity);
+/** Open the tree's log. This is the ONLY place a log is constructed. */
+export function openLog(cfg: PetriConfig, identity: Identity, root: string): ConsensusLog {
+  return new LocalLog(cfg.treeId, identity, logPath(root), lockPath(root));
 }
 ```
 
-`parseFloat` is banned here, and the reason is measured.
-`parseFloat("1757656789.123456789")` gives `1757656789.1234567`. Two digits are
-gone. Two messages in the same 100 nanoseconds would then collide.
-
 > **Reconciled.** One design added a second ordering key, a fixed-width string with
-> a `c` prefix for anchored events and an `l` prefix for pending ones, plus an epoch
-> counter. Petri removes it. The local log already assigns gap-free sequence numbers
-> in both modes, so there is no pending state that needs a second key space. One
-> ordering mechanism, `LogEntry.seq`, with `consensusNanos` to merge across topics.
+> a `c` or `l` prefix for the event state, plus an epoch counter. Petri removes it.
+> The local log assigns gap-free sequence numbers, so there is no pending state that
+> needs a second key space. One ordering mechanism: `LogEntry.seq`.
 
-### 8.2 What goes on-chain, and what stays local
+### 8.2 What goes in the log, and what stays in the object store
 
-HCS caps one chunk at 1024 bytes. The SDK splits a longer message into chunks, and
-each chunk is a separate paid transaction. Petri never sends a diff.
+A log message stays small. Petri never puts a diff in the log.
 
-| On the chain | In the local object store |
+| In the log | In the local object store |
 |---|---|
 | Node id, parent id, bench id | The manifest bytes, the detail bytes |
 | The hypothesis, at most 240 escaped bytes | The harness snapshot, the patch, the diff |
@@ -1453,14 +1410,14 @@ each chunk is a separate paid transaction. Petri never sends a diff.
 | The spread, the clean flag, the env hash | Every per-run raw result |
 | A status claim and its reason, at most 200 bytes | Logs, traces, token counts |
 
-**The chain holds commitments. The store holds evidence.** A hash on the chain lets
-anyone check that the bytes they fetched are the bytes the author signed.
+**The log holds commitments. The store holds evidence.** A hash in the log lets
+anyone check that the bytes they read from the store are the bytes the author signed.
 
 The hypothesis is the exception. Design rule 4 says every node must state a
-hypothesis in plain English, so the hypothesis goes on the chain in full. One text,
+hypothesis in plain English, so the hypothesis goes in the log in full. One text,
 one place, no chance of two versions.
 
-### 8.3 `src/consensus/messages.ts` — the exact HCS schemas
+### 8.3 `src/consensus/messages.ts` — the exact log schemas
 
 ```ts
 import { z } from 'zod';
@@ -1515,16 +1472,16 @@ so it must be a hard error.
 **Measured worst-case envelope sizes**, with a 64-character tree id, every hex field
 full, the hypothesis at its 240-byte cap and the reason at its 200-byte cap:
 
-| Message | Bytes | Headroom under 1024 |
-|---|---|---|
-| `NodeSubmitted` | **797** | 227 |
-| `VerificationSigned` | **749** | 275 |
-| `StatusChanged`, 4 verifiers | **911** | 113 |
+| Message | Bytes |
+|---|---|
+| `NodeSubmitted` | **797** |
+| `VerificationSigned` | **749** |
+| `StatusChanged`, 4 verifiers | **911** |
 
-`HederaLog.publish` asserts the 1024-byte limit and refuses to send anything larger.
+The field caps keep every message under 1 KB.
 
 > **Reconciled.** One design put `diff` (a hash of the patch bytes) inside the node
-> id and on the wire. Petri removes it from both. Reason: a diff depends on the
+> id and in the log message. Petri removes it from both. Reason: a diff depends on the
 > algorithm and the context-line count, so hashing it would make the node id
 > implementation-dependent. That is the exact failure this whole project exists to
 > prevent. The diff is fully derivable from two content-addressed harness snapshots,
@@ -1532,15 +1489,15 @@ full, the hypothesis at its 240-byte cap and the reason at its 200-byte cap:
 > commits to `harness` and `detail` instead.
 
 > **Reconciled.** The same design capped `verifiers` at 8 in `StatusChanged`. That
-> measures 1125 bytes and **does not fit one chunk**. Petri caps it at 4, which
+> measures 1125 bytes, **the only message over 1 KB**. Petri caps it at 4, which
 > measures 911. The cap is on the advisory message only, not on how many
 > verifications a node may hold.
 
 > **Reconciled.** `NodeSubmitted` does not carry `harness` or `detail`. Both live
 > inside the manifest, which `node` already commits to. Adding them measured 896 to
-> 950 bytes, which left too little headroom for a future field.
+> 950 bytes, for two hashes the log message already covers.
 
-### 8.4 Wire examples
+### 8.4 Message examples
 
 **`NodeSubmitted`**, the body, canonicalised:
 
@@ -1560,7 +1517,7 @@ full, the hypothesis at its 240-byte cap and the reason at its 200-byte cap:
 {"node":"a3572a8d…","reason":"2 independent verifications, both at or above +1000bp","status":"accepted","tree":"petri-main","type":"StatusChanged","verifiers":["a09aa5f4…","17cb79fb…"]}
 ```
 
-Each goes on the wire inside the envelope:
+Each goes into the log inside the envelope:
 
 ```json
 {"body":{ … },"pub":"d04ab232…","sig":"38ce1b0a…","ver":1}
@@ -1587,7 +1544,7 @@ in `src/store/paths.ts`. Error messages name the log file in full, because two t
 one machine both hold a `.petri/log.jsonl`.
 
 ```ts
-/** The local analogue of the Hedera running hash. It makes a deletion detectable. */
+/** The hash chain. It makes a deletion detectable. */
 const chainSeed = (treeId: string): string => sha256Hex(`petri/chain/1|${treeId}`);
 
 const nextChain = (prevChain: string, seq: number, consensusNanos: string, envelope: Canon): string =>
@@ -1615,91 +1572,15 @@ petri: .petri/log.jsonl hash chain breaks at sequence 14. The log was edited.
 petri: .petri/log.jsonl sequence 14 has a bad signature.
 ```
 
-### 8.7 The Hedera log
-
-`<repo>/src/consensus/hedera.ts`
-
-```ts
-export const HCS_CHUNK_BYTES = 1024;
-export type HederaNetwork = 'testnet' | 'mainnet' | 'previewnet';
-export const MIRROR_REST: Record<HederaNetwork, string> = {
-  mainnet: 'https://mainnet.mirrornode.hedera.com',
-  previewnet: 'https://previewnet.mirrornode.hedera.com',
-  testnet: 'https://testnet.mirrornode.hedera.com',
-};
-```
-
-**The topic is created with NO admin key and NO submit key.** Anyone may post, so
-verification is permissionless. Nobody can delete or edit the topic, including the
-person who created it. That makes design rule 3 a property of the network, not a
-policy. The topic memo is `petri/v1 tree=<treeId>`, which must stay under 100 bytes.
-
-`publish` returns only a receipt: `seq` and `txId`. **Every read goes through the
-mirror node, including the author's own.** The local view and a stranger's view can
-therefore never drift apart. The cost is a delay of a few seconds before a new
-message appears in `petri replay`.
-
-`operatorKeyFromEnv()` reads `HEDERA_OPERATOR_KEY` and tries DER, then ED25519, then
-ECDSA parsing. The key is never written to `config.json`.
-
-### 8.8 The mirror reader
-
-```
-GET {mirrorRest}/api/v1/topics/{topicId}/messages?limit=100&order=asc&sequencenumber=gt:{lastSeq}
-```
-
-Measured facts about the live mirror API:
-
-- `message` is standard base64 with padding.
-- `chunk_info` is `null` for a single-chunk message.
-- `sequencenumber=gt:N` works and combines with `order=asc`.
-- `limit` maxes out at 100. A request for 101 silently returns 100.
-- `links.next` is a relative path, not an absolute URL.
-
-Petri drives pagination with `sequencenumber=gt:` and ignores `links.next`. A
-sequence number is a cursor Petri can persist in `cursor.json`. A path is not.
-
-**The mirror reader never throws on bad content.** The topic is permissionless, so
-anyone can post garbage. Garbage is counted in `MirrorStats` and skipped. Only a
-network or HTTP failure throws. A replay that crashes on one bad message is a
-denial-of-service hole.
-
-```ts
-export interface MirrorStats {
-  accepted: number;
-  badSignature: number;
-  malformed: number;  // Not UTF-8, not JSON, or not a Petri message.
-  oversized: number;  // It arrived in more than one chunk.
-  pending: number;    // Chunks still waiting for their siblings.
-}
-```
-
-The reader reassembles a multi-chunk message by
-`chunk_info.initial_transaction_id`. Petri never writes one, but the topic is
-permissionless, so somebody else can.
-
-### 8.9 The trust banner
+### 8.7 The trust banner
 
 `src/cli/banner.ts` prints this before every result. There is no flag to hide it.
-
-`ledger: local`:
 
 ```
 TRUST  local log <repo>/.petri/log.jsonl  —  UNVERIFIED
   This log is on this machine only. It proves nothing about independence.
   One person can hold every key in it. The file can be edited or deleted.
-  Only a Hedera topic proves order, time and non-deletion to a stranger.
-  Run `petri topic create` to publish to a real topic.
-```
-
-`ledger: hcs`:
-
-```
-TRUST  hedera topic 0.0.5551234 (testnet)  —  PUBLIC
-  Anyone can rebuild this tree:
-    pnpm petri replay --topic 0.0.5551234 --network testnet
-  A topic proves order, time and non-deletion. It does not prove that two keys
-  are two people, and it does not prove a verifier ran the benchmark.
+  It proves nothing about time or non-deletion to a stranger.
 ```
 
 `mode: replay` adds one more block:
@@ -1715,20 +1596,20 @@ Every status line carries the same label, so a screenshot cannot hide it:
 
 ```
 a3572a8d  accepted   delta +1500bp   verifiers 2   mode replay   trust local-unverified
-7b30eec1  contested  delta +1500/-900bp  verifiers 2  mode live  trust hcs
+7b30eec1  contested  delta +1500/-900bp  verifiers 2  mode live  trust local-unverified
 ```
 
 Machine-readable exports carry `"trust"` and `"mode"` at the top level.
 
-### 8.10 What the local log proves, and what it does not
+### 8.8 What the local log proves, and what it does not
 
-| Property | Local log | Hedera topic |
-|---|---|---|
-| **Authorship** — a key signed this | Yes. The signature is real. | Yes |
-| **Integrity** — the bytes did not change | Yes, through the hash chain | Yes |
-| **Non-deletion** — nothing was removed | **No.** Delete the file and the chain restarts. | **Yes** |
-| **Time** — when this happened | **No.** The clock is yours to set. | **Yes** |
-| **Independence** — two keys are two people | **No** | **No.** See §18.2. |
+| Property | Local log |
+|---|---|
+| **Authorship** — a key signed this | Yes. The signature is real. |
+| **Integrity** — the bytes did not change | Yes, through the hash chain |
+| **Non-deletion** — nothing was removed | **No.** Delete the file and the chain restarts. |
+| **Time** — when this happened | **No.** The clock is yours to set. |
+| **Independence** — two keys are two people | **No.** See §18.2. |
 
 ---
 
@@ -1966,7 +1847,7 @@ rule 3 keeps it in the tree so nobody retries it.
 > Petri still lets a replay node reach `accepted`. Reason: design rule 6 says a
 > judge must clone the repo and run the whole machine with no keys. A demonstration
 > in which acceptance can never fire does not demonstrate the acceptance rule, which
-> is the centre of the project. The honest framing is carried by the banner in §8.9
+> is the centre of the project. The honest framing is carried by the banner in §8.7
 > and by the `mode` label on every status line and every export, not by crippling
 > the rule.
 >
@@ -2520,7 +2401,7 @@ task is visibly weaker than one whose tasks are all stable.
 
 Replay proves the protocol runs: the tree, the tasks, the sandbox, the median, the
 signatures and the acceptance rule. It proves a judge can clone the repo and see the
-whole machine work with no API key and no Hedera account.
+whole machine work with no API key.
 
 It does **not** prove a harness is good.
 
@@ -3043,7 +2924,7 @@ export interface FailureCard {
 
 export interface Digest {
   bench: string; benchName: string;
-  mode: Mode; ledger: 'hcs' | 'local';
+  mode: Mode; ledger: 'local';
   taskCount: number; runs: number;
   totals: { nodes: number; accepted: number; rejected: number; pending: number; contested: number };
   head: { nodeId: string; medianBp: number };
@@ -3434,7 +3315,6 @@ These are the only exit codes. Every command uses this table.
 | **3** | INTEGRITY | A bad signature, a hash mismatch, a broken log chain, a bad id. |
 | **4** | REFUSED | A policy refusal. Self-verification. A cross-mode comparison. |
 | **5** | ENVIRONMENT | A doctor check failed. Node too old. The sandbox is broken. |
-| **6** | NETWORK | A mirror node or Hedera failure, after retries. |
 | **7** | INTERRUPTED | SIGINT or SIGTERM. |
 
 A failed experiment exits **0**. A failed *tool* exits non-zero. Design rule 3
@@ -3457,14 +3337,12 @@ Accepted by every command.
 
 | Command | Flags | Does |
 |---|---|---|
-| `petri init` | `--tree <id>` (default `petri-main`), `--bench <dir>` (default `bench/`), `--mode live\|replay`, `--ledger hcs\|local`, `--force` | Create `.petri/`, write `config.json`, generate `identity.json` at mode 0600, compute and store the bench id. Without `--force` it refuses to overwrite. Defaults come from the environment: no `ANTHROPIC_API_KEY` gives `replay`, no `HEDERA_OPERATOR_KEY` gives `local`. |
+| `petri init` | `--tree <id>` (default `petri-main`), `--bench <dir>` (default `bench/`), `--mode live\|replay`, `--force` | Create `.petri/`, write `config.json` with `ledger: 'local'`, generate `identity.json` at mode 0600, compute and store the bench id. Without `--force` it refuses to overwrite. The mode default comes from the environment: no `ANTHROPIC_API_KEY` gives `replay`. |
 | `petri id create` | `--label <name>` | Create the key pair. Fails with exit 1 when a key file exists. Never overwrites. |
 | `petri id show` | — | Print this runner's public key. |
 | `petri id path` | — | Print the identity file path. |
 | `petri config show` | — | Print `config.json`. |
 | `petri config set <key> <value>` | — | Set one dotted key, for example `policy.minRuns`. Re-validates the whole file. |
-| `petri topic create` | `--network testnet\|mainnet\|previewnet` | Create an HCS topic with no admin key and no submit key. Write `topicId` into `config.json`. Needs `HEDERA_OPERATOR_ID` and `HEDERA_OPERATOR_KEY`. |
-| `petri topic show` | — | Print the topic id, the network and the mirror endpoints. |
 
 ### 14.4 Building and measuring a node
 
@@ -3475,7 +3353,7 @@ Accepted by every command.
 | `petri submit` | `--workspace <dir>`, `--runs <odd>` (default 5), `--seed <int>` (default 7), `--mode live\|replay` | Read the edited workspace, run every guard, typecheck, measure, write the node, publish `NodeSubmitted`. `provenance.source` is `human`. |
 | `petri evolve` | `--parent <id>`, `--runs <odd>`, `--seed <int>`, `--mode live\|replay`, `--dry-run`, `--force-area <area>`, `--proposal <file.json>`, `--allow-graded`, `--max-tokens <int>` | The loop of §13.1. `--dry-run` prints the prompt and exits 0. `--proposal` skips the model call and sets `provenance.source` to `model-via-human`. |
 | `petri verify <nodeId>` | `--runs <odd>`, `--mode live\|replay`, `--allow-graded` | Re-run the **parent and the candidate**, paired, with the derived seeds. Build the report, sign it, store it, publish `VerificationSigned`. **Exits 4 when you are the node author.** |
-| `petri publish <nodeId>` | — | Re-publish a stored node's `NodeSubmitted` to the log. Used after a topic change. |
+| `petri publish <nodeId>` | — | Re-publish a stored node's `NodeSubmitted` to the log. **Exits 4 unless you are the node author.** |
 | `petri status <nodeId>` | `--why` | Run `evaluate` and print the status, the code and the reason. `--why` also lists every ignored verification and why it was ignored. |
 
 ### 14.5 Reading the tree
@@ -3491,11 +3369,10 @@ Accepted by every command.
 | `petri digest` | `--max-tokens <int>` (default 6000), `--json` | Render the context digest of §12.4. |
 | `petri areas` | — | Print `AREA_REGISTRY` and the current path map. |
 | `petri log` | `--after <seq>`, `--follow` | Print the consensus log in sequence order. |
-| `petri replay` | `--topic <id>`, `--network <net>`, `--tree <id>`, `--audit`, `--from <seq>` | Rebuild every node and every status from the log alone. `--audit` also fetches each report and manifest, runs `checkReport`, and asserts `manifest.author === envelope.pub`. |
+| `petri replay` | `--tree <id>`, `--audit`, `--from <seq>` | Rebuild every node and every status from the log alone. `--audit` also fetches each report and manifest, runs `checkReport`, and asserts `manifest.author === envelope.pub`. |
 | `petri export` | `--out <file>` | Write the whole tree as one JSON document, with `trust` and `mode` at the top level. |
 
-`petri replay` needs no key, no account and no local state. It is the proof that
-nobody owns the tree.
+`petri replay` needs no key. It rebuilds the tree from a copy of the log alone.
 
 ### 14.6 The benchmark
 
@@ -3537,10 +3414,8 @@ needs the behaviour imports it.
 | `src/trust/envelope.ts` | trust | `signingBytes`, `seal`, `openEnvelope`, `SignedEnvelope` |
 | `src/trust/report.ts` | trust | `VerificationReport`, `buildReport`, `checkReport`, `seedFor`, `reportId` |
 | `src/consensus/messages.ts` | consensus | `NodeSubmitted`, `VerificationSigned`, `StatusChanged`, `PetriMessage` |
-| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog`, `orderKey`, `parseConsensusTimestamp` |
+| `src/consensus/log.ts` | consensus | `LogEntry`, `ConsensusLog`, `openLog`, `orderKey` |
 | `src/consensus/local.ts` | consensus | `LocalLog`, the hash chain, the file lock |
-| `src/consensus/hedera.ts` | consensus | `HederaLog`, `createTopic`, `makeClient`, `operatorKeyFromEnv`, `MIRROR_REST` |
-| `src/consensus/mirror.ts` | consensus | `readTopic`, `MirrorMessage`, `MirrorStats` |
 | `src/consensus/replay.ts` | consensus | `replay`, `ReplayNode`, `ReplayResult` |
 | `src/policy/acceptance.ts` | policy | `evaluate`, `Verdict`, `DecisionCode`, `NodeFacts` |
 | `src/store/paths.ts` | store | Every path under `.petri/`. No other module builds one. |
@@ -3562,11 +3437,10 @@ needs the behaviour imports it.
 | `src/evolve/typecheck.ts` | evolve | `tsc --noEmit` on the scratch copy |
 | `src/evolve/run.ts` | evolve | **`runCandidate()`. The only function that writes a node.** |
 | `src/cli/index.ts` | cli | The commander entry point. Maps every throw to an exit code. |
-| `src/cli/banner.ts` | cli | The trust banner and the mode banner of §8.9 |
+| `src/cli/banner.ts` | cli | The trust banner and the mode banner of §8.7 |
 | `src/cli/exit.ts` | cli | The exit-code table of §14.1 |
 | `src/cli/init.ts` | cli | `init`, `config` |
 | `src/cli/identity.ts` | cli | `id` |
-| `src/cli/topic.ts` | cli | `topic` |
 | `src/cli/node.ts` | cli | `snapshot`, `propose`, `submit`, `show`, `tree`, `tips`, `dead-ends`, `lineage`, `diff` |
 | `src/cli/evolve.ts` | cli | `evolve` |
 | `src/cli/verify.ts` | cli | `verify`, `status`, `publish` |
@@ -3838,7 +3712,7 @@ sig  7f699604f6329c5854591aedb7e0c66b88c99d9af25c40f28c13fb0cb32b29215c2f307ba01
 `verifyDetached(B, signingBytes('report', report), sig)` is `true`. Verified.
 ed25519 is deterministic, so re-signing must give these exact 128 hex characters.
 
-### 17.10 G9 — sealed wire messages
+### 17.10 G9 — sealed log messages
 
 The `NodeSubmitted` for G6, signed by A, canonicalised:
 
@@ -3851,11 +3725,11 @@ Measured sizes for this vector set: `NodeSubmitted` 613 bytes,
 
 The worst case, with a 64-character tree id and every cap filled:
 
-| Message | Bytes | Headroom |
-|---|---|---|
-| `NodeSubmitted` | 797 | 227 |
-| `VerificationSigned` | 749 | 275 |
-| `StatusChanged`, 4 verifiers | 911 | 113 |
+| Message | Bytes |
+|---|---|
+| `NodeSubmitted` | 797 |
+| `VerificationSigned` | 749 |
+| `StatusChanged`, 4 verifiers | 911 |
 
 ### 17.11 G10 — the local log hash chain
 
@@ -3924,8 +3798,7 @@ after a random re-audit.
 **Attack.** One person generates two key pairs and verifies their own node twice.
 `evaluate` sees two distinct public keys and accepts.
 
-**Detection.** None. A public key is not a person. Hedera does not change this: it
-proves two accounts paid, not that two people exist.
+**Detection.** None. A public key is not a person.
 
 **Partly in scope.** `policy.trustedRunners` is a key allowlist. When it is not
 empty, only listed keys count. That turns a permissionless tree into a curated one,
@@ -3981,23 +3854,16 @@ could submit a stolen node under their own key before the real author does.
 Delete `log.jsonl` and history restarts. That breaks design rule 3 and nothing stops
 it. The `chain` field lets anyone holding an earlier copy prove a line was removed,
 and `LocalLog.read` refuses to continue on a break. A fresh reader with no earlier
-copy cannot tell. Only a real topic fixes this, and the banner of §8.9 says so.
+copy cannot tell. The banner of §8.7 says so.
 
-### 18.9 Mirror node omission
-
-A mirror could return a page that skips one message, turning a contested node into
-an accepted one. `running_hash` chains every message, so a mirror that omits one
-cannot produce a matching hash later. `config.hedera.mirrorRest` is an array so two
-hosts can be compared. **Petri v1 queries the first host only.** Verifying the
-running-hash chain locally is out of scope.
-
-### 18.10 The honest summary
+### 18.9 The honest summary
 
 Petri makes three claims and no more.
 
 1. **Every number is signed.** You know which key produced it.
 2. **Every claim is paired.** A delta always comes with its own baseline re-run.
-3. **Nothing can be deleted.** On a real topic, a rejected node stays visible forever.
+3. **Nothing is deleted by Petri.** A rejected node stays in the tree, and the hash
+   chain lets anyone holding an earlier copy of the log prove a line was removed.
 
 Petri does **not** claim that two keys are two people. It does **not** claim that a
 verifier ran the benchmark. Those need stake or attestation, and both are out of
@@ -4050,16 +3916,16 @@ Every conflict between the four design tracks, the decision, and where it lives.
 | 10 | Status sets: `{accepted, rejected, unverified}`, `{candidate, rejected}`, `{proposed, measured, replay-verified, accepted, rejected}`, `{pending, accepted, rejected, contested, withdrawn, superseded}`. | The last one. `unverified` and `candidate` both become `pending`. | §6.10 |
 | 11 | Replay nodes can never be accepted, versus the rule applies unchanged in replay. | A replay node **can** be accepted inside a replay tree. Cross-mode comparison stays banned in both directions. Design rule 6 needs acceptance to fire in the demo. | §9.6 |
 | 12 | Status cached in `node.json` versus derived on load. | Always derived. `index/` may cache it, and fsck check 11 compares. | §6.10 |
-| 13 | `diff` hashed into the node id versus excluded. | Excluded from the id and from the wire. It is display output, regenerated by fsck check 8. | §8.3 |
-| 14 | `StatusChanged.verifiers` capped at 8. | Capped at 4. Eight measured 1125 bytes and does not fit one HCS chunk. | §8.3 |
-| 15 | `NodeSubmitted` carrying `harness` and `detail`. | Neither. Both live in the manifest, which `node` commits to. It buys 100 to 150 bytes of headroom. | §8.3 |
+| 13 | `diff` hashed into the node id versus excluded. | Excluded from the id and from the log message. It is display output, regenerated by fsck check 8. | §8.3 |
+| 14 | `StatusChanged.verifiers` capped at 8. | Capped at 4. Eight measured 1125 bytes, the only message over 1 KB. | §8.3 |
+| 15 | `NodeSubmitted` carrying `harness` and `detail`. | Neither. Both live in the manifest, which `node` commits to. It saves 100 to 150 bytes per message. | §8.3 |
 | 16 | Harness entry `solve(input) => {source, usage}` versus `solve(task, ctx) => Solution`. | `solve(task: TaskView, ctx: HarnessContext): Promise<Solution>`. Without `ctx` there is no budget, no trace and no seeded RNG. | §11.2 |
 | 17 | The contract in `src/` versus in `harness/`. | `harness/contract.ts`. The harness then imports nothing outside itself. | §11.2 |
 | 18 | Tasks in TypeScript with `task.yaml` and `tests/` versus JavaScript with `task.json` and `test.mjs`. | JavaScript, `task.json`, one `test.mjs`. The sandbox cannot afford a build step. | §10.5 |
 | 19 | Recorded fixtures versus a graded-answer replay client. | Both, for two different jobs. A fixture miss is a hard error unless `--allow-graded` is passed. | §11.5 |
 | 20 | Exit code alone versus exit code plus an fd-3 attestation. | Both channels must agree. stdout is still drained and never parsed. | §10.7 |
-| 21 | Mode names `sim`/`real` versus `live`/`replay` versus `hedera`/`offline`. | Two axes: `mode: live\|replay` and `ledger: hcs\|local`. | §1 |
-| 22 | A separate `Seq` ordering key with `c`/`l` prefixes and an epoch. | Removed. `LogEntry.seq` is the only order, in both ledgers. | §8.1 |
+| 21 | Mode names `sim`/`real` versus `live`/`replay`. | One axis: `mode: live\|replay`. The log is `ledger: local`. | §1 |
+| 22 | A separate `Seq` ordering key with `c`/`l` prefixes and an epoch. | Removed. `LogEntry.seq` is the only order. | §8.1 |
 | 23 | `ObjectStore` over `Buffer` versus over `Canon`. | `Canon`, synchronous. A `Buffer` store could hold bytes nothing can rehash. | §7.8 |
 | 24 | `petri evolve` writing `rejected` for a mechanical failure. | It writes no status at all. A mechanically failed node is `pending` with its reason in `detail.mechanical`. | §13.1 |
 | 25 | Three different `.petri/` layouts. | One tree, one name per thing, with sharded node directories. | §7 |
@@ -4077,7 +3943,7 @@ Say this out loud, so nobody builds it by accident and nobody claims it exists.
 - No re-verification epochs.
 - No cross-task memory in the harness. `HarnessContext` is fresh per task.
 - No agentic harness. The harness cannot read files or run tools under contract v1.
-- No multi-mirror cross-check. Petri queries the first host only.
-- No local verification of the Hedera running-hash chain.
+- No shared log. The log lives on one machine, and nothing proves its order or time
+  to anyone else.
 - No binary files in a harness snapshot. UTF-8 text only, and no carriage returns.
 - No bundler. `tsx` runs the TypeScript directly.
