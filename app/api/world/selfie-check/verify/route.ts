@@ -5,14 +5,14 @@ import {
   ConfigError,
   environmentAsymmetry,
   requireConfig,
-} from "@/lib/selfie-check/config";
+} from "@/lib/world/idkit/config";
 import {
   credentialExpiresAt,
   evaluate,
   findAction,
   proofAgeSeconds,
-} from "@/lib/selfie-check/policy";
-import { accountCookie, resolveAccountId } from "@/lib/selfie-check/session";
+} from "@/lib/world/idkit/policy";
+import { accountCookie, resolveAccountId } from "@/lib/world/idkit/session";
 import {
   type AccountRecord,
   getAccount,
@@ -20,7 +20,7 @@ import {
   saveAccount,
   shortNullifier,
   toSnapshot,
-} from "@/lib/selfie-check/store";
+} from "@/lib/world/idkit/store";
 import {
   SELFIE_IDENTIFIER,
   isSelfieIdentifier,
@@ -28,8 +28,8 @@ import {
   type IDKitResultV3,
   type NormalizedCredential,
   type ResponseItemV3,
-} from "@/lib/selfie-check/types";
-import { clampMaxAge, verifySelfieProof } from "@/lib/selfie-check/verify";
+} from "@/lib/world/idkit/types";
+import { clampMaxAge, verifySelfieProof } from "@/lib/world/idkit/verify";
 
 type Body = {
   /** Which gated action the user is trying to reach. */
