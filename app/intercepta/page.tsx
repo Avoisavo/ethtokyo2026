@@ -33,11 +33,9 @@ export default async function InterceptaPage({ searchParams }: PageProps<"/inter
     : [];
 
   // Only names cross to the client. Keys stay in lib/.
-  const missing = [
-    ...(getInterceptaConfig().ok ? [] : ["INTERCEPTA_API_KEY"]),
-    ...(getPayerConfig().ok ? [] : ["PETRI_PAY_PRIVATE_KEY"]),
-    ...(getVerifierConfig().ok ? [] : ["PETRI_X402_RELAYER_KEY"]),
-  ];
+  const missing = [getInterceptaConfig(), getPayerConfig(), getVerifierConfig()].flatMap((c) =>
+    c.ok ? [] : c.problems.map((p) => `${p.name}: ${p.issue}`),
+  );
 
   const wanted = typeof version === "string" ? version.toLowerCase() : "";
   const initialVersion =
