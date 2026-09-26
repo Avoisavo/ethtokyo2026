@@ -10,8 +10,8 @@ import s from "@/app/world/world.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Intercepta · Paid verification",
-  description: "The Petri agent pays a verifier over x402. Intercepta screens the wallet and the authorization before anything is signed.",
+  title: "Intercepta · Paid markdown",
+  description: "The Petri agent buys a version as markdown over x402. Intercepta screens the wallet and the authorization before anything is signed.",
 };
 
 export default async function InterceptaPage({ searchParams }: PageProps<"/intercepta">) {
@@ -48,12 +48,12 @@ export default async function InterceptaPage({ searchParams }: PageProps<"/inter
     <main className={`container ${s.page}`}>
       <header className={s.pageHead}>
         <span className="tag tag-real">Intercepta · Add Payment Screening to Your Agent or x402 Service</span>
-        <h1>Paid verification, screened before anything is signed</h1>
+        <h1>An agent buys a version, screened before anything is signed</h1>
         <p className={s.lede}>
-          A version needs two independent keys to re-run it. Here the Petri agent pays a verifier for that run over
-          x402, in test USDC on Sepolia. Before the agent signs, Intercepta screens the wallet it would pay and the exact
-          payment authorization. Before the verifier accepts, it screens the payer. Any failure holds the payment; nothing
-          is paid by default.
+          The Petri agent buys a version&apos;s record as a markdown file over x402, in test USDC on Sepolia: what an
+          agent reads before it builds on that version. Before the agent signs, Intercepta screens the wallet it would pay
+          and the exact payment authorization. Before the seller accepts, it screens the payer. Any failure holds the
+          payment; nothing is paid by default.
         </p>
       </header>
       <PayFlow versions={versions} initialVersion={initialVersion} missing={missing} initialRecords={readPaymentRecords(20)} />

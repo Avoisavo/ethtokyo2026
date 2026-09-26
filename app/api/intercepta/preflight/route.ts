@@ -74,13 +74,13 @@ export async function GET() {
       const wei = await client.getBalance({ address: v.relayerAddress });
       checks.push({
         id: "relayer",
-        label: "Verifier relayer (settles on Sepolia)",
+        label: "Seller relayer (settles on Sepolia)",
         status: wei >= 1_000_000_000_000_000n ? "ok" : wei > 0n ? "warn" : "blocked",
         detail: `${v.relayerAddress} holds ${Number(formatEther(wei)).toFixed(4)} Sepolia ETH for gas. Paid to ${v.payTo}.`,
         fix: wei > 0n ? undefined : "Send it a little Sepolia ETH from any faucet.",
       });
     } catch (e) {
-      checks.push({ id: "relayer", label: "Verifier relayer", status: "warn", detail: `${v.relayerAddress}. Balance unreadable: ${String(e).slice(0, 120)}` });
+      checks.push({ id: "relayer", label: "Seller relayer", status: "warn", detail: `${v.relayerAddress}. Balance unreadable: ${String(e).slice(0, 120)}` });
     }
     if (payerAddress && payerAddress.toLowerCase() === v.payTo.toLowerCase()) {
       checks.push({ id: "same-wallet", label: "Payer and payee", status: "warn", detail: "The agent would pay itself. Use two different wallets for a clear demo." });
@@ -90,15 +90,15 @@ export async function GET() {
   const engine = engineInstalled();
   checks.push(
     engine
-      ? { id: "engine", label: "Petri engine", status: "ok", detail: "Installed. The honest verifier runs a real petri verify." }
-      : { id: "engine", label: "Petri engine", status: "warn", detail: "Not installed. The honest verifier refuses before quoting; rogue and greedy still work.", fix: "cd petri && corepack pnpm install" },
+      ? { id: "engine", label: "Petri engine", status: "ok", detail: "Installed. The file is read from the live Petri log." }
+      : { id: "engine", label: "Petri engine", status: "warn", detail: "Not installed. The file is read from the saved snapshot, which may be behind the log.", fix: "cd petri && npx pnpm@10 install" },
   );
   const id = verifier.ok ? verifierIdentity(verifier.config.petriHome) : null;
   if (id) {
     checks.push(
       id.ok
-        ? { id: "verifier-key", label: "Verifier's Petri key", status: "ok", detail: `runner ${id.identity.runnerId.slice(0, 16)}… (${id.identity.label || "no label"})` }
-        : { id: "verifier-key", label: "Verifier's Petri key", status: "warn", detail: id.detail, fix: "Needed only for the honest verifier's run." },
+        ? { id: "verifier-key", label: "Petri key (reads the live log)", status: "ok", detail: `runner ${id.identity.runnerId.slice(0, 16)}… (${id.identity.label || "no label"})` }
+        : { id: "verifier-key", label: "Petri key (reads the live log)", status: "warn", detail: id.detail, fix: "Without it the file comes from the saved snapshot." },
     );
   }
 

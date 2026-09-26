@@ -11,8 +11,10 @@ import s from "@/app/world/world.module.css";
 import x from "./intercepta.module.css";
 
 /**
- * The /intercepta page, sections 1–10. The agent buys one of two things over
- * x402: a version as a markdown file, or a verification run. The checks are the same.
+ * The /intercepta page, sections 1–10. The agent buys a version's record as a
+ * markdown file over x402. (The verification-run seller, POST
+ * /api/verifier/verify/:versionId, still works through the API, and its old
+ * records still display here.)
  *
  *   1.  Setup                 — keys, balances, engine (no Intercepta request spent)
  *   2.  The job               — what to buy, a version, a seller, pay or preview
@@ -53,10 +55,6 @@ const OUTCOME: Record<PaymentRecord["outcome"], { text: string; status: Status }
 /** Formats atomic USDC from verifier data without trusting its shape: a bad value never crashes the page. */
 const usdc = (atomic: unknown): string => (typeof atomic === "string" && /^\d+$/.test(atomic) ? formatUsdc(BigInt(atomic)) : String(atomic));
 
-const PRODUCTS: { id: Product; name: string; note: string }[] = [
-  { id: "markdown", name: "A version as markdown", note: "What an agent reads before it builds on a version. Buy it as often as you like. About 5 s." },
-  { id: "verification", name: "A verification run", note: "The seller's key re-runs the version and signs a report. Once per key per version. About 25 s." },
-];
 
 /** Saves the bought file in the browser. */
 function download(file: string, markdown: string) {
@@ -82,9 +80,7 @@ export default function PayFlow({
 }) {
   const [pre, setPre] = useState<Preflight | null>(null);
   const [preBusy, setPreBusy] = useState(false);
-  const [product, setProduct] = useState<Product>("markdown");
-  // Demo only: let the verifier re-sell a run its key already did. That report does not count.
-  const [repeat, setRepeat] = useState(true);
+  const product: Product = "markdown";
   const [versionId, setVersionId] = useState(initialVersion);
   const [verifier, setVerifier] = useState<VerifierProfile>("rogue");
   const [busy, setBusy] = useState<PayMode | null>(null);
@@ -139,7 +135,7 @@ export default function PayFlow({
         const res = await fetch("/api/intercepta/pay", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ versionId: vid, verifier, mode, product, repeat: product === "verification" && repeat }),
+          body: JSON.stringify({ versionId: vid, verifier, mode, product }),
         });
         const data = (await res.json()) as { ok: boolean; record?: PaymentRecord; code?: string; detail?: string };
         if (!data.ok || !data.record) {
@@ -155,7 +151,7 @@ export default function PayFlow({
         setBusy(null);
       }
     },
-    [vid, verifier, product, repeat, runPreflight],
+    [vid, verifier, product, runPreflight],
   );
 
   const r = current;
@@ -250,7 +246,7 @@ export default function PayFlow({
       {/* ------------------------------------------------------------ 1 */}
       <Section n={1} title="Setup" status={s1} statusText={{ pass: "Ready", fail: "Blocked", info: "Ready, with warnings", idle: "Checking…" }[s1]}>
         <p>
-          Two wallets and one key. The Petri agent pays with Sepolia USDC and needs no ETH. The verifier&apos;s relayer
+          Two wallets and one key. The Petri agent pays with Sepolia USDC and needs no ETH. The seller&apos;s relayer
           pays the gas to settle. Intercepta screens every payment. This check spends no Intercepta request.
         </p>
         {missing.length > 0 ? (
@@ -286,22 +282,7 @@ export default function PayFlow({
       </Section>
 
       {/* ------------------------------------------------------------ 2 */}
-      <Section n={2} title="The job: what the agent buys" status={r ? OUTCOME[r.outcome].status : "idle"} statusText={r ? OUTCOME[r.outcome].text : "Not run yet"}>
-        <div className={x.cards} role="radiogroup" aria-label="What the agent buys">
-          {PRODUCTS.map((pr) => (
-            <button
-              key={pr.id}
-              type="button"
-              role="radio"
-              aria-checked={product === pr.id}
-              className={`${x.card} ${product === pr.id ? x.cardOn : ""}`}
-              onClick={() => setProduct(pr.id)}
-            >
-              <span className={x.cardName}>{pr.name}</span>
-              <span className="muted">{pr.note}</span>
-            </button>
-          ))}
-        </div>
+      <Section n={2} title="The job: the agent buys a version as markdown" status={r ? OUTCOME[r.outcome].status : "idle"} statusText={r ? OUTCOME[r.outcome].text : "Not run yet"}>
         <label className={s.select}>
           Version
           <select value={vid} onChange={(e) => setVersionId(e.target.value)}>
@@ -313,19 +294,6 @@ export default function PayFlow({
           </select>
         </label>
         {selected ? <p className="muted">{selected.hypothesis}</p> : null}
-        {!md ? (
-          <div className={s.task}>
-            <label className={s.select}>
-              <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
-              <strong>Demo: allow repeat runs</strong>
-            </label>
-            <span className="muted">
-              Petri counts one report per key per version, so a real verifier sells each version once and then refuses
-              (<code>already_verified</code>). With this on, it re-runs anyway so you can demo as often as you like. A
-              repeat report is stored but does not change the version&apos;s status.
-            </span>
-          </div>
-        ) : null}
         <div className={x.cards} role="radiogroup" aria-label="Seller">
           {cards.map((c) => (
             <button
@@ -540,7 +508,7 @@ export default function PayFlow({
 
       {/* ------------------------------------------------------------ 9 */}
       <Section n={9} title="Stopped payments" status={s9} statusText={stopped.length ? `${stopped.length} stopped` : "None yet"}>
-        <p>Try the rogue verifier (Intercepta blocks it) and the greedy one (over Petri&apos;s limit).</p>
+        <p>Try the rogue seller (Intercepta blocks it) and the greedy one (over Petri&apos;s limit).</p>
         {stopped.length ? (
           <table className={s.table}>
             <thead>
