@@ -26,8 +26,8 @@ import { formatError } from "@/app/ens/_lib/ens/errors";
 import { walkHierarchy } from "@/app/ens/_lib/ens/hierarchy";
 import { dnsEncode, labelId } from "@/app/ens/_lib/ens/names";
 import { ResolverRoles } from "@/app/ens/_lib/ens/roles";
-import { ENS_SUFFIX } from "@/lib/ens-name";
-import { ALL_RECORD_KEYS, ENS_CHAIN_ID, type PlannedName, type RecordKey, changedKeys, treePlan } from "@/lib/ens-records";
+import { ENS_SUFFIX } from "@/lib/ens/name";
+import { ALL_RECORD_KEYS, ENS_CHAIN_ID, type PlannedName, type RecordKey, changedKeys, treePlan } from "@/lib/ens/records";
 
 /** An expected failure: printed as is, without a stack trace. */
 class Fail extends Error {}
@@ -70,7 +70,7 @@ async function main() {
   const envFile = path.join(process.cwd(), ".env.local");
   if (existsSync(envFile)) process.loadEnvFile(envFile);
   const { TREES, loadTreeEntry } = await import("@/lib/trees");
-  const { resolveRecords, sepoliaClient, SEPOLIA_RPC_URL: rpcUrl } = await import("@/lib/ens-resolve");
+  const { resolveRecords, sepoliaClient, SEPOLIA_RPC_URL: rpcUrl } = await import("@/lib/ens/resolve");
 
   // Only the real tree is published. Showcase trees were never measured.
   const entry = TREES.find((t) => t.source === "real");
