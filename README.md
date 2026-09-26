@@ -223,9 +223,13 @@ flows at `/world` (IDKit Selfie Check, World ID for Agents) are explained in `li
 
 ## Intercepta: paid verification, screened before signing
 
-A version needs 2 other keys to re-run it. At `/intercepta` the Petri agent pays a verifier for that
-run over x402, in Circle test USDC on Ethereum Sepolia. Paying per verification run is item 3 on
-Petri's roadmap in `petri/CLAUDE.md`. Intercepta sits in the payment path on both sides:
+At `/intercepta` the Petri agent pays over x402, in Circle test USDC on Ethereum Sepolia. It buys one of
+two things: a **version as a markdown file** (`GET /api/versions/:versionId/markdown`, as often as it
+likes), or a **verification run** by another key (`POST /api/verifier/verify/:versionId`). Paying per
+verification run is item 3 on Petri's roadmap in `petri/CLAUDE.md`. Intercepta sits in the payment path
+on both sides. The full walkthrough, in plain English, is [`docs/intercepta.md`](docs/intercepta.md).
+
+For a verification run:
 
 1. The verifier answers `POST /api/verifier/verify/:versionId` with HTTP 402: 0.01 USDC to its wallet.
 2. Petri checks its own limits first, with no network call: at most 0.50 USDC a payment, Circle USDC
@@ -275,7 +279,7 @@ is screened as the same address on mainnet, and Scan Message runs under chain id
 | `lib/intercepta/client.ts` | `scanMessage()` | `POST /api/public/v2/extension/analysis/signature` | The HTTP call |
 | `lib/pay/agent.ts` | `onBeforePaymentCreation` hook | Quick Scan on `payTo` | Before the authorization is built |
 | `lib/pay/agent.ts` | the screening signer's `signTypedData` | Scan Message on the EIP-712 authorization | Before the signature exists |
-| `lib/pay/verifier.ts` | `onAfterVerify` hook | Quick Scan on the payer | Before the verifier runs the work or settles |
+| `lib/pay/verifier.ts` | `onAfterVerify` hook | Quick Scan on the payer | Before the seller runs the work, settles or sends the file |
 | `lib/intercepta/decision.ts` | `decide()` | none: pure | Turns every check into pay, hold or reject |
 
 ### Feedback on the Intercepta API
@@ -346,7 +350,9 @@ The live path has not been run on this tree yet.
 | `scripts/world-agentkit.ts` | Registers an agent in AgentBook (`npm run world:agentkit`) |
 | `lib/intercepta/` | The Intercepta client and the pay, hold or reject decision |
 | `lib/pay/` | x402 paid verification: the Petri agent (payer) and the verifier (seller) |
-| `app/intercepta/`, `app/api/intercepta/`, `app/api/verifier/` | The `/intercepta` page, its API, and the paid verifier route |
+| `app/intercepta/`, `app/api/intercepta/` | The `/intercepta` page and its API |
+| `app/api/versions/`, `app/api/verifier/` | The two x402 sellers: a version as markdown, and a verification run |
+| `docs/intercepta.md` | How the Intercepta screening works, step by step |
 | `petri/` | The engine: CLI, benchmark, harness, recorded tree. See `petri/README.md`. |
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
 | `petri/src/consensus/local.ts` | The local log and its hash chain |
