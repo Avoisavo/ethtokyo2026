@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLinks, type ComparePoint, type Link } from "@/lib/compare";
-import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
+import { STATUS_WORD, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
 import { estimateTradeOff, fmtPct, tradeOffOf, type TradeOff } from "@/lib/metrics";
 import { TradeIcon } from "./LineageHero";
@@ -868,14 +868,33 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
     ...time.ticks.filter((t) => !nearOrigin(Z(t))).map((t) => ({ k: `z-${t}`, at: [-1 - OFF, -1 - OFF, Z(t)] as Vec, text: fmtWall(t) })),
   ];
 
-  const projected = points.map((p) => {
+  // Each version gets one fixed spot in the cube. Versions with the same numbers
+  // (the replay runs give many ties) are spread on a small ring around their shared
+  // spot, in 3D and in seq order, so the spread turns with the cube and a dot never
+  // jumps when the view changes.
+  const spotOf = new Map<string, Vec>();
+  const groups = new Map<string, ComparePoint[]>();
+  for (const p of points) {
     const v: Vec = [X(p.perfBp), Y(p.tokens), Z(p.wallMs)];
+    const key = v.map((c) => Math.round(c * 12)).join(",");
+    groups.set(key, [...(groups.get(key) ?? []), p]);
+    spotOf.set(p.n.id, v);
+  }
+  for (const g of groups.values()) {
+    if (g.length < 2) continue;
+    g.sort((a, b) => a.n.seq - b.n.seq);
+    const ring = Math.min(0.32, 0.1 + 0.035 * g.length);
+    g.forEach((p, i) => {
+      const [x, y, z] = spotOf.get(p.n.id)!;
+      const a = (2 * PI * i) / g.length;
+      spotOf.set(p.n.id, [x + Math.cos(a) * ring, y, z + Math.sin(a) * ring]);
+    });
+  }
+  const projected = points.map((p) => {
+    const v = spotOf.get(p.n.id)!;
     return { p, s: P(v), floor: P([v[0], -1, v[2]]) };
   }).sort((a, b) => a.s.depth - b.s.depth || rankOf(a.p) - rankOf(b.p));
-  // From this angle some dots land on each other. Push them apart on screen, every
-  // frame, so each stays visible while the plot turns; a thin line marks the true spot.
-  const apart = separate(projected.map((q) => ({ id: q.p.n.id, at: [q.s.x, q.s.y], r: PR * q.s.f })), PGAP);
-  const placed = projected.map((q) => ({ ...q, d: apart.get(q.p.n.id)!.at }));
+  const placed = projected.map((q) => ({ ...q, d: [q.s.x, q.s.y] as Pt }));
   const spot3d = new Map(placed.map((q) => [q.p.n.id, { at: q.d, r: PR * q.s.f }]));
   const sel = placed.find((q) => q.p.n.id === selected);
   const selLabel = sel && placeLabels(
