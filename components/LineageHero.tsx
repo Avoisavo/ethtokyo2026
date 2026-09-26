@@ -59,7 +59,8 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   const status = new Map((layoutNodes ?? nodes).map((n) => [n.id, n.status]));
   const { slots, rows, maxDepth } = tidySlots(forest, (id) => status.get(id));
   const names = ensNames(nodes, harness);
-  const nameLines = new Map(nodes.map((n) => [n.id, wrapName(names.get(n.id) ?? n.short)]));
+  // The card shows the short label only (v2). The full name is in the panel.
+  const nameLines = new Map(nodes.map((n) => [n.id, wrapName((names.get(n.id) ?? n.short).split(".")[0])]));
   // Rows grow with the longest wrapped name, so no label runs into the next row.
   const extra = Math.max(0, ...[...nameLines.values()].map((l) => l.length - 1)) * NAME_LINE;
   const row = ROW + extra;

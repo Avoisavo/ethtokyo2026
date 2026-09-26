@@ -40,7 +40,7 @@ export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVer
           </svg>
           <span className="t-text">
             <span className="t-word" title={n.short}>{wordOf(n)}</span>
-            <span className="t-ens">{names.get(id)}</span>
+            <span className="t-ens" title={names.get(id)}>{names.get(id)?.split(".")[0]}</span>
             <span className="t-hyp">{n.hypothesis}</span>
             <span className="t-num">{nodeNumbers(n, nodes, benchTotal, minVerifications)}</span>
           </span>

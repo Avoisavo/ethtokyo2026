@@ -37,8 +37,8 @@ export const treeLabelOf = (harness?: string): string =>
 /** The version name for a label: `v3` → `v3.<tree>.petri.eth`. */
 export const versionName = (label: string, harness?: string): string => `${label}.${treeLabelOf(harness)}.${ENS_SUFFIX}`;
 
-/** Where a name opens in the ENS app, on Sepolia. */
-export const ensAppUrl = (name: string): string => `https://sepolia.app.ens.domains/${name}`;
+/** Where a name opens in the ENSv2 explorer (explorer.ens.dev), which indexes Sepolia. */
+export const ensAppUrl = (name: string): string => `https://explorer.ens.dev/${name}`;
 
 /**
  * Map from node id to its full ENS name. Versions are numbered in `seq` order,
