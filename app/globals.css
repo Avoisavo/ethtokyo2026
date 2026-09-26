@@ -15,6 +15,8 @@
   --fail-soft: #FBEEEA;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(10, 12, 16, .04), 0 1px 1px rgba(10, 12, 16, .03);
+  /* The 3D axes: the first three categorical slots, validated all-pairs for colour blindness. */
+  --ax-x: #2a78d6; --ax-y: #eb6834; --ax-z: #1baf7a;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -23,6 +25,7 @@
     --rule: #25282E; --rule-soft: #1C1F24;
     --pass: #A79BF0; --pass-soft: #221E3A; --fail: #EE9280; --fail-soft: #2E1C18;
     --shadow: none;
+    --ax-x: #3987e5; --ax-y: #d95926; --ax-z: #199e70;
   }
 }
 
@@ -404,18 +407,14 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-fact-value { font-size: 18px; font-weight: 600; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .cmp-fact-who { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono), monospace; font-size: 11.5px; color: var(--ink-mid); }
 .cmp-figure { display: flex; flex-direction: column; gap: 8px; }
-.compare-plate { width: 100%; max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); }
-.cmp-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 14px; }
+.compare-plate { width: 100%; max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); }
+.cmp-pane { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 16px 18px; }
 .cmp-pane + .cmp-pane { border-top: 1px solid var(--rule-soft); }
-@media (min-width: 900px) {
-  .compare-plate { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .cmp-pane + .cmp-pane { border-top: 0; border-left: 1px solid var(--rule-soft); }
-}
 .cmp-pane-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; }
 .cmp-pane-head h3 { font-size: 14px; }
 .cmp-pane-head .muted { font-size: 12px; }
 .cmp-chart { position: relative; margin-top: auto; }
-.cmp-chart svg { display: block; width: 100%; height: auto; max-width: 480px; margin: 0 auto; overflow: visible; }
+.cmp-chart svg { display: block; width: 100%; height: auto; max-width: 700px; margin: 0 auto; overflow: visible; }
 .cmp-3d svg { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 8px; }
 .cmp-3d svg.is-dragging { cursor: grabbing; }
 .cmp-tools { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -437,11 +436,20 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
 .cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
 .cmp-anchor { fill: var(--ink-faint); }
+.cmp-link { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; opacity: .5; }
+.cmp-link.dead { stroke-dasharray: 3 3; }
+.cmp-link.skip { stroke-dasharray: 1 3; }
+.cmp-link-head { fill: var(--ink-faint); opacity: .5; }
+.cmp-link.on-path { stroke: var(--pass); stroke-width: 1.8; opacity: .9; }
+.cmp-link-head.on-path { fill: var(--pass); opacity: .9; }
 
 .cmp-plane { fill: var(--sunk); stroke: var(--rule); stroke-width: 1; stroke-linejoin: round; }
 .cmp-plane-grid { stroke: var(--rule); stroke-width: .8; }
-.cmp-axis { stroke: var(--ink-mid); stroke-width: 1.5; stroke-linecap: round; }
+.cmp-axis { stroke: var(--ink-mid); stroke-width: 2; stroke-linecap: round; }
 .cmp-arrow { fill: var(--ink-mid); }
+.cmp-axis.ax-x { stroke: var(--ax-x); } .cmp-arrow.ax-x { fill: var(--ax-x); }
+.cmp-axis.ax-y { stroke: var(--ax-y); } .cmp-arrow.ax-y { fill: var(--ax-y); }
+.cmp-axis.ax-z { stroke: var(--ax-z); } .cmp-arrow.ax-z { fill: var(--ax-z); }
 .cmp-axis-title { font-size: 12px; font-weight: 600; fill: var(--ink); pointer-events: none; }
 .cmp-axis-name { font-family: var(--f-mono), monospace; font-weight: 500; fill: var(--ink-faint); }
 .cmp-tick { font-size: 9.5px; pointer-events: none; }
