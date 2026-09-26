@@ -12,7 +12,8 @@
     "demo": "bash petri/demo/verify-demo.sh",
     "demo:full": "bash petri/demo/verify-full.sh",
     "gen:ens-abis": "node scripts/gen-ens-abis.mjs",
-    "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\""
+    "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\" \"lib/**/*.test.ts\"",
+    "ens:publish": "tsx scripts/ens-publish.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
