@@ -12,7 +12,6 @@ import { EXIT, exitCodeOf, flushAndExit, messageOf } from './exit.js';
 import { DEFAULT_ROOT } from './context.js';
 import { registerInit, registerConfig } from './init.js';
 import { registerIdentity } from './identity.js';
-import { registerTopic } from './topic.js';
 import { registerNode } from './node.js';
 import { registerEvolve } from './evolve.js';
 import { registerRun } from './run.js';
@@ -20,8 +19,7 @@ import { registerVerify, registerStatus, registerPublish } from './verify.js';
 import { registerDigest, registerAreas } from './digest.js';
 import { registerExport } from './log.js';
 import { registerFsck } from './fsck.js';
-import { autoAnchor, registerAnchor } from './anchor.js';
-import { isAbsolute, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
 const VERSION = '0.1.0';
 
@@ -44,7 +42,6 @@ export function buildProgram(): Command {
   registerInit(program);
   registerConfig(program);
   registerIdentity(program);
-  registerTopic(program);
   registerNode(program);
   registerEvolve(program);
   registerRun(program);
@@ -55,7 +52,6 @@ export function buildProgram(): Command {
   registerAreas(program);
   registerExport(program);
   registerFsck(program);
-  registerAnchor(program);
 
   return program;
 }
@@ -72,7 +68,7 @@ function installSignalHandlers(): void {
 
 export async function main(argv: readonly string[]): Promise<void> {
   installSignalHandlers();
-  // petri/.env holds the Hedera account. A variable already set in the shell wins.
+  // petri/.env holds the optional settings. A variable already set in the shell wins.
   try {
     process.loadEnvFile(resolve(DEFAULT_ROOT, '.env'));
   } catch {
@@ -101,9 +97,6 @@ export async function main(argv: readonly string[]): Promise<void> {
     flushAndExit(exitCodeOf(err));
     return;
   }
-  // Send any new records to the Hedera topic, when one is set up.
-  const rawRoot = (program.opts() as { root?: string }).root ?? DEFAULT_ROOT;
-  await autoAnchor(argv, isAbsolute(rawRoot) ? rawRoot : resolve(process.cwd(), rawRoot));
   flushAndExit(process.exitCode === undefined ? EXIT.OK : Number(process.exitCode));
 }
 
