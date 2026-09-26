@@ -1,11 +1,11 @@
-import { ENS_SUFFIX, ensNames } from "./ens-name";
-import { claimBp, counted, isBlocked, isRoot, rootRerunBp } from "./format";
-import type { ExportNode, NodeStatus, PetriExport } from "./types";
+import { ENS_SUFFIX, ensNames } from "./name";
+import { claimBp, counted, isBlocked, isRoot, rootRerunBp } from "../format";
+import type { ExportNode, NodeStatus, PetriExport } from "../types";
 
 /**
  * The record a version keeps on its ENS name.
  *
- * Every version has a name (see ens-name.ts), and the resolver that serves
+ * Every version has a name (see name.ts), and the resolver that serves
  * that name holds the version's record as text records: the hypothesis, the
  * verdict, the score, the checks by other keys. The node panel shows what the
  * resolver returns, so anyone can read the same record from any ENS client.
@@ -117,7 +117,7 @@ export interface EnsVersion {
   bench: number | null;
 }
 
-/** One name's lookup, as the /api/ens-records route returns it. */
+/** One name's lookup, as the /api/ens/records route returns it. */
 export interface EnsLookup {
   name: string;
   /** The resolver that answered. Null when no resolver is on the name's path. */
