@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import { getAgentConfig } from "@/lib/world-agent/config";
-import { pollDeviceToken, validateIdToken } from "@/lib/world-agent/oidc";
+import { getAgentConfig } from "@/lib/world/agent/config";
+import { pollDeviceToken, validateIdToken } from "@/lib/world/agent/oidc";
 import {
   getAttempt,
   getOwner,
@@ -11,7 +11,7 @@ import {
   setOwner,
   shortSub,
   type Attempt,
-} from "@/lib/world-agent/store";
+} from "@/lib/world/agent/store";
 
 /**
  * Advance one approval attempt. The browser calls this on a timer; the server
