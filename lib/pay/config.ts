@@ -109,6 +109,8 @@ export type VerifierConfig = {
   /** Where the honest verifier is paid. Defaults to the relayer's address. */
   payTo: Address;
   feeAtomic: bigint;
+  /** The price of one version as a markdown file. */
+  markdownFeeAtomic: bigint;
   /** maxTimeoutSeconds in the 402. It covers the ~22 s verify and the settle. */
   timeoutSeconds: number;
   /** PETRI_HOME of the verifier's ed25519 Petri key. Needed only for the honest verifier's work. */
@@ -144,6 +146,7 @@ export function getVerifierConfig(): VerifierConfigResult {
     problems.push({ name: "PETRI_VERIFIER_SCREEN_PAYER", issue: `"${screen}" is not on or off.`, fix: "Use on (default) or off." });
   }
   const feeAtomic = usdc("PETRI_VERIFIER_FEE_USDC", "0.01", problems);
+  const markdownFeeAtomic = usdc("PETRI_MARKDOWN_PRICE_USDC", "0.01", problems);
   const greedyFee = usdc("PETRI_DEMO_GREEDY_FEE_USDC", "0.75", problems);
   // The authorization must outlive preflight, the payer screen, a ~22 s verify and the settle.
   const timeoutSeconds = seconds("PETRI_VERIFIER_TIMEOUT_S", 300, problems, 120);
@@ -157,6 +160,7 @@ export function getVerifierConfig(): VerifierConfigResult {
       relayerAddress,
       payTo: (payToRaw as Address | undefined) ?? relayerAddress,
       feeAtomic,
+      markdownFeeAtomic,
       timeoutSeconds,
       petriHome: homePath(process.env.PETRI_VERIFIER_HOME),
       screenPayer: screen === "on",
