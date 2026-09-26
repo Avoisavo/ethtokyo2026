@@ -95,6 +95,27 @@ async function checkPayment(txHash: string, usdc: number): Promise<Address> {
   throw new MarketError(`The transaction does not pay ${usdc} USDC to ${dep.owner}.`);
 }
 
+/**
+ * Encrypts a version's documents with its file key and writes them to its
+ * name, once. Returns the file key. A later call only checks the records.
+ */
+async function ensureDocs(node: { id: string; hypothesis: string }, name: string, extra: Record<string, string> = {}): Promise<string> {
+  const fileKey = readState().fileKeys[node.id] ?? newFileKey();
+  updateState((s) => (s.fileKeys[node.id] = fileKey));
+  const have = await readTexts(name, [VERSION_KEYS.docHash]);
+  const docs = versionDocs(node.id, node.hypothesis);
+  const hash = docsHash(docs);
+  const records: Record<string, string> = { ...extra };
+  if (have[VERSION_KEYS.docHash] !== hash) {
+    records[VERSION_KEYS.docList] = Object.keys(docs).join(",");
+    records[VERSION_KEYS.docHash] = hash;
+    records[VERSION_KEYS.price] = String(PRICE_USDC);
+    for (const [file, text] of Object.entries(docs)) records[docKey(file)] = encryptText(fileKey, text);
+  }
+  if (Object.keys(records).length > 0) await writeTexts(name, records);
+  return fileKey;
+}
+
 export type SubmitMode = { kind: "free"; nullifier: string } | { kind: "stake"; txHash: string };
 
 /** Encrypts the version's docs, writes them to its name, and opens the round. Pending versions only. */
@@ -120,20 +141,10 @@ export async function submitVersion(id: string, mode: SubmitMode) {
     submit = `stake:USDC:${STAKE_USDC}`;
   }
 
-  const fileKey = readState().fileKeys[node.id] ?? newFileKey();
-  updateState((s) => (s.fileKeys[node.id] = fileKey));
-  const docs = versionDocs(node.id, node.hypothesis);
-  const records: Record<string, string> = {
-    [VERSION_KEYS.docList]: Object.keys(docs).join(","),
-    [VERSION_KEYS.docHash]: docsHash(docs),
-    [VERSION_KEYS.submit]: submit,
-    [VERSION_KEYS.submitter]: submitter,
-    [VERSION_KEYS.price]: String(PRICE_USDC),
-  };
-  for (const [file, text] of Object.entries(docs)) records[docKey(file)] = encryptText(fileKey, text);
-  const tx = await writeTexts(name, records);
+  // The file key stays on the server: ensureDocs returns it, and it is never sent back.
+  await ensureDocs(node, name, { [VERSION_KEYS.submit]: submit, [VERSION_KEYS.submitter]: submitter });
   const round = await openRound(name);
-  return { id: node.id, name, submit, tx, round };
+  return { id: node.id, name, submit, round };
 }
 
 /** Opens the round of a pending version. It expires ROUND_SECONDS from now. */
@@ -297,11 +308,11 @@ export async function closeRound(id: string, force = false) {
 export async function buyVersion(id: string, input: { wallet: string; accessKey: string; signature: string; txHash: string }) {
   const { node, name: version, folder } = await findVersion(id);
   if (folder !== "accepted" && readState().moved[node.id] !== "accepted") throw new MarketError("Only an accepted version can be bought.", 409);
-  const fileKey = readState().fileKeys[node.id];
-  if (!fileKey) throw new MarketError("This version is not for sale: it was never submitted here.", 409);
   const wallet = await checkAccessKey(input.wallet, input.accessKey, input.signature);
   const payer = await checkPayment(input.txHash, PRICE_USDC);
   if (payer.toLowerCase() !== wallet.toLowerCase()) throw new MarketError("The payment came from another wallet.");
+  // The first buyer of a version makes the platform publish its encrypted files.
+  const fileKey = await ensureDocs(node, moveName(version, "accepted"));
   const i = updateState((s) => (s.buyers[node.id] = (s.buyers[node.id] ?? 0) + 1));
   const name = buyerName(moveName(version, "accepted"), i);
   await registerSubname(name, BigInt(now() + BUYER_DAYS * 86400), wallet);
@@ -310,5 +321,5 @@ export async function buyVersion(id: string, input: { wallet: string; accessKey:
     [ACCESS_KEYS.accessKey]: input.accessKey,
     [ACCESS_KEYS.key]: sealFileKey(fileKey, input.accessKey),
   });
-  return { name, tx };
+  return { name, version: moveName(version, "accepted"), tx };
 }

@@ -46,6 +46,29 @@ a { color: inherit; }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; text-decoration: none; letter-spacing: -.01em; }
 .brand-mark { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, var(--pass) 0 38%, transparent 40%), conic-gradient(var(--pass) 0 25%, var(--fail) 0 30%, var(--ink-faint) 0); box-shadow: inset 0 0 0 1.5px var(--surface); }
 .topnav { display: flex; gap: 16px; }
+.topbar-end { margin-left: auto; display: flex; align-items: center; }
+.wallet-btn { font: inherit; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--pass); background: var(--pass); color: #fff; cursor: pointer; }
+.wallet-btn:disabled { opacity: .6; cursor: default; }
+.wallet-btn.warn { background: var(--fail); border-color: var(--fail); }
+.wallet-on { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 6px 4px 10px; border: 1px solid var(--rule); border-radius: 8px; }
+.wallet-on code { font-family: var(--f-mono), monospace; font-size: 12px; }
+.wallet-dot { width: 8px; height: 8px; border-radius: 50%; background: #2f9e44; }
+.wallet-x { border: 0; background: none; cursor: pointer; color: var(--ink-faint); font-size: 16px; line-height: 1; padding: 0 4px; }
+.buy { margin-top: 16px; padding: 14px; border: 1px solid var(--rule); border-radius: 10px; }
+.buy h3 { margin: 0 0 4px; font-size: 14px; }
+.buy p { margin: 4px 0; font-size: 13px; color: var(--ink-mid); }
+.buy ol { margin: 8px 0; padding-left: 18px; font-size: 13px; }
+.buy li { margin: 3px 0; }
+.buy li.done { color: var(--pass); }
+.buy button { font: inherit; font-size: 13px; font-weight: 600; margin: 6px 6px 0 0; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--pass); background: var(--pass); color: #fff; cursor: pointer; }
+.buy button.ghost { background: none; color: var(--pass); }
+.buy button:disabled { opacity: .55; cursor: default; }
+.buy .err { color: var(--fail); white-space: pre-wrap; }
+.buy a { color: var(--pass); }
+.buy-files { margin-top: 10px; }
+.buy-files details { border-top: 1px solid var(--rule); padding: 6px 0; }
+.buy-files summary { cursor: pointer; font-family: var(--f-mono), monospace; font-size: 12.5px; }
+.buy-files pre { max-height: 320px; overflow: auto; font-size: 11.5px; background: var(--sunk, #f4f4f2); padding: 8px; border-radius: 6px; }
 .topnav a { text-decoration: none; color: var(--ink-mid); font-size: 13.5px; }
 .topnav a:hover { color: var(--ink); }
 .pill { margin-left: auto; font-size: 12px; color: var(--ink-mid); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px; }

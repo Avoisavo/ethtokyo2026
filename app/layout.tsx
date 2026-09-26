@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { Providers } from "./providers";
+import { WalletButton } from "@/components/WalletButton";
 
 const sans = Geist({ subsets: ["latin"], variable: "--f-body" });
 const mono = Geist_Mono({ subsets: ["latin"], variable: "--f-mono" });
@@ -15,6 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
+        <Providers>
         <header className="topbar">
           <div className="topbar-in">
             <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true" />Petri</Link>
@@ -24,9 +27,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/ens">ENS</Link>
               <a href="https://github.com/Avoisavo/ethonline2026/tree/petri">GitHub</a>
             </nav>
+            <div className="topbar-end"><WalletButton /></div>
           </div>
         </header>
         {children}
+        </Providers>
       </body>
     </html>
   );

@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { ConnectButton } from "@/app/ens/_components/ConnectButton";
 
 import "./ens.css";
-import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "ENSv2 Playground",
@@ -15,13 +14,11 @@ export const metadata: Metadata = {
 export default function EnsLayout({ children }: LayoutProps<"/ens">) {
   return (
     <div className="ens-app">
-      <Providers>
         <header className="sticky top-[53px] z-[9] flex h-14 items-center justify-between gap-4 border-b border-zinc-200 bg-background/80 px-6 backdrop-blur dark:border-zinc-800">
           <span className="font-semibold">ENSv2 Playground</span>
           <ConnectButton />
         </header>
         <main className="mx-auto w-full max-w-5xl px-6 py-8">{children}</main>
-      </Providers>
     </div>
   );
 }
