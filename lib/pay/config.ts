@@ -1,5 +1,8 @@
 import "server-only";
 
+import os from "node:os";
+import path from "node:path";
+
 import { isAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -40,15 +43,22 @@ function usdc(name: string, fallback: string, problems: Problem[]): bigint {
   return v;
 }
 
-function seconds(name: string, fallback: number, problems: Problem[]): number {
+function seconds(name: string, fallback: number, problems: Problem[], min = 30): number {
   const raw = process.env[name]?.trim();
   if (!raw) return fallback;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 30) {
-    problems.push({ name, issue: `"${raw}" is not a whole number of seconds (30 or more).`, fix: `Use ${fallback}.` });
+  if (!Number.isInteger(n) || n < min) {
+    problems.push({ name, issue: `"${raw}" is not a whole number of seconds (${min} or more).`, fix: `Use ${fallback}.` });
     return fallback;
   }
   return n;
+}
+
+/** .env files do not expand ~, and a relative path would resolve against the server's cwd. */
+function homePath(raw: string | undefined): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  return path.resolve(v === "~" || v.startsWith("~/") ? path.join(os.homedir(), v.slice(1)) : v);
 }
 
 /* ------------------------------------------------------------------ payer */
@@ -135,7 +145,8 @@ export function getVerifierConfig(): VerifierConfigResult {
   }
   const feeAtomic = usdc("PETRI_VERIFIER_FEE_USDC", "0.01", problems);
   const greedyFee = usdc("PETRI_DEMO_GREEDY_FEE_USDC", "0.75", problems);
-  const timeoutSeconds = seconds("PETRI_VERIFIER_TIMEOUT_S", 300, problems);
+  // The authorization must outlive preflight, the payer screen, a ~22 s verify and the settle.
+  const timeoutSeconds = seconds("PETRI_VERIFIER_TIMEOUT_S", 300, problems, 120);
   if (problems.length > 0) return { ok: false, problems };
 
   const relayerAddress = privateKeyToAccount(relayerKey as Hex).address;
@@ -147,7 +158,7 @@ export function getVerifierConfig(): VerifierConfigResult {
       payTo: (payToRaw as Address | undefined) ?? relayerAddress,
       feeAtomic,
       timeoutSeconds,
-      petriHome: process.env.PETRI_VERIFIER_HOME?.trim() || null,
+      petriHome: homePath(process.env.PETRI_VERIFIER_HOME),
       screenPayer: screen === "on",
       rogue: { payTo: rogueRaw as Address },
       greedy: { feeAtomic: greedyFee },
