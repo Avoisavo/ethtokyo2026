@@ -193,6 +193,8 @@ Run it again after new checks to update the verdicts. Section 8 of `/ens` does t
 browser wallet. Until `petri.eth` has a resolver, every lookup comes back empty and the panel
 shows the local log.
 
+The full guide, with the API and every file, is `lib/ens/README.md`.
+
 ---
 
 ## World ID after each verification
@@ -213,6 +215,9 @@ The lookup has run against World Chain. Two limits stay:
 
 - The check does not yet prove that the wallet belongs to the key that signed the report.
 - It does not change the acceptance rule. A report without a human id still counts.
+
+To register a wallet in AgentBook, run `npm run world:agentkit -- 0xYourAgentWallet`. The web
+flows at `/world` (IDKit Selfie Check, World ID for Agents) are explained in `lib/world/README.md`.
 
 ---
 
@@ -266,12 +271,14 @@ The live path has not been run on this tree yet.
 |---|---|
 | `app/`, `components/`, `lib/*.ts` | The Petri web app (Next.js) |
 | `lib/showcase.ts` | The showcase trees for other domains |
-| `lib/ens-name.ts`, `lib/ens-records.ts`, `lib/ens-resolve.ts` | Each version's ENS name, the text records it holds, and the reader |
-| `scripts/ens-publish.ts` | Writes those records to the resolver on `petri.eth` (`npm run ens:publish`) |
-| `app/ens/` | The ENSv2 playground on Sepolia. See `app/ens/README.md`. |
+| `lib/ens/` | ENSv2: each version's name, its text records, and the reader. See `lib/ens/README.md`. |
+| `app/ens/`, `app/api/ens/` | The ENSv2 playground on Sepolia, and the ENS API. See `app/ens/README.md`. |
+| `scripts/ens-publish.ts` | Writes the records to the resolver on `petri.eth` (`npm run ens:publish`) |
+| `lib/world/` | World: IDKit Selfie Check, World ID for Agents, AgentKit AgentBook. See `lib/world/README.md`. |
+| `app/world/`, `app/api/world/` | The `/world` page and the World API |
+| `scripts/world-agentkit.ts` | Registers an agent in AgentBook (`npm run world:agentkit`) |
 | `petri/` | The engine: CLI, benchmark, harness, recorded tree. See `petri/README.md`. |
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
 | `petri/src/consensus/local.ts` | The local log and its hash chain |
 | `petri/src/trust/world.ts` | The World ID check after `petri verify` |
 | `petri/demo/verify-demo.sh` | The stage demo: verify, then a World ID Selfie Check at `/world` |
-| `lib/agentbook/` | World AgentKit helpers for the web side. The web app does not use them yet. |
