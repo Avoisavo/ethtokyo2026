@@ -83,6 +83,8 @@ export default function PayFlow({
   const [pre, setPre] = useState<Preflight | null>(null);
   const [preBusy, setPreBusy] = useState(false);
   const [product, setProduct] = useState<Product>("markdown");
+  // Demo only: let the verifier re-sell a run its key already did. That report does not count.
+  const [repeat, setRepeat] = useState(true);
   const [versionId, setVersionId] = useState(initialVersion);
   const [verifier, setVerifier] = useState<VerifierProfile>("rogue");
   const [busy, setBusy] = useState<PayMode | null>(null);
@@ -137,7 +139,7 @@ export default function PayFlow({
         const res = await fetch("/api/intercepta/pay", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ versionId: vid, verifier, mode, product }),
+          body: JSON.stringify({ versionId: vid, verifier, mode, product, repeat: product === "verification" && repeat }),
         });
         const data = (await res.json()) as { ok: boolean; record?: PaymentRecord; code?: string; detail?: string };
         if (!data.ok || !data.record) {
@@ -153,7 +155,7 @@ export default function PayFlow({
         setBusy(null);
       }
     },
-    [vid, verifier, product, runPreflight],
+    [vid, verifier, product, repeat, runPreflight],
   );
 
   const r = current;
@@ -309,6 +311,19 @@ export default function PayFlow({
           </select>
         </label>
         {selected ? <p className="muted">{selected.hypothesis}</p> : null}
+        {!md ? (
+          <div className={s.task}>
+            <label className={s.select}>
+              <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+              <strong>Demo: allow repeat runs</strong>
+            </label>
+            <span className="muted">
+              Petri counts one report per key per version, so a real verifier sells each version once and then refuses
+              (<code>already_verified</code>). With this on, it re-runs anyway so you can demo as often as you like. A
+              repeat report is stored but does not change the version&apos;s status.
+            </span>
+          </div>
+        ) : null}
         <div className={x.cards} role="radiogroup" aria-label="Seller">
           {cards.map((c) => (
             <button
@@ -343,7 +358,7 @@ export default function PayFlow({
       </Section>
 
       {/* ------------------------------------------------------------ 3 */}
-      <Section n={3} title="The verifier asks for payment (HTTP 402)" status={s3} statusText={{ pass: "402 received", fail: "No 402", info: "", idle: "Not run yet" }[s3]}>
+      <Section n={3} title="The seller asks for payment (HTTP 402)" status={s3} statusText={{ pass: "402 received", fail: "No 402", info: "", idle: "Not run yet" }[s3]}>
         {r?.requirements ? (
           <dl className={s.fields}>
             <Row k="Scheme" v={`${r.requirements.scheme} (x402 v2)`} />
@@ -356,7 +371,7 @@ export default function PayFlow({
         ) : r ? (
           <div className={s.error}>{r.error ?? "The verifier did not answer with a payment request."}</div>
         ) : (
-          <p className="muted">The verifier&apos;s price, token and wallet appear here, decoded from its PAYMENT-REQUIRED header.</p>
+          <p className="muted">The seller&apos;s price, token and wallet appear here, decoded from its PAYMENT-REQUIRED header.</p>
         )}
       </Section>
 
@@ -442,12 +457,12 @@ export default function PayFlow({
           <div className={r.signed ? s.unlocked : s.locked}>
             {r.signed ? (
               <>
-                <strong>Signed and sent</strong> to the verifier.{" "}
+                <strong>Signed and sent</strong> to the seller.{" "}
                 {r.outcome === "paid"
                   ? "It settled on Sepolia."
                   : r.outcome === "pending"
                     ? "The transfer was broadcast and is not confirmed yet. Check the transaction below."
-                    : "The verifier did not settle it. An unsettled authorization stays valid until its validBefore."}
+                    : "The seller did not settle it. An unsettled authorization stays valid until its validBefore."}
               </>
             ) : (
               <>
@@ -463,13 +478,25 @@ export default function PayFlow({
       {/* ------------------------------------------------------------ 8 */}
       <Section n={8} title={`The seller's side: payer screen, settlement, ${(r?.product ?? product) === "markdown" ? "the file" : "petri verify"}`} status={s8} statusText={{ pass: "Settled", fail: "Refused", info: "", idle: r?.signed ? "" : "Not reached" }[s8]}>
         <p>
-          The verifier checks the signature with its in-process facilitator, screens the payer with Intercepta in
-          x402&apos;s <code>onAfterVerify</code> hook, runs <code>petri verify</code> with its own key, and settles only after
-          the report exists.
+          The seller checks the signature with its in-process facilitator and screens the payer with Intercepta in
+          x402&apos;s <code>onAfterVerify</code> hook.{" "}
+          {(r?.product ?? product) === "markdown" ? (
+            <>Then it settles on Sepolia and sends the file.</>
+          ) : (
+            <>
+              Then it runs <code>petri verify</code> with its own key and settles only after the report exists.
+            </>
+          )}
         </p>
         {r?.sent ? (
           <>
             {payerScreen ? <CheckList checks={[payerScreen.check]} /> : null}
+            {r.verifierReply?.repeat ? (
+              <div className={s.locked}>
+                <strong>Demo repeat run.</strong> This verifier&apos;s key had already reported on this version, so this report
+                is stored but does not count. Without demo mode the verifier refuses before asking for money.
+              </div>
+            ) : null}
             {r.delivered ? (
               <>
                 <div className={s.unlocked}>

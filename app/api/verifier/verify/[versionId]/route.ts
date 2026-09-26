@@ -17,6 +17,12 @@ export const maxDuration = 300;
  * Intercepta, runs `petri verify`, and settles on Sepolia only after the
  * report exists. A failed run is never charged.
  *
+ * `&repeat=1` is a demo mode: the verifier sells a run even when its key already
+ * reported on the version. Petri counts one report per key per version, so that
+ * report is stored but does not change the status. Without it, the verifier
+ * refuses before quoting (409 already_verified). The buyer opts in; it knows the
+ * report will not count.
+ *
  * `rogue` (payTo is a known-risk mainnet address) and `greedy` (a 0.75 USDC fee)
  * are demo verifiers for the /intercepta page. They quote a price and never
  * accept a payment.
@@ -37,12 +43,16 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     return json(403, { ok: false, code: "demo_verifier_never_accepts_payment", detail: `The ${profile} verifier exists to be refused.` });
   }
 
-  // Gate 1: quote only for work that can run and count. Checked again before accepting.
+  // Gate 1: quote only for work that can run and count (or, in demo repeat mode, run).
+  // Checked again before accepting.
+  const repeat = req.nextUrl.searchParams.get("repeat") === "1";
   let runnerId: string | null = null;
+  let alreadyVerified = false;
   if (profile === "honest") {
-    const pf = await preflight(versionId, cfg.config.petriHome);
+    const pf = await preflight(versionId, cfg.config.petriHome, { allowRepeat: repeat });
     if (!pf.ok) return json(pf.status, { ok: false, code: pf.code, detail: pf.detail });
     runnerId = pf.runnerId;
+    alreadyVerified = pf.alreadyVerified;
   }
 
   // Gate 2: one run per authorization, and one paid run per version at a time.
@@ -94,7 +104,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     // Gate 4: the paid work, with the verifier's own key. Preflight runs again inside
     // the lock, so a report that could no longer count is never charged for.
     const home = cfg.config.petriHome!;
-    const verification = await runVerify(versionId, home, () => preflight(versionId, home));
+    const verification = await runVerify(versionId, home, () => preflight(versionId, home, { allowRepeat: repeat }));
     if (!verification.ok) {
       await result.cancellationDispatcher.cancel({ reason: "handler_failed", responseStatus: verification.status }).catch(() => undefined);
       return json(verification.status, {
@@ -134,7 +144,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     return new Response(
       JSON.stringify(
         settled.success
-          ? { ok: true, payerScreen, verification, settlement }
+          ? { ok: true, payerScreen, verification, settlement, repeat: alreadyVerified }
           : pending
             ? { ok: false, code: "settlement_pending", detail: "The transfer was broadcast and is not confirmed yet. Check the transaction.", payerScreen, verification, settlement }
             : { ok: false, code: "settle_failed", detail: settled.errorReason, payerScreen, verification, settlement },

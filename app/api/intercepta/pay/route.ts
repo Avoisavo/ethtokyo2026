@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       { status: 403, headers: NO_STORE },
     );
   }
-  const body = (await request.json().catch(() => ({}))) as { versionId?: unknown; verifier?: unknown; mode?: unknown; product?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { versionId?: unknown; verifier?: unknown; mode?: unknown; product?: unknown; repeat?: unknown };
   const versionId = String(body.versionId ?? "").trim().toLowerCase();
   if (!/^[0-9a-f]{8,64}$/.test(versionId)) {
     return Response.json({ ok: false, code: "bad_version_id", detail: "8 to 64 hex characters." }, { status: 400, headers: NO_STORE });
@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
   const verifier = profileOf(typeof body.verifier === "string" ? body.verifier : null);
   const mode: PayMode = body.mode === "preview" ? "preview" : "screened";
   const product: Product = body.product === "markdown" ? "markdown" : "verification";
+  // Demo only: let the verifier sell a run its key already did. That report does not count.
+  const repeat = product === "verification" && body.repeat === true;
 
   const payer = getPayerConfig();
   if (!payer.ok) {
@@ -53,11 +55,12 @@ export async function POST(request: NextRequest) {
     url:
       product === "markdown"
         ? `${base}/api/versions/${versionId}/markdown?seller=${verifier}`
-        : `${base}/api/verifier/verify/${versionId}?verifier=${verifier}`,
+        : `${base}/api/verifier/verify/${versionId}?verifier=${verifier}${repeat ? "&repeat=1" : ""}`,
     versionId,
     verifier,
     mode,
     product,
+    repeat,
     payer: payer.config,
     intercepta: intercepta.ok ? intercepta.config : null,
   });

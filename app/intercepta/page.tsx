@@ -22,14 +22,14 @@ export default async function InterceptaPage({ searchParams }: PageProps<"/inter
   // a version a guard or the typecheck stopped was never measured.
   const versions: VersionOption[] = tree.ok
     ? tree.data.nodes.map((n) => ({
-          scored: !n.detail.mechanical || n.detail.mechanical.cls === "ok",
-          id: n.id,
-          short: n.short,
-          label: n.label,
-          hypothesis: n.hypothesis,
-          status: n.status,
-          keys: n.verifications.filter((v) => v.counted).length,
-        }))
+        id: n.id,
+        short: n.short,
+        label: n.label,
+        hypothesis: n.hypothesis,
+        status: n.status,
+        keys: n.verifications.filter((v) => v.counted).length,
+        scored: !n.detail.mechanical || n.detail.mechanical.cls === "ok",
+      }))
     : [];
 
   // Only names cross to the client. Keys stay in lib/.
