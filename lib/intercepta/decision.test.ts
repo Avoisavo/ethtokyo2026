@@ -180,3 +180,14 @@ test("client: an unexpected body is a failed call, not a clean address", async (
   assert.equal(call.ok, false);
   assert.equal(addressVerdict(call).level, "unavailable");
 });
+
+test("client: a non-address is never put into the Quick Scan URL", async () => {
+  let called = false;
+  const spy = (async () => {
+    called = true;
+    return Response.json({ toxicScore: 0, traits: [] });
+  }) as unknown as typeof fetch;
+  const call = await quickScanAddress("0x098b716b8aaf21512996dc57eb0615e2383e2f96/../0x338054cda3715cbd6e5024709dfd172472e546f6", { apiKey: "k", fetch: spy });
+  assert.equal(call.ok, false);
+  assert.equal(called, false);
+});
