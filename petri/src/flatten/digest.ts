@@ -6,7 +6,7 @@
  * the same bytes. No model takes part.
  */
 
-import { medianInt, type Mode, type NodeStatus, type PetriNode } from '../core/schema.js';
+import { medianInt, type Ledger, type Mode, type NodeStatus, type PetriNode } from '../core/schema.js';
 import { sha256Hex } from '../core/canonical.js';
 import { AREAS, AREA_INDEX, classifyAreas, isArea, type Area, type ChangedFile } from './areas.js';
 import { fmtBp, renderDigest } from './render.js';
@@ -63,7 +63,7 @@ export interface DigestConstraints {
 
 export interface Digest {
   bench: string; benchName: string;
-  mode: Mode; ledger: 'hcs' | 'local';
+  mode: Mode; ledger: Ledger;
   taskCount: number; runs: number;
   totals: { nodes: number; accepted: number; rejected: number; pending: number; contested: number };
   head: { nodeId: string; medianBp: number };
@@ -100,7 +100,7 @@ export interface DigestInput {
   readonly bench: string;
   readonly benchName: string;
   readonly mode: Mode;
-  readonly ledger: 'hcs' | 'local';
+  readonly ledger: Ledger;
   readonly taskCount: number;
   readonly runs: number;
   readonly constraints?: Partial<DigestConstraints>;
