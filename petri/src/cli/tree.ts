@@ -14,7 +14,6 @@ import { replay } from '../consensus/replay.js';
 import {
   evaluate,
   type CountedVerification,
-  type LedgerKind,
   type NodeFacts,
   type Verdict,
 } from '../policy/acceptance.js';
@@ -164,11 +163,7 @@ function materialise(
     };
   }
 
-  // The rule runs here, not in the reducer, because only this layer knows the
-  // ledger. `replay` is pure and ledger-blind, so its own verdict always uses
-  // the weakest wording. The decision is identical; only the sentence differs.
-  const ledger: LedgerKind = ctx.config.ledger;
-  const verdict = evaluate(facts, ctx.config.policy, ledger);
+  const verdict = evaluate(facts, ctx.config.policy);
 
   let diff = '';
   try {
