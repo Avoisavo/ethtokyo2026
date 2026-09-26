@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
-import { getConfig } from "@/lib/selfie-check/config";
-import { getAgentConfig } from "@/lib/world-agent/config";
+import { getConfig } from "@/lib/world/idkit/config";
+import { getAgentConfig } from "@/lib/world/agent/config";
 
 import AgentFlow, { type AgentPageConfig } from "./agent-flow";
 import WorldFlow from "./world-flow";
