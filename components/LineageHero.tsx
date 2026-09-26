@@ -1,12 +1,13 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
 import { changesOf, fmtPct } from "@/lib/metrics";
 import { ensNames } from "@/lib/ens-name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
+import { ZOOM_STEP, usePanZoom } from "./usePanZoom";
 
 // The one-pager's Figure 1, drawn large: a tidy tree with S-curves from parent to child.
 const COL = 420;
@@ -19,6 +20,8 @@ const PAD_X = 40;
 const PAD_Y = 46;
 const LABEL_W = 300;
 const R = 8;
+/** The middle of a node's drawing, right of its dot: the objective pill sits left of it, the label right. */
+const FOCUS_DX = 90;
 const DEAD = new Set(["rejected", "withdrawn", "superseded"]);
 
 /** Break an ENS name into lines at its dots, so the full name shows without clipping. */
@@ -67,6 +70,9 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   };
   const width = PAD_X * 2 + maxDepth * COL + LABEL_W;
   const height = padY * 2 + (rows - 1) * row;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const focus = slots[selected] === undefined ? null : at(selected);
+  const zoom = usePanZoom(svgRef, width, height, focus && { x: focus.x + FOCUS_DX, y: focus.y });
 
   // Where a branch rejoins the accepted line.
   //
@@ -95,8 +101,9 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
 
   return (
     <div className="hero">
-      <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`Lineage of ${nodes.length} harness versions`}
-        style={{ width: "100%", maxWidth: width, minWidth: Math.round(width * 0.78) }}>
+      {/* Sized by CSS to fill the plate. Zooming changes only the viewBox, never the page layout. */}
+      <svg ref={svgRef} viewBox={zoom.viewBox} role="group" aria-label={`Lineage of ${nodes.length} harness versions`}
+        className={zoom.panning ? "panning" : zoom.pannable ? "pannable" : undefined} {...zoom.svgProps}>
         {nodes.filter((n) => slots[n.parent] !== undefined && slots[n.id] !== undefined).map((n) => {
           const a = at(n.parent);
           const b = at(n.id);
@@ -149,7 +156,8 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
           return (
             <g key={n.id} className={`h-node s-${n.status}${sel ? " is-selected" : ""}`} role="button"
               tabIndex={0} aria-pressed={sel} aria-label={`${STATUS_WORD[n.status]} ${name}. ${n.hypothesis}`}
-              onClick={() => onSelect(n.id)} onKeyDown={(e) => key(e, n.id)}>
+              onClick={() => onSelect(n.id)} onKeyDown={(e) => key(e, n.id)}
+              onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) zoom.reveal({ x: x + FOCUS_DX, y }); }}>
               {/* Two blocks, with an open band at the dot height. A straight edge stays visible
                   in that band, between the hypothesis above and the numbers below. */}
               <rect className="backdrop" x={x + 14} y={y - 30 - up} width={labelW} height={29 + up} />
@@ -170,6 +178,12 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
           );
         })}
       </svg>
+      <div className="zoom" role="group" aria-label="Zoom" title="Pinch or Ctrl/⌘ + scroll to zoom. Drag to move around.">
+        <button type="button" onClick={() => zoom.zoomBy(1 / ZOOM_STEP)} disabled={zoom.atMin} aria-label="Zoom out">−</button>
+        <span className="zoom-level">{zoom.zoom === null ? "" : `${Math.round(zoom.zoom * 100)}%`}</span>
+        <button type="button" onClick={() => zoom.zoomBy(ZOOM_STEP)} disabled={zoom.atMax} aria-label="Zoom in">+</button>
+        <button type="button" onClick={zoom.fitAll} disabled={zoom.atMin}>Fit</button>
+      </div>
     </div>
   );
 }
