@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 
 import type { IDKitResult, RpContext } from "@worldcoin/idkit";
 
+import { Dot, Row, Section, type Status } from "./ui";
 import s from "./world.module.css";
 
 /**
@@ -79,8 +80,6 @@ type VerifyResponse =
       detail: string;
       verify?: { status: number | null; url: string; response: unknown } | null;
     };
-
-type Status = "pass" | "fail" | "idle" | "info";
 
 /** One unsuccessful attempt, and whether the protected action ran (it must not). */
 type AltEvent = {
@@ -359,7 +358,7 @@ export default function WorldFlow({ config }: { config: Config }) {
   ];
 
   return (
-    <main className={`container ${s.page}`}>
+    <div className={s.column}>
       {liveCtx ? (
         <LiveSelfieCheck
           appId={liveCtx.app_id}
@@ -375,8 +374,8 @@ export default function WorldFlow({ config }: { config: Config }) {
       ) : null}
 
       <header className={s.head}>
-        <span className="tag tag-real">Continuity Track · Best IDKit Use Case</span>
-        <h1>Withdraw only if you are the same human who opened the account</h1>
+        <span className="tag tag-real">Best IDKit Use Case · sections 1–5</span>
+        <h2 className={s.colTitle}>Withdraw only if you are the same human who opened the account</h2>
         <p className={s.lede}>
           Before a withdrawal runs, the app asks World ID for a Selfie Check. The server verifies the proof with the
           Developer Portal and checks that it comes from the same human who opened the account, within the last hour.
@@ -645,44 +644,7 @@ export default function WorldFlow({ config }: { config: Config }) {
           The full write-up is in <code>FEEDBACK.md</code>.
         </p>
       </Section>
-    </main>
-  );
-}
-
-function Section({
-  n,
-  title,
-  status,
-  statusText,
-  children,
-}: {
-  n: number;
-  title: string;
-  status: Status;
-  statusText: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section id={`s${n}`} className={s.section}>
-      <header className={s.sectionHead}>
-        <span className={s.bigNum}>{n}</span>
-        <h2>{title}</h2>
-        <span className={`${s.badge} ${s[`badge_${status}`]}`}>
-          <Dot status={status} />
-          {statusText}
-        </span>
-      </header>
-      <div className={s.body}>{children}</div>
-    </section>
-  );
-}
-
-function Dot({ status }: { status: Status }) {
-  const glyph = { pass: "✓", fail: "✕", info: "!", idle: "·" }[status];
-  return (
-    <span className={`${s.dot} ${s[`dot_${status}`]}`} aria-hidden="true">
-      {glyph}
-    </span>
+    </div>
   );
 }
 
@@ -696,13 +658,3 @@ function toDecimal(hex: string): string {
   }
 }
 
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <>
-      <dt>{k}</dt>
-      <dd>
-        <code>{v}</code>
-      </dd>
-    </>
-  );
-}

@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 
 import { getConfig } from "@/lib/selfie-check/config";
+import { getAgentConfig } from "@/lib/world-agent/config";
 
+import AgentFlow, { type AgentPageConfig } from "./agent-flow";
 import WorldFlow from "./world-flow";
+import s from "./world.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "World ID · IDKit use case",
+  title: "World ID · Continuity Track",
   description:
-    "Selfie Check gates a withdrawal: IDKit request, server-side verification, the rejected paths, and the integration debrief.",
+    "Left: IDKit Selfie Check gating a withdrawal. Right: World ID for Agents approving an agent's payment.",
 };
 
 export default function WorldPage() {
-  // Only names and non-secret values cross to the client. The signing key
-  // stays in lib/selfie-check/config.ts.
+  // Only names and non-secret values cross to the client. Signing keys and
+  // client secrets stay in lib/.
   const result = getConfig();
   const config = result.ok
     ? {
@@ -26,5 +29,24 @@ export default function WorldPage() {
       }
     : { ok: false as const, missing: result.problems.map((p) => `${p.name}: ${p.issue}`) };
 
-  return <WorldFlow config={config} />;
+  const agent = getAgentConfig();
+  const agentConfig: AgentPageConfig = agent.ok
+    ? { ok: true, clientId: agent.config.clientId, issuer: agent.config.issuer }
+    : { ok: false, missing: agent.problems.map((p) => `${p.name}: ${p.issue}`) };
+
+  return (
+    <main className={`container container-wide ${s.page}`}>
+      <header className={s.pageHead}>
+        <h1>World ID · Continuity Track</h1>
+        <p className={s.lede}>
+          Left, sections 1–5: Best IDKit Use Case. Right, sections 6–11: Best Use of World ID for Agents. Each section
+          shows its own status.
+        </p>
+      </header>
+      <div className={s.columns}>
+        <WorldFlow config={config} />
+        <AgentFlow config={agentConfig} />
+      </div>
+    </main>
+  );
 }
