@@ -92,9 +92,9 @@ pnpm petri dead-ends # every rejected version with its reason
 
 ## The recorded tree
 
-`petri/.petri/` holds 16 versions: 3 accepted, 2 rejected and 11 pending. Every record
-(each version, each verification and each status) is one signed line in
-`petri/.petri/log.jsonl`. Each line carries a hash of the line before it, so Petri
+`petri/.petri/` holds 16 versions: 3 accepted, 2 rejected and 11 pending. Each version
+and each verification is one signed line in `petri/.petri/log.jsonl`, and the statuses
+are computed from those lines. Each line carries a hash of the line before it, so Petri
 refuses a log with an edited line or a gap.
 
 | Version | Status | What it tried |
@@ -271,7 +271,7 @@ The live path has not been run on this tree yet.
 | `app/ens/` | The ENSv2 playground on Sepolia. See `app/ens/README.md`. |
 | `petri/` | The engine: CLI, benchmark, harness, recorded tree. See `petri/README.md`. |
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
-| `petri/src/consensus/anchor.ts`, `petri/src/cli/anchor.ts` | The Hedera topic copy of every record |
+| `petri/src/consensus/local.ts` | The local log and its hash chain |
 | `petri/src/trust/world.ts` | The World ID check after `petri verify` |
-| `petri/demo/verify-demo.sh` | The stage demo: verify, World ID (simulated), then Hedera |
-| `lib/hedera/`, `lib/hederaone/` | Earlier Hedera client and World AgentKit helpers for the web side. The web app does not use them yet. |
+| `petri/demo/verify-demo.sh` | The stage demo: verify, then World ID (simulated) |
+| `lib/agentbook/` | World AgentKit helpers for the web side. The web app does not use them yet. |
