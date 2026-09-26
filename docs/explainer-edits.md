@@ -21,7 +21,7 @@ Rules for the editor:
 
 Change:
 - Eyebrow right: `ETHGlobal Online 2026` → `ETHGlobal Tokyo 2026`
-- Tagline → **Darwinian evolution for AI agent harnesses.** Versions mutate,
+- Tagline → **Darwinian evolution for AI agent harnesses.** Versions mutate
   strangers test them, and only checked winners survive. **Failed versions stay
   forever**, so nobody repeats them.
 - Add one small line under the tagline, in `.lede` style:
