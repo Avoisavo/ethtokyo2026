@@ -5,9 +5,9 @@ import {
   ConfigError,
   environmentAsymmetry,
   requireConfig,
-} from "@/lib/selfie-check/config";
-import { accountCookie, resolveAccountId } from "@/lib/selfie-check/session";
-import type { RpContext } from "@/lib/selfie-check/types";
+} from "@/lib/world/idkit/config";
+import { accountCookie, resolveAccountId } from "@/lib/world/idkit/session";
+import type { RpContext } from "@/lib/world/idkit/types";
 
 /** rp_context lifetime, in seconds. Matches signRequest's own default. */
 const RP_CONTEXT_TTL_SECONDS = 300;
