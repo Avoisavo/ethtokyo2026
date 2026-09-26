@@ -10,9 +10,9 @@ import { Glyph } from "./Glyph";
 import { ZOOM_STEP, usePanZoom } from "./usePanZoom";
 
 // The one-pager's Figure 1, drawn large: a tidy tree with S-curves from parent to child.
-const COL = 420;
+const COL = 470;
 /** Row spacing for a one-line name; each extra name line adds NAME_LINE. */
-const ROW = 84;
+const ROW = 116;
 const NAME_LINE = 15;
 /** Characters per name line in the diagram, about LABEL_W at 13px bold. */
 const NAME_CHARS = 38;
