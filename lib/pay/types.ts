@@ -10,6 +10,9 @@ import type { Check, Decision } from "../intercepta/decision";
 export type VerifierProfile = "honest" | "rogue" | "greedy";
 export const PROFILES: VerifierProfile[] = ["honest", "rogue", "greedy"];
 
+/** What the agent buys: a verification run, or a version's record as a markdown file. */
+export type Product = "verification" | "markdown";
+
 /** screened: the real flow. preview: the agent before this feature. It builds the authorization and never signs. */
 export type PayMode = "screened" | "preview";
 
@@ -37,6 +40,8 @@ export type VerifierReply = {
     statusReason: string;
   };
   settlement?: { success: boolean; transaction: string; network: string; payer?: string; errorReason?: string };
+  /** The markdown seller's file name. The file itself goes to PaymentRecord.delivered. */
+  file?: string;
 };
 
 export type Outcome =
@@ -60,6 +65,8 @@ export type PaymentRecord = {
   id: string;
   at: number;
   mode: PayMode;
+  /** Missing on records written before markdown existed: those are verification runs. */
+  product?: Product;
   versionId: string;
   verifier: VerifierProfile;
   url: string;
@@ -73,6 +80,8 @@ export type PaymentRecord = {
   sent: boolean;
   outcome: Outcome;
   verifierReply: (VerifierReply & { status: number }) | null;
+  /** The bought markdown file, when the product was markdown and the seller delivered it. */
+  delivered?: { file: string; bytes: number; markdown: string };
   /** From the verifier's PAYMENT-REQUIRED error when it refused a signed payment. */
   refusedReason?: string;
   error?: string;
