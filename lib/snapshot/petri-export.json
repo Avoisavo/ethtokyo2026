@@ -8,13 +8,7 @@
   "ledger": {
     "kind": "local",
     "lastSeq": 33,
-    "headHash": "a712b103821b0bd519292033ed56331a75c78db77323e4b9178dd73d3cef5c1a",
-    "topicId": "",
-    "network": ""
-  },
-  "hedera": {
-    "topicId": "0.0.10551476",
-    "network": "testnet"
+    "headHash": "a712b103821b0bd519292033ed56331a75c78db77323e4b9178dd73d3cef5c1a"
   },
   "bench": {
     "id": "5ec2e9b81f7ab85dc999eb179bd1d38ad7f89e4670706b2a6f14cd830b136ed2",
@@ -143,11 +137,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 1,
-        "txId": "0.0.7946371@1789462333.172019836",
-        "timestamp": "1789462342.520382104"
       }
     },
     {
@@ -165,7 +154,7 @@
       "hypothesis": "Giving the model the full symbol signatures and one worked example of the reply shape raises the pass rate, because most failures are wrong shape, not wrong logic.",
       "status": "accepted",
       "statusCode": "WIN",
-      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": 7000,
       "disputed": false,
       "mode": "replay",
@@ -244,11 +233,6 @@
       "verifications": [
         {
           "reportId": "6a70d532dcf4dffd3e74e097607c0a8c38e80b7f81b2e7de18cf4963b80c5265",
-          "hedera": {
-            "seq": 4,
-            "txId": "0.0.7946371@1789462341.768529419",
-            "timestamp": "1789462347.648264104"
-          },
           "runner": "f311696fcf644ed4b316ec9d1b2a4c9309b98a257adb822039d293f8c05365f5",
           "runnerLabel": "",
           "sig": "f5aa2cd5db5c8530ec1ad3b7999ba855cc6c04654b0a39dcf90e2c5c6d28c4d35b79994bd2924e39d2a0752351303e5738748a3f7f134d2398910b92c4bbb903",
@@ -368,11 +352,6 @@
         },
         {
           "reportId": "be7d3228453ce765c91c94fbe3108f89155ca809fd0db4909b8ba774e1925e39",
-          "hedera": {
-            "seq": 8,
-            "txId": "0.0.7946371@1789462347.208170407",
-            "timestamp": "1789462352.949885104"
-          },
           "runner": "f54f86ab9a47c63c3670d2e94211db893586d4f284309d11cf27cb89534ec63e",
           "runnerLabel": "",
           "sig": "3366e0d89f2fb3a0592aa3db5fc4431ca6d2998b9f3e22b3e99b234218b7dc30f789cac44d6def7005fab44466bbc66c4d760d150acfae734bbae2de4a91cf0f",
@@ -492,11 +471,6 @@
         },
         {
           "reportId": "c9e6085386e5f015e99eb3b4150506f09dfd422d39dff332b1e1ed8d55df9a8e",
-          "hedera": {
-            "seq": 3,
-            "txId": "0.0.7946371@1789462339.494989668",
-            "timestamp": "1789462346.014079104"
-          },
           "runner": "f54f86ab9a47c63c3670d2e94211db893586d4f284309d11cf27cb89534ec63e",
           "runnerLabel": "",
           "sig": "d6fbbe6a781bbf7fc47ee07b6512ca64026d64c3282b961a5c0a1912f6bc04aa3d55f7a963e80fc9ce5551eaa8adbde23d07c175ae3b45e89dbd14eb13bfd001",
@@ -619,11 +593,6 @@
         "medianTokens": 22831,
         "medianWallMs": 2081,
         "tokensPerTask": 1141
-      },
-      "hedera": {
-        "seq": 2,
-        "txId": "0.0.7946371@1789462337.787493872",
-        "timestamp": "1789462344.144377383"
       }
     },
     {
@@ -641,7 +610,7 @@
       "hypothesis": "The worked example and the full signatures are redundant, because the model already infers the reply shape from the symbol names alone. Removing them keeps the score and saves input tokens.",
       "status": "rejected",
       "statusCode": "REGRESSION",
-      "statusReason": "2 verifications from distinct keys, every one at or below -1000bp. Best delta -7000bp. This is a measured regression. The change makes the harness worse. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or below -1000bp. Best delta -7000bp. This is a measured regression. The change makes the harness worse. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": -7000,
       "disputed": false,
       "mode": "replay",
@@ -720,11 +689,6 @@
       "verifications": [
         {
           "reportId": "7e30c427cef1ade5cf4c6d27dcd9898d1211730fb5f1b0a85b1abb15c7c59a2f",
-          "hedera": {
-            "seq": 6,
-            "txId": "0.0.7946371@1789462343.490065460",
-            "timestamp": "1789462350.228325399"
-          },
           "runner": "f54f86ab9a47c63c3670d2e94211db893586d4f284309d11cf27cb89534ec63e",
           "runnerLabel": "",
           "sig": "923e4bb6be8b9661cdd5368d9f0501e120e1041ac44a8e1cd5e062a3dc589a06b557188849787f2d0294863dc50e32c56b12f7b11ef38ad2c8a3893559f0fe03",
@@ -844,11 +808,6 @@
         },
         {
           "reportId": "a50c99d6799916c4886c5a3bc7f083fcb7eb648d4927506d8d94ab73048c5c94",
-          "hedera": {
-            "seq": 7,
-            "txId": "0.0.7946371@1789462341.203299017",
-            "timestamp": "1789462351.607063104"
-          },
           "runner": "f311696fcf644ed4b316ec9d1b2a4c9309b98a257adb822039d293f8c05365f5",
           "runnerLabel": "",
           "sig": "d49f42cfc29db0d5ea61d59942bef7b796b071b93e087cebbc8fde30ee073aca5c5e9263d1f9c55eaf50dad86956d8c90b530ce5902ea5ce7aea6dcff1f70107",
@@ -971,11 +930,6 @@
         "medianTokens": 17276,
         "medianWallMs": 2155,
         "tokensPerTask": 863
-      },
-      "hedera": {
-        "seq": 5,
-        "txId": "0.0.7946371@1789462338.663363799",
-        "timestamp": "1789462349.184424345"
       }
     },
     {
@@ -1043,11 +997,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 9,
-        "txId": "0.0.7946371@1789462349.573412175",
-        "timestamp": "1789462355.108905343"
       }
     },
     {
@@ -1115,11 +1064,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 10,
-        "txId": "0.0.7946371@1789462348.538080663",
-        "timestamp": "1789462357.248329790"
       }
     },
     {
@@ -1187,11 +1131,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 11,
-        "txId": "0.0.7946371@1789462352.620259185",
-        "timestamp": "1789462358.448398069"
       }
     },
     {
@@ -1259,11 +1198,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 12,
-        "txId": "0.0.7946371@1789462350.954393626",
-        "timestamp": "1789462360.700314500"
       }
     },
     {
@@ -1281,7 +1215,7 @@
       "hypothesis": "Restoring the full signatures and the worked example undoes the regression, because the model needs the reply shape spelled out.",
       "status": "accepted",
       "statusCode": "WIN",
-      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": 7000,
       "disputed": false,
       "mode": "replay",
@@ -1360,11 +1294,6 @@
       "verifications": [
         {
           "reportId": "386e72d8a3b60b53a387fde180dc1ddac79d0eaa7d045dc764838506692a2cea",
-          "hedera": {
-            "seq": 15,
-            "txId": "0.0.7946371@1789462354.596160818",
-            "timestamp": "1789462364.664500684"
-          },
           "runner": "c339ad93bd4c21f0d910f2fbe94c1b226684fb354805faa12af3e3fbfcd69cd1",
           "runnerLabel": "",
           "sig": "190fbb35d61a29c66556c2dc084457e221eb9909aa11ab0dcb4f4911f40af0c1b03495cf78b5132e6f5ca49f00294bb96fe04a98851e14b093476a2b950a9a0a",
@@ -1484,11 +1413,6 @@
         },
         {
           "reportId": "df6bf114362568d147394b1793452707602862e3cd931f40ba0c2dc7cf8ff444",
-          "hedera": {
-            "seq": 14,
-            "txId": "0.0.7946371@1789462353.626427031",
-            "timestamp": "1789462363.117466104"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "83f4b3aa385fe4f7350bab72edaa11268a009b4ca7b44cdffc4610e8e550f3e3d42683717a1dfdb94856a5f5fb06f5c8a2704355fde36df6d3cee2ca96aa6d0d",
@@ -1611,11 +1535,6 @@
         "medianTokens": 22831,
         "medianWallMs": 2091,
         "tokensPerTask": 1141
-      },
-      "hedera": {
-        "seq": 13,
-        "txId": "0.0.7946371@1789462353.552048217",
-        "timestamp": "1789462361.927071104"
       }
     },
     {
@@ -1683,11 +1602,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 16,
-        "txId": "0.0.7946371@1789462357.535089892",
-        "timestamp": "1789462366.007628104"
       }
     },
     {
@@ -1755,11 +1669,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 17,
-        "txId": "0.0.7946371@1789462358.287733722",
-        "timestamp": "1789462367.077378104"
       }
     },
     {
@@ -1827,11 +1736,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 18,
-        "txId": "0.0.7946371@1789462362.648591815",
-        "timestamp": "1789462368.337637532"
       }
     },
     {
@@ -1899,11 +1803,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 19,
-        "txId": "0.0.7946371@1789462359.607603196",
-        "timestamp": "1789462369.296172104"
       }
     },
     {
@@ -1921,7 +1820,7 @@
       "hypothesis": "An independent re-test confirms that full symbol signatures and one worked example raise the pass rate by at least 1000bp over the baseline.",
       "status": "accepted",
       "statusCode": "WIN",
-      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": 7000,
       "disputed": false,
       "mode": "replay",
@@ -2000,11 +1899,6 @@
       "verifications": [
         {
           "reportId": "5c03aee45dce17b7ad9b32f3e4a51829320204dafe456d01e3208638bf5805a9",
-          "hedera": {
-            "seq": 31,
-            "txId": "0.0.7946371@1789462452.307233224",
-            "timestamp": "1789462460.987084433"
-          },
           "runner": "c339ad93bd4c21f0d910f2fbe94c1b226684fb354805faa12af3e3fbfcd69cd1",
           "runnerLabel": "",
           "sig": "2b2abd739ca37c5fa3f1c6a83956e0866cab496653a7ebdceba3f61f198903e8e1033c5f3b94ee8531b8059b0b86daee9ef2f8f1589063fb7315ab1ce54f1b0e",
@@ -2124,11 +2018,6 @@
         },
         {
           "reportId": "ef1841a474630832630cbe4f5c415cc0844d56989beef3f3ba9295cb058ca9e6",
-          "hedera": {
-            "seq": 21,
-            "txId": "0.0.7946371@1789462362.083416274",
-            "timestamp": "1789462371.513317104"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "ba347908ebae966ff766fe142d00a74c013ed1fafd344022e008688a43485ef833cef88445a269f6f0c77444094ee36d0e8c5bfe727a5c251f05931917445a02",
@@ -2251,11 +2140,6 @@
         "medianTokens": 22831,
         "medianWallMs": 2162,
         "tokensPerTask": 1141
-      },
-      "hedera": {
-        "seq": 20,
-        "txId": "0.0.7946371@1789462363.755489833",
-        "timestamp": "1789462370.409836168"
       }
     },
     {
@@ -2273,7 +2157,7 @@
       "hypothesis": "Removing the signatures and the worked example keeps the pass rate and cuts input tokens, because the task text already names every symbol.",
       "status": "rejected",
       "statusCode": "REGRESSION",
-      "statusReason": "2 verifications from distinct keys, every one at or below -1000bp. Best delta -7000bp. This is a measured regression. The change makes the harness worse. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or below -1000bp. Best delta -7000bp. This is a measured regression. The change makes the harness worse. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": -7000,
       "disputed": false,
       "mode": "replay",
@@ -2352,11 +2236,6 @@
       "verifications": [
         {
           "reportId": "68edea2f1146e03339e60b7ef4abed7a4762ecf9a1c556f3090598658e530e13",
-          "hedera": {
-            "seq": 23,
-            "txId": "0.0.7946371@1789462365.709875799",
-            "timestamp": "1789462374.815316104"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "968adf41155df736f5f2aa5592588636cc04948fff69701d09acd8d12620e691b8487445c3ba3946dec17a2b625f85fe1437e8461fa5da8c2a37cdf136bee509",
@@ -2476,11 +2355,6 @@
         },
         {
           "reportId": "7a595d146342fe4a2e86394f8f66820b69032c7a9ffa114f750b626237184463",
-          "hedera": {
-            "seq": 24,
-            "txId": "0.0.7946371@1789462367.457487045",
-            "timestamp": "1789462377.108381104"
-          },
           "runner": "c339ad93bd4c21f0d910f2fbe94c1b226684fb354805faa12af3e3fbfcd69cd1",
           "runnerLabel": "",
           "sig": "4eeb024ee127f9e1d21fb65885bdb47bbe0f538aef5e9ceb0a45e6287ada3bec55a5b3849c8d6587ba489006d91e8f14f6fa731d5ad7e62d555e411f897b4d00",
@@ -2603,11 +2477,6 @@
         "medianTokens": 17276,
         "medianWallMs": 2223,
         "tokensPerTask": 863
-      },
-      "hedera": {
-        "seq": 22,
-        "txId": "0.0.7946371@1789462364.824757918",
-        "timestamp": "1789462372.967890104"
       }
     },
     {
@@ -2625,7 +2494,7 @@
       "hypothesis": "Putting the signatures and the worked example back after the trim restores the pass rate, because the task text alone does not fix the reply shape.",
       "status": "accepted",
       "statusCode": "WIN",
-      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people. Run `petri topic create` to publish.",
+      "statusReason": "2 verifications from distinct keys, every one at or above +1000bp. Worst delta +7000bp. This is a real improvement. The ledger is a local log, so one person can hold every key. Distinct keys are not proof of distinct people.",
       "verifiedDeltaBp": 7000,
       "disputed": false,
       "mode": "replay",
@@ -2704,11 +2573,6 @@
       "verifications": [
         {
           "reportId": "507e048500d5ed03b46fa30a7926682775d61f9f3bdde8ab13fbc6ba75ab17b3",
-          "hedera": {
-            "seq": 26,
-            "txId": "0.0.7946371@1789462369.062377030",
-            "timestamp": "1789462379.327009099"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "df51227eb44aeb0628562ac83eb4920ec50fae715ddec4fd914cd654d312ca6dfca59a85cbbf4182b0f155db60c4b8ca3ceec5bd00c3c4f918fc9cecce359007",
@@ -2828,11 +2692,6 @@
         },
         {
           "reportId": "efbd6e432132accfae1ee89942aeae95f18bf9127bfc8fae1cd907e61a1b212a",
-          "hedera": {
-            "seq": 27,
-            "txId": "0.0.7946371@1789462372.501104778",
-            "timestamp": "1789462380.697419104"
-          },
           "runner": "c339ad93bd4c21f0d910f2fbe94c1b226684fb354805faa12af3e3fbfcd69cd1",
           "runnerLabel": "",
           "sig": "43db36c94d8e2f6a86f78e2adc54b9233cc25805d0a33b39a23bace731e35e5385541608e9a4ef945766404ff3e9791ac2910f0135d714943db6a3ec7ce0c90d",
@@ -2955,11 +2814,6 @@
         "medianTokens": 22831,
         "medianWallMs": 2152,
         "tokensPerTask": 1141
-      },
-      "hedera": {
-        "seq": 25,
-        "txId": "0.0.7946371@1789462372.652354012",
-        "timestamp": "1789462378.127147104"
       }
     },
     {
@@ -3056,11 +2910,6 @@
       "verifications": [
         {
           "reportId": "3f87b6b41080a43b755c8e6868d642668cde2331c1bf03fa6d6446cf02acb6f0",
-          "hedera": {
-            "seq": 29,
-            "txId": "0.0.7946371@1789462375.045874436",
-            "timestamp": "1789462383.217409192"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "d5fb7d8ab80b03b67d2abe9306c69a0916e57f8f3bdc5e65c119761226312b45e8b650b5ad4cee905b7b01ac9ba4096055b1b389e564e1c78f0724a6d8963801",
@@ -3183,11 +3032,6 @@
         "medianTokens": 17276,
         "medianWallMs": 2203,
         "tokensPerTask": 863
-      },
-      "hedera": {
-        "seq": 28,
-        "txId": "0.0.7946371@1789462372.321476968",
-        "timestamp": "1789462381.908357208"
       }
     },
     {
@@ -3255,11 +3099,6 @@
         "medianTokens": 0,
         "medianWallMs": 0,
         "tokensPerTask": 0
-      },
-      "hedera": {
-        "seq": 30,
-        "txId": "0.0.7946371@1789462414.107956513",
-        "timestamp": "1789462420.173366104"
       }
     },
     {
@@ -3356,11 +3195,6 @@
       "verifications": [
         {
           "reportId": "6bd70672cbe7b2bd607a3565e85eb33452e82001efde6d6c03ddde4f63d44771",
-          "hedera": {
-            "seq": 33,
-            "txId": "0.0.7946371@1789462521.114524472",
-            "timestamp": "1789462530.860350104"
-          },
           "runner": "bf1ec730bef966c6b4442709b4c89a6502db8226276c13b4d00f239a8c00296a",
           "runnerLabel": "",
           "sig": "bf63e03bd66cb8665a743d5ecce3c226161754dc6eea67b11308f0fd3f73d48a6b64b72474a22e7d595fb3d59e5dda6038e7920ac6f5113e4d19a9a5a4d41609",
@@ -3483,11 +3317,6 @@
         "medianTokens": 22831,
         "medianWallMs": 2067,
         "tokensPerTask": 1141
-      },
-      "hedera": {
-        "seq": 32,
-        "txId": "0.0.7946371@1789462498.682467328",
-        "timestamp": "1789462506.489866429"
       }
     }
   ]
