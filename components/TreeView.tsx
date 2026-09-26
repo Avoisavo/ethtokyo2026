@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { STATUS_WORD, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import { ensNames } from "@/lib/ens/name";
+import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 
@@ -40,7 +40,7 @@ export function TreeView({ forest, nodes, selected, onSelect, benchTotal, minVer
           </svg>
           <span className="t-text">
             <span className="t-word" title={n.short}>{wordOf(n)}</span>
-            <span className="t-ens" title={names.get(id)}>{names.get(id)?.split(".")[0]}</span>
+            <span className="t-ens" title={names.get(id)}>{shortLabel(names.get(id) ?? n.short)}</span>
             <span className="t-hyp">{n.hypothesis}</span>
             <span className="t-num">{nodeNumbers(n, nodes, benchTotal, minVerifications)}</span>
           </span>

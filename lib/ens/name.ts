@@ -3,49 +3,80 @@ import type { ExportNode } from "../types";
 /**
  * The ENS name of every tree version, on Sepolia ENSv2.
  *
- * The tree is one name under petri.eth. Each version is one subname of the
- * tree, numbered in log order, so `v1` is the root and `v3` is the third
- * version that was proposed:
+ * A tree is domain × harness × model, and its name reads the same way, leaf
+ * first: `claude-sonnet-5.petri-harness-v1.coding.petri.eth`. Under the tree
+ * are three folders. A version lives in the one that matches its status, and
+ * the platform moves it when the status changes:
  *
- *   petriharnessv1-claudesonnet5-coding.petri.eth        the tree
- *   v1.petriharnessv1-claudesonnet5-coding.petri.eth     the root, 0a54718a
- *   v3.petriharnessv1-claudesonnet5-coding.petri.eth     872aaa3d
+ *   v1.accepted.claude-sonnet-5.petri-harness-v1.coding.petri.eth   accepted, or the baseline
+ *   v3.rejected.claude-sonnet-5.petri-harness-v1.coding.petri.eth   rejected
+ *   v9.pending.claude-sonnet-5.petri-harness-v1.coding.petri.eth    waiting for keys
  *
- * The number says nothing about the parent. The `petri.parent` record does,
- * and the tree name's `petri.v1` record says which version id `v1` is. A verify
- * round of v3 is `v3-1.v3.…`, and a chosen verifier is `k3.v3-1.v3.…`. Labels
- * cannot hold a dot, so `v3.1` in the UI is `v3-1` on chain.
+ * `v<n>` counts versions in log order, so the number never changes. The
+ * `petri.parent` record says which version a version came from. The tree name
+ * holds `petri.v<n>` = the version id, so anyone can look a number up.
  */
 
 export const ENS_SUFFIX = "petri.eth";
 
-/** The one real tree: "Petri harness v1 × Claude Sonnet 5 (Coding)". */
-export const TREE_LABEL = "petriharnessv1-claudesonnet5-coding";
-export const TREE_NAME = `${TREE_LABEL}.${ENS_SUFFIX}`;
+export type Folder = "accepted" | "rejected" | "pending";
+export const FOLDERS: Folder[] = ["accepted", "rejected", "pending"];
+
+/** The tree slug of the one real tree, as lib/trees.ts names it. */
+export const REAL_TREE = "coding--petri-harness-v1--claude-sonnet-5";
+
+/** The trees that are on chain. The others are showcase trees that stay off chain. */
+export const ONCHAIN_TREES = [REAL_TREE, "research--hermes-agent--claude-sonnet-5"];
+
+/** `coding--petri-harness-v1--claude-sonnet-5` → `claude-sonnet-5.petri-harness-v1.coding.petri.eth`. */
+export function treeName(slug: string): string {
+  const [domain, harness, model] = slug.split("--");
+  return `${model}.${harness}.${domain}.${ENS_SUFFIX}`;
+}
+
+/** The names from the domain down to the tree: `coding.petri.eth`, `petri-harness-v1.coding.petri.eth`, the tree. */
+export function treeLevels(slug: string): string[] {
+  const [domain, harness, model] = slug.split("--");
+  return [`${domain}.${ENS_SUFFIX}`, `${harness}.${domain}.${ENS_SUFFIX}`, `${model}.${harness}.${domain}.${ENS_SUFFIX}`];
+}
+
+export const folderName = (slug: string, folder: Folder): string => `${folder}.${treeName(slug)}`;
 
 /** The label of the version at `seq`, counted from 1. */
 export const versionLabel = (index: number): string => `v${index}`;
 
-/**
- * The tree label of a harness key. The real tree has its fixed label. A
- * showcase tree takes its harness key, so its names never collide with the
- * real one: "hermes-agent" → hermes-agent.petri.eth.
- */
-export const treeLabelOf = (harness?: string): string =>
-  harness === undefined || harness === "petri-harness-v1" ? TREE_LABEL : harness.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+/** Where a version lives. The root is the baseline everything is measured against, so it sits with the accepted ones. */
+export function folderOf(n: ExportNode): Folder {
+  if (n.parent === "root" || n.status === "accepted") return "accepted";
+  if (n.status === "rejected") return "rejected";
+  return "pending";
+}
 
-/** The version name for a label: `v3` → `v3.<tree>.petri.eth`. */
-export const versionName = (label: string, harness?: string): string => `${label}.${treeLabelOf(harness)}.${ENS_SUFFIX}`;
+export const versionName = (slug: string, label: string, folder: Folder): string => `${label}.${folderName(slug, folder)}`;
 
 /** Where a name opens in the ENSv2 explorer (explorer.ens.dev), which indexes Sepolia. */
 export const ensAppUrl = (name: string): string => `https://explorer.ens.dev/${name}`;
 
-/**
- * Map from node id to its full ENS name. Versions are numbered in `seq` order,
- * so the numbers are stable as long as the log only grows.
- */
-export function ensNames(nodes: ExportNode[], harness?: string): Map<string, string> {
+/** Map from node id to its label, `v<n>`, in `seq` order. */
+export function versionLabels(nodes: ExportNode[]): Map<string, string> {
+  const labels = new Map<string, string>();
+  [...nodes].sort((a, b) => a.seq - b.seq).forEach((n, i) => labels.set(n.id, versionLabel(i + 1)));
+  return labels;
+}
+
+/** Map from node id to its full ENS name, in the folder of its current status. */
+export function ensNames(nodes: ExportNode[], slug: string = REAL_TREE): Map<string, string> {
+  const labels = versionLabels(nodes);
   const names = new Map<string, string>();
-  [...nodes].sort((a, b) => a.seq - b.seq).forEach((n, i) => names.set(n.id, versionName(versionLabel(i + 1), harness)));
+  for (const n of nodes) names.set(n.id, versionName(slug, labels.get(n.id)!, folderOf(n)));
   return names;
+}
+
+/** The short label of a name: `v3.rejected.…` → `v3`. */
+export const shortLabel = (name: string): string => name.split(".")[0];
+
+/** `v3.rejected.<tree>` → the same label in another folder. */
+export function moveName(name: string, folder: Folder): string {
+  const [label, , ...rest] = name.split(".");
+  return [label, folder, ...rest].join(".");
 }

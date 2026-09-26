@@ -1,6 +1,11 @@
 /**
  * Every write the market makes to ENSv2 on Sepolia, from the server wallet.
  * Server only. Each function checks the chain first, so a repeat is safe.
+ *
+ * The registries form a tree that mirrors the names. `subregistryOf(parent)`
+ * finds, or makes, the registry that holds the subnames of `parent`, all the
+ * way down from petri.eth. Every registry names its parent with `setParent`,
+ * so explorers file its subnames under the right name.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -32,13 +37,13 @@ import {
 import { dnsEncode, labelId, namehash, splitFirst } from "@/app/ens/_lib/ens/names";
 import { keyResource } from "@/app/ens/_lib/ens/permissioned-resolver";
 import { ResolverRoles } from "@/app/ens/_lib/ens/roles";
+import { ENS_SUFFIX } from "@/lib/ens/name";
 import { SEPOLIA_RPC_URL, resolveRecords } from "@/lib/ens/resolve";
 
 export type Deployment = {
   owner: Address;
   resolver: Address;
   registry: Address;
-  tree: { name: string; label: string; registry: Address };
 };
 
 /** The largest uint64: no expiry of its own. */
@@ -67,15 +72,20 @@ function account() {
 
 const publicClient = () => createPublicClient({ chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
 
+/** Called after every write, with what happened. The scripts print it. */
+export let onWrite: (what: string, hash: Hex) => void = () => {};
+export const setWriteLog = (fn: typeof onWrite): void => { onWrite = fn; };
+
 /** Sends one write and waits for it. Throws on a revert. */
-async function send(tx: { address: Address; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }): Promise<Hex> {
+async function send(what: string, tx: { address: Address; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }): Promise<Hex> {
   const acct = account();
   const client = publicClient();
   const wallet = createWalletClient({ account: acct, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
   const { request } = await client.simulateContract({ ...tx, account: acct } as never);
   const hash = await wallet.writeContract(request as never);
   const receipt = await client.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new Error(`Transaction reverted: ${hash}`);
+  if (receipt.status !== "success") throw new Error(`${what} reverted: ${hash}`);
+  onWrite(what, hash);
   return hash;
 }
 
@@ -104,7 +114,7 @@ export async function writeTexts(name: string, records: Record<string, string>):
     const calls = batch.map((k) =>
       encodeFunctionData({ abi: PermissionedResolverImplAbi, functionName: "setText", args: [dnsEncode(name), k, records[k]] }),
     );
-    txs.push(await send({ address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "multicall", args: [calls] }));
+    txs.push(await send(`write ${batch.length} records on ${name}`, { address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "multicall", args: [calls] }));
   }
   return txs;
 }
@@ -112,9 +122,10 @@ export async function writeTexts(name: string, records: Record<string, string>):
 /** The registry that holds the subnames of `parent`, deployed and linked when missing. */
 export async function subregistryOf(parent: string): Promise<Address> {
   const dep = loadDeployment();
+  if (parent === ENS_SUFFIX) return dep.registry;
   const client = publicClient();
   const [label, grand] = splitFirst(parent);
-  const holder = grand === dep.tree.name ? dep.tree.registry : grand === "petri.eth" ? dep.registry : await subregistryOf(grand);
+  const holder = await subregistryOf(grand);
   const current = await client.readContract({ address: holder, abi: registryAbi, functionName: "getSubregistry", args: [label] });
   if (current !== zeroAddress) return current;
 
@@ -122,35 +133,34 @@ export async function subregistryOf(parent: string): Promise<Address> {
   const salt = registrySalt(namehash(parent));
   const predicted = predictProxyAddress({ proxyLogic, deployer: dep.owner, salt });
   if (((await client.getCode({ address: predicted })) ?? "0x") === "0x") {
-    await send({
+    await send(`deploy the registry of ${parent}`, {
       address: VERIFIABLE_FACTORY, abi: verifiableFactoryAbi, functionName: "deployProxy",
       args: [USER_REGISTRY_IMPL, salt, encodeRegistryInit(allRolesTo(dep.owner))],
     });
   }
-  await send({ address: holder, abi: registryAbi, functionName: "setSubregistry", args: [labelId(label), predicted] });
-  // The registry names its parent, so indexers file its subnames under `parent`.
-  await send({ address: predicted, abi: registryAbi, functionName: "setParent", args: [holder, label] });
+  await send(`link the registry of ${parent}`, { address: holder, abi: registryAbi, functionName: "setSubregistry", args: [labelId(label), predicted] });
+  await send(`name the parent of ${parent}'s registry`, { address: predicted, abi: registryAbi, functionName: "setParent", args: [holder, label] });
   return predicted;
 }
 
 /** The registry that holds `name` itself, and the state of the name in it. */
-async function stateOf(name: string) {
+export async function stateOf(name: string) {
   const [label, parent] = splitFirst(name);
   const registry = await subregistryOf(parent);
   const state = await publicClient().readContract({ address: registry, abi: registryAbi, functionName: "getState", args: [labelId(label)] });
-  return { label, registry, state };
+  return { label, registry, state, exists: state.status === 2 };
 }
 
 /**
- * Registers `name` as a subname owned by the server wallet, with no roles, so
- * nobody can transfer it, and the platform resolver. Returns the tx, or null
- * when it exists.
+ * Registers `name` as a subname with no roles, so nobody can transfer it, and
+ * the platform resolver. The owner is the server wallet unless given. Returns
+ * the tx, or null when it exists.
  */
-export async function registerSubname(name: string, expiry: bigint = NEVER): Promise<Hex | null> {
+export async function registerSubname(name: string, expiry: bigint = NEVER, owner?: Address): Promise<Hex | null> {
   const dep = loadDeployment();
-  const { label, registry, state } = await stateOf(name);
-  if (state.status === 2) return null;
-  return send({ address: registry, abi: registryAbi, functionName: "register", args: [label, dep.owner, zeroAddress, dep.resolver, 0n, expiry] });
+  const { label, registry, exists } = await stateOf(name);
+  if (exists) return null;
+  return send(`register ${name}`, { address: registry, abi: registryAbi, functionName: "register", args: [label, owner ?? dep.owner, zeroAddress, dep.resolver, 0n, expiry] });
 }
 
 /**
@@ -159,24 +169,24 @@ export async function registerSubname(name: string, expiry: bigint = NEVER): Pro
  */
 export async function revokeSubname(name: string): Promise<Hex[]> {
   const dep = loadDeployment();
-  const { label, registry, state } = await stateOf(name);
+  const { label, registry, exists } = await stateOf(name);
   const txs: Hex[] = [];
-  if (state.status === 2) txs.push(await send({ address: registry, abi: registryAbi, functionName: "unregister", args: [labelId(label)] }));
-  txs.push(await send({ address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "linkToRecord", args: [dnsEncode(name), 0n] }));
+  if (exists) txs.push(await send(`burn ${name}`, { address: registry, abi: registryAbi, functionName: "unregister", args: [labelId(label)] }));
+  txs.push(await send(`unlink the records of ${name}`, { address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "linkToRecord", args: [dnsEncode(name), 0n] }));
   return txs;
 }
 
 /** The setText call that scopes a role to one text key, for grantSetterRoles. */
 const voteSetter = (key: string): Hex =>
-  encodeFunctionData({ abi: PermissionedResolverImplAbi, functionName: "setText", args: [dnsEncode("petri.eth"), key, ""] });
+  encodeFunctionData({ abi: PermissionedResolverImplAbi, functionName: "setText", args: [dnsEncode(ENS_SUFFIX), key, ""] });
 
 /** Lets `wallet` write the text key `key` on the platform resolver. */
 export const grantTextKey = (wallet: Address, key: string): Promise<Hex> =>
-  send({ address: loadDeployment().resolver, abi: PermissionedResolverImplAbi, functionName: "grantSetterRoles", args: [voteSetter(key), wallet] });
+  send(`let ${wallet} write ${key}`, { address: loadDeployment().resolver, abi: PermissionedResolverImplAbi, functionName: "grantSetterRoles", args: [voteSetter(key), wallet] });
 
 /** Takes that right back: the text role on that key's resource. */
 export const revokeTextKey = (wallet: Address, key: string): Promise<Hex> =>
-  send({ address: loadDeployment().resolver, abi: PermissionedResolverImplAbi, functionName: "revokeRoles", args: [keyResource(key), ResolverRoles.ROLE_SET_TEXT, wallet] });
+  send(`stop ${wallet} writing ${key}`, { address: loadDeployment().resolver, abi: PermissionedResolverImplAbi, functionName: "revokeRoles", args: [keyResource(key), ResolverRoles.ROLE_SET_TEXT, wallet] });
 
 /** Reads records of one name. Unset keys are "". */
 export async function readTexts(name: string, keys: string[]): Promise<Record<string, string>> {

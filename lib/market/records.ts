@@ -2,15 +2,16 @@
  * The names and text records of the harness market, on top of the version
  * records in lib/ens/records.ts. Pure.
  *
- *   v3.<tree>.petri.eth              the version: encrypted docs, how it was submitted, access
- *   v3-1.v3.<tree>.petri.eth         its verify round (v3.1 in the UI)
- *   k2.v3-1.v3.<tree>.petri.eth      the second chosen verifier of that round
- *   buyer-1.v3.<tree>.petri.eth      the first buyer of the version
+ *   v9.pending.<tree>.petri.eth              the version: encrypted docs, how it was submitted
+ *   round.v9.pending.<tree>.petri.eth        its verify round. Expires 5 minutes after it opens.
+ *   verifier2.round.v9.pending.<tree>…       the second chosen verifier. Owned by their wallet. Expires.
+ *   buyer1.v9.accepted.<tree>.petri.eth      the first buyer. Owned by their wallet. Expires in 30 days.
+ *
+ * A round exists only under a pending version. When the round closes, the
+ * version moves to `accepted` or `rejected`, and the round goes with the old name.
  */
 
-import { versionName } from "../ens/name";
-
-/** Records on the version name. */
+/** Records on the version name, after a submit. */
 export const VERSION_KEYS = {
   /** The encrypted document set, one record per file: `petri.doc.prompt.ts`. */
   docPrefix: "petri.doc.",
@@ -22,17 +23,15 @@ export const VERSION_KEYS = {
   submit: "petri.submit",
   /** The nullifier of the human who submitted, or the wallet that staked. */
   submitter: "petri.submitter",
-  /** `open` while a round runs, `closed` after. */
-  access: "petri.access",
   /** The price in USDC to use the harness once. */
   price: "petri.price",
 } as const;
 
-/** Records on a round name. */
+/** Records on the round name. */
 export const ROUND_KEYS = {
   /** `open`, `picked`, `accepted`, `rejected` or `expired`. */
   status: "petri.round.status",
-  /** The unix time the round closes. */
+  /** The unix time the join window closes, then the unix time the vote window closes. */
   until: "petri.round.until",
   /** How many verifiers are picked. */
   size: "petri.round.size",
@@ -40,13 +39,13 @@ export const ROUND_KEYS = {
   pool: "petri.round.pool",
   /** The random seed used to pick, so anyone can replay it. Empty until picked. */
   seed: "petri.round.seed",
-  /** The picked verifier labels, comma separated: `k1,k2`. */
+  /** The picked verifier labels, comma separated: `verifier1,verifier2`. */
   picked: "petri.round.picked",
 } as const;
 
 /** Records on a verifier or buyer name. */
 export const ACCESS_KEYS = {
-  /** The wallet of the person. */
+  /** The wallet of the person. It also owns the name. */
   wallet: "petri.wallet",
   /** The access public key the file key was sealed to. */
   accessKey: "petri.access-key",
@@ -72,20 +71,22 @@ export interface RoundMember {
 
 export const WEIGHT_WITH_WORLD_ID = 3;
 export const WEIGHT_WITHOUT = 1;
+/** The join window. */
 export const ROUND_SECONDS = 5 * 60;
+/** The vote window, from the pick. */
+export const VOTE_SECONDS = 10 * 60;
 export const ROUND_SIZE = 5;
 /** Free submissions per human per day. */
 export const FREE_SUBMITS_PER_DAY = 3;
 export const STAKE_USDC = 5;
 export const PRICE_USDC = 1;
+export const BUYER_DAYS = 30;
 
-/** `v3` → `v3-1`: the first round of v3. */
-export const roundLabel = (version: string, n: number): string => `${version}-${n}`;
-export const roundName = (version: string, n: number): string => `${roundLabel(version, n)}.${versionName(version)}`;
-export const verifierLabel = (i: number): string => `k${i}`;
-export const verifierName = (version: string, round: number, i: number): string => `${verifierLabel(i)}.${roundName(version, round)}`;
-export const buyerLabel = (i: number): string => `buyer-${i}`;
-export const buyerName = (version: string, i: number): string => `${buyerLabel(i)}.${versionName(version)}`;
+export const roundName = (version: string): string => `round.${version}`;
+export const verifierLabel = (i: number): string => `verifier${i}`;
+export const verifierName = (version: string, i: number): string => `${verifierLabel(i)}.${roundName(version)}`;
+export const buyerLabel = (i: number): string => `buyer${i}`;
+export const buyerName = (version: string, i: number): string => `${buyerLabel(i)}.${version}`;
 
 /** The doc record key for a file name: `prompt.ts` → `petri.doc.prompt.ts`. */
 export const docKey = (file: string): string => `${VERSION_KEYS.docPrefix}${file}`;

@@ -26,7 +26,7 @@ import { formatError } from "@/app/ens/_lib/ens/errors";
 import { walkHierarchy } from "@/app/ens/_lib/ens/hierarchy";
 import { dnsEncode, labelId } from "@/app/ens/_lib/ens/names";
 import { ResolverRoles } from "@/app/ens/_lib/ens/roles";
-import { ENS_SUFFIX } from "@/lib/ens/name";
+import { ENS_SUFFIX, ONCHAIN_TREES } from "@/lib/ens/name";
 import { ALL_RECORD_KEYS, ENS_CHAIN_ID, LEGACY_KEYS, type PlannedName, type RecordKey, changedKeys, treePlan } from "@/lib/ens/records";
 
 /** The 8 records, plus the old keys cleared to "". */
@@ -75,12 +75,14 @@ async function main() {
   const { TREES, loadTreeEntry } = await import("@/lib/trees");
   const { resolveRecords, sepoliaClient, SEPOLIA_RPC_URL: rpcUrl } = await import("@/lib/ens/resolve");
 
-  // Only the real tree is published. Showcase trees were never measured.
-  const entry = TREES.find((t) => t.source === "real");
-  if (!entry) throw new Fail("No real tree in lib/trees.ts.");
-  const tree = await loadTreeEntry(entry);
-  if (!tree.ok) throw new Fail(`Could not load the tree from ${tree.root}:\n${tree.error}`);
-  const plan = treePlan(tree.data, entry.harness.key);
+  // The trees that are on chain: the real one, and the research showcase.
+  const plans = [];
+  for (const entry of TREES.filter((t) => ONCHAIN_TREES.includes(t.slug))) {
+    const tree = await loadTreeEntry(entry);
+    if (!tree.ok) throw new Fail(`Could not load the tree from ${tree.root}:\n${tree.error}`);
+    plans.push(treePlan(tree.data, entry.slug));
+  }
+  const plan = { suffix: plans[0].suffix, tree: plans.map((p) => p.tree).join(" + "), names: plans.flatMap((p) => p.names) };
 
   let planned = plan.names;
   if (opts.only) {

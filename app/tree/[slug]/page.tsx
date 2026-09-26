@@ -68,7 +68,7 @@ export default async function TreePage({ params, searchParams }: {
             ) : (
               <><LiveRefresh />
               <TreeWorkspace
-                harness={entry.harness.key}
+                harness={entry.slug}
                 nodes={d.nodes}
                 forest={buildForest(d.nodes)}
                 initial={d.stats.head || d.nodes[d.nodes.length - 1]!.id}

@@ -14,16 +14,18 @@ export interface MarketState {
   fileKeys: Record<string, string>;
   /** World ID nullifier → unix times of its free submits. */
   freeSubmits: Record<string, number[]>;
-  /** Version label (`v3`) → the number of rounds opened so far. */
-  rounds: Record<string, number>;
-  /** Version label → the number of buyers so far. */
+  /** Version id → the number of buyers so far. */
   buyers: Record<string, number>;
-  /** Wallet → the verifier names it holds a vote role for. */
-  voteRoles: Record<string, string[]>;
+  /** Payment tx hashes that were used once. */
+  usedPayments: string[];
+  /** World ID approval attempt ids that joined a round. */
+  usedApprovals: string[];
+  /** Version id → the folder the market moved it to, before the log catches up. */
+  moved: Record<string, "accepted" | "rejected">;
 }
 
 const FILE = path.join(process.cwd(), ".market", "state.json");
-const EMPTY: MarketState = { fileKeys: {}, freeSubmits: {}, rounds: {}, buyers: {}, voteRoles: {} };
+const EMPTY: MarketState = { fileKeys: {}, freeSubmits: {}, buyers: {}, usedPayments: [], usedApprovals: [], moved: {} };
 
 export function readState(): MarketState {
   if (!existsSync(FILE)) return structuredClone(EMPTY);

@@ -13,6 +13,7 @@ import type { ExportNode, NodeStatus, PetriExport } from "../types";
  *   petri.delta        "+7000bp": the checked change against the parent
  *   petri.verifier.1   the first key that re-ran it and counted
  *   petri.verifier.2   the second key
+ *   petri.cost         "1141 tokens/task": what the version costs to run, so the trade-off is on chain
  *
  * The market adds its own records after a submit (lib/market/records.ts).
  * Shared by the server, the publisher and the browser. Pure.
@@ -30,6 +31,7 @@ export const RECORD_KEYS = {
   delta: "petri.delta",
   verifier1: "petri.verifier.1",
   verifier2: "petri.verifier.2",
+  cost: "petri.cost",
 } as const;
 
 export type RecordKey = (typeof RECORD_KEYS)[keyof typeof RECORD_KEYS];
@@ -59,6 +61,7 @@ export interface EnsVersion {
   score: string;
   delta: string;
   verifiers: string[];
+  cost: string;
 }
 
 /** One name's lookup, as the /api/ens/records route returns it. */
@@ -91,7 +94,7 @@ export function scoreText(node: ExportNode, nodes: ExportNode[], benchTotal: num
 }
 
 /** A verifier key as a record value: "0x" + the signing key, or the wallet as it is. */
-const keyText = (runner: string): string => (runner.startsWith("0x") ? runner : `0x${runner}`);
+const keyText = (runner: string): string => (/^[0-9a-f]{64}$/.test(runner) ? `0x${runner}` : runner);
 
 /** The text records a version stores, key → value. Every key is present; unset values are "". */
 export function nodeRecords(
@@ -109,6 +112,7 @@ export function nodeRecords(
     [RECORD_KEYS.delta]: root ? "" : deltaText(node.verifiedDeltaBp),
     [RECORD_KEYS.verifier1]: verifiers[0] ?? "",
     [RECORD_KEYS.verifier2]: verifiers[1] ?? "",
+    [RECORD_KEYS.cost]: isBlocked(node) ? "" : `${node.costs.tokensPerTask} tokens/task`,
   };
 }
 
@@ -128,8 +132,8 @@ export interface TreePlan {
 }
 
 /** Every version of a tree with its ENS name and records, in proposal order. */
-export function treePlan(data: PetriExport, harness: string): TreePlan {
-  const names = ensNames(data.nodes, harness);
+export function treePlan(data: PetriExport, slug: string): TreePlan {
+  const names = ensNames(data.nodes, slug);
   return {
     suffix: ENS_SUFFIX,
     tree: data.tree,
@@ -160,6 +164,7 @@ export function readRecords(texts: Record<string, string | null | undefined>): E
     score: text(texts[RECORD_KEYS.score]),
     delta: text(texts[RECORD_KEYS.delta]),
     verifiers: [texts[RECORD_KEYS.verifier1], texts[RECORD_KEYS.verifier2]].map(text).filter((v) => v !== ""),
+    cost: text(texts[RECORD_KEYS.cost]),
   };
 }
 

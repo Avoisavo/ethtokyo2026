@@ -11,8 +11,7 @@
  *   1. Deploy the platform resolver (one PermissionedResolver, all roles to the wallet).
  *   2. Deploy the subname registry for petri.eth (one UserRegistry).
  *   3. Mint test USDC, approve, commit, wait 60 s, register petri.eth with both set.
- *   4. Register the tree name under petri.eth, and give it its own subname
- *      registry, so each version can be a real subname under it.
+ *   Then `npm run ens:tree` registers the trees and their versions.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -48,12 +47,11 @@ import {
   verifiableFactoryAbi,
 } from "@/app/ens/_lib/ens/factory";
 import { labelId, namehash } from "@/app/ens/_lib/ens/names";
-import { ENS_SUFFIX, TREE_LABEL } from "@/lib/ens/name";
+import { ENS_SUFFIX } from "@/lib/ens/name";
 
 class Fail extends Error {}
 
 const LABEL = ENS_SUFFIX.replace(/\.eth$/, "");
-const TREE_NAME = `${TREE_LABEL}.${ENS_SUFFIX}`;
 const DURATION = BigInt(365 * 24 * 60 * 60);
 const COMMIT_WAIT_MS = 65_000;
 /** The largest uint64: a subname that never expires on its own. */
@@ -182,42 +180,17 @@ async function main() {
   // its subnames under petri.eth. Without it they show no history and no subnames.
   await setParent(registry, ethRegistry, LABEL);
 
-  // 4. The tree name, with its own registry for the version subnames.
-  console.log(`\n4. ${TREE_NAME}`);
-  const treeRegistry = predict(registrySalt(namehash(TREE_NAME)));
-  if (await hasCode(treeRegistry)) console.log(`  registry ${treeRegistry} already deployed`);
-  else {
-    await send("deploy the tree registry", {
-      address: VERIFIABLE_FACTORY, abi: verifiableFactoryAbi, functionName: "deployProxy",
-      args: [USER_REGISTRY_IMPL, registrySalt(namehash(TREE_NAME)), encodeRegistryInit(allRolesTo(account.address))],
-    });
-  }
-  const treeState = await client.readContract({ address: registry, abi: registryStateAbi, functionName: "getState", args: [labelId(TREE_LABEL)] });
-  if (treeState.status === 2) console.log("  already registered");
-  else {
-    await send("register the tree name", {
-      address: registry, abi: registryStateAbi, functionName: "register",
-      args: [TREE_LABEL, account.address, treeRegistry, resolver, 0n, NEVER],
-    });
-  }
-  const treeSub = await client.readContract({ address: registry, abi: registryStateAbi, functionName: "getSubregistry", args: [TREE_LABEL] });
-  if (treeSub.toLowerCase() !== treeRegistry.toLowerCase()) {
-    await send("point the tree name at its registry", { address: registry, abi: registryStateAbi, functionName: "setSubregistry", args: [labelId(TREE_LABEL), treeRegistry] });
-  }
-  await setParent(treeRegistry, registry, TREE_LABEL);
-
   const out = {
     chainId: 11155111,
     owner: account.address,
     resolver,
     registry,
-    tree: { name: TREE_NAME, label: TREE_LABEL, registry: treeRegistry },
     setupAt: new Date().toISOString(),
   };
   mkdirSync(path.dirname(OUT), { recursive: true });
   writeFileSync(OUT, `${JSON.stringify(out, null, 2)}\n`);
   console.log(`\nDone. Saved to ${path.relative(process.cwd(), OUT)}`);
-  console.log(`Resolver ${explorerAddress(resolver)}\nRegistry ${explorerAddress(registry)}\nTree registry ${explorerAddress(treeRegistry)}`);
+  console.log(`Resolver ${explorerAddress(resolver)}\nRegistry ${explorerAddress(registry)}\nNext: npm run ens:tree`);
 }
 
 main().catch((e) => {

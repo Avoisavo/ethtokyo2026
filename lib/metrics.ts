@@ -60,3 +60,16 @@ export function changesOf(n: ExportNode, nodes: ExportNode[]): Changes {
     isStart: root.id === n.id,
   };
 }
+
+/**
+ * The cost side of an edge: tokens per task against the parent, in percent.
+ * Null when either side never ran (a blocked change has no cost).
+ */
+export function costChange(n: ExportNode, nodes: ExportNode[]): number | null {
+  const parent = nodes.find((x) => x.id === n.parent);
+  if (!parent || isBlocked(n) || isBlocked(parent)) return null;
+  const a = parent.costs.tokensPerTask;
+  const b = n.costs.tokensPerTask;
+  if (a <= 0) return null;
+  return ((b - a) / a) * 100;
+}

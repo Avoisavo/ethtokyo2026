@@ -4,11 +4,13 @@ import { test } from "node:test";
 import snapshot from "../snapshot/petri-export.json";
 import type { PetriExport } from "../types";
 import { parseNamesParam } from "./resolve";
-import { ENS_SUFFIX, TREE_NAME, ensNames } from "./name";
+import { ENS_SUFFIX, REAL_TREE, ensNames, treeName } from "./name";
+
+const TREE_NAME = treeName(REAL_TREE);
 import { ALL_RECORD_KEYS, RECORD_KEYS, changedKeys, nodeRecords, readRecords, treePlan } from "./records";
 
 const data = snapshot as unknown as PetriExport;
-const HARNESS = "petri-harness-v1";
+const HARNESS = REAL_TREE;
 const records = (id: string) =>
   nodeRecords(data.nodes.find((n) => n.id === id)!, data.nodes, data.bench.total, data.policy.minVerifications);
 
@@ -69,14 +71,14 @@ test("treePlan names every version once, the same names the page shows", () => {
     assert.equal(p.name, names.get(p.id));
     assert.equal(p.records[RECORD_KEYS.id], p.id);
   }
-  assert.equal(plan.names[0].name, `v1.${TREE_NAME}`);
+  assert.equal(plan.names[0].name, `v1.accepted.${TREE_NAME}`);
 });
 
 test("parseNamesParam accepts names under petri.eth only", () => {
   assert.deepEqual(parseNamesParam("petri.eth"), { ok: true, names: ["petri.eth"] });
   assert.deepEqual(
-    parseNamesParam(` v2.${TREE_NAME}, v1.${TREE_NAME},,V2.${TREE_NAME} `),
-    { ok: true, names: [`v2.${TREE_NAME}`, `v1.${TREE_NAME}`] },
+    parseNamesParam(` v2.accepted.${TREE_NAME}, v1.accepted.${TREE_NAME},,V2.accepted.${TREE_NAME} `),
+    { ok: true, names: [`v2.accepted.${TREE_NAME}`, `v1.accepted.${TREE_NAME}`] },
   );
   assert.equal(parseNamesParam("vitalik.eth").ok, false);
   assert.equal(parseNamesParam("").ok, false);

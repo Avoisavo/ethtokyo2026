@@ -3,8 +3,8 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, fmtPct } from "@/lib/metrics";
-import { ensNames } from "@/lib/ens/name";
+import { changesOf, costChange, fmtPct } from "@/lib/metrics";
+import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 import { ZOOM_STEP, usePanZoom } from "./usePanZoom";
@@ -60,7 +60,7 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
   const { slots, rows, maxDepth } = tidySlots(forest, (id) => status.get(id));
   const names = ensNames(nodes, harness);
   // The card shows the short label only (v2). The full name is in the panel.
-  const nameLines = new Map(nodes.map((n) => [n.id, wrapName((names.get(n.id) ?? n.short).split(".")[0])]));
+  const nameLines = new Map(nodes.map((n) => [n.id, wrapName(shortLabel(names.get(n.id) ?? n.short))]));
   // Rows grow with the longest wrapped name, so no label runs into the next row.
   const extra = Math.max(0, ...[...nameLines.values()].map((l) => l.length - 1)) * NAME_LINE;
   const row = ROW + extra;
@@ -132,8 +132,10 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
         {/* The direction each change aimed for, on the line just before the child. */}
         {nodes.filter((n) => slots[n.parent] !== undefined && slots[n.id] !== undefined).map((n) => {
           const b = at(n.id);
-          const local = changesOf(n, nodes).local;
-          const label = local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(local)}`;
+          const ch = changesOf(n, nodes);
+          const cost = costChange(n, nodes);
+          // What went up, and what it cost: "accuracy +280% · tokens +32%". A pure gain reads "tokens 0%".
+          const label = ch.local === null ? objectiveOf(n) : `${objectiveOf(n)} ${fmtPct(ch.local)}${cost === null ? "" : ` · tokens ${fmtPct(cost)}`}`;
           const w = label.length * 5.5 + 14;
           return (
             <g key={`o-${n.id}`} className="objective">

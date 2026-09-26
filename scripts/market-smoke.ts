@@ -1,19 +1,23 @@
 /**
- * Runs the whole market once on Sepolia, from the terminal, with a test
- * verifier wallet. No World ID: the submit uses a made-up nullifier, which
+ * Runs the whole market once on Sepolia, from the terminal, with two test
+ * verifier wallets. No World ID: the submit uses a made-up nullifier, which
  * only the server function accepts. Use it to check the chain writes work.
  *
  *   npm run market:smoke -- ae0acec3
+ *
+ * The version must be pending. At the end it is accepted, and its name has
+ * moved from pending.… to accepted.…
  */
 
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { type Hex, createPublicClient, createWalletClient, encodeFunctionData, http, parseEther } from "viem";
+import { type Hex, createPublicClient, createWalletClient, http, parseEther } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { sepolia } from "viem/chains";
 
 import { PermissionedResolverImplAbi } from "@/app/ens/_lib/ens/abis/PermissionedResolverImpl";
+import { explorerTx } from "@/app/ens/_lib/ens/contracts";
 import { dnsEncode } from "@/app/ens/_lib/ens/names";
 
 async function main() {
@@ -22,10 +26,11 @@ async function main() {
   const id = process.argv[2] ?? "ae0acec3";
 
   const { SEPOLIA_RPC_URL } = await import("@/lib/ens/resolve");
-  const { loadDeployment, readTexts } = await import("@/lib/market/chain");
+  const { loadDeployment, readTexts, setWriteLog } = await import("@/lib/market/chain");
   const { newAccessKeyPair, openFileKey, decryptText } = await import("@/lib/market/crypto");
   const { ACCESS_KEYS, VERSION_KEYS, docKey } = await import("@/lib/market/records");
   const { accessMessage, closeRound, joinRound, pickRound, submitVersion } = await import("@/lib/market/service");
+  setWriteLog((what, hash) => console.log(`     ${what}: ${explorerTx(hash)}`));
 
   const dep = loadDeployment();
   const client = createPublicClient({ chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
@@ -34,46 +39,49 @@ async function main() {
 
   console.log("1. submit (free, test nullifier)");
   const sub = await submitVersion(id, { kind: "free", nullifier: `0xtest${Date.now()}` });
-  console.log("  ", sub.name, "tx", sub.tx, "round", sub.round.name);
+  console.log("   version", sub.name, "\n   round", sub.round.name);
 
-  console.log("2. a test verifier joins");
-  const vKey = generatePrivateKey();
-  const verifier = privateKeyToAccount(vKey);
-  const access = newAccessKeyPair();
-  const signature = await verifier.signMessage({ message: accessMessage(access.publicKey) });
-  const joined = await joinRound(sub.label, sub.round.n, { wallet: verifier.address, accessKey: access.publicKey, signature });
-  console.log("   pool", joined.pool.length, "tx", joined.tx);
+  console.log("2. two test verifiers join");
+  const people = [1, 2].map(() => {
+    const wallet = privateKeyToAccount(generatePrivateKey());
+    return { wallet, access: newAccessKeyPair() };
+  });
+  for (const p of people) {
+    const signature = await p.wallet.signMessage({ message: accessMessage(p.access.publicKey) });
+    const joined = await joinRound(id, { wallet: p.wallet.address, accessKey: p.access.publicKey, signature });
+    console.log("   pool", joined.pool.length);
+  }
 
   console.log("3. pick (forced, the window is not over)");
-  const picked = await pickRound(sub.label, sub.round.n, true);
-  console.log("   seed", picked.seed.slice(0, 18), "verifiers", picked.verifiers.map((v) => v.name));
-  const mine = picked.verifiers.find((v) => v.wallet.toLowerCase() === verifier.address.toLowerCase())!;
+  const picked = await pickRound(id, true);
+  console.log("   seed", picked.seed.slice(0, 18), "block", picked.block);
+  for (const v of picked.verifiers) console.log("  ", v.name, "→", v.wallet);
 
-  console.log("4. the verifier opens the key and reads harness.md");
-  const t = await readTexts(mine.name, [ACCESS_KEYS.key]);
-  const fileKey = openFileKey(t[ACCESS_KEYS.key], access.secretKey);
-  const v = await readTexts(sub.name, [docKey("harness.md"), VERSION_KEYS.docList]);
-  console.log("   files:", v[VERSION_KEYS.docList]);
-  console.log("   " + decryptText(fileKey, v[docKey("harness.md")]).split("\n")[0]);
+  console.log("4. each verifier opens the key, reads harness.md, and votes with its own wallet");
+  for (const p of people) {
+    const mine = picked.verifiers.find((v) => v.wallet.toLowerCase() === p.wallet.address.toLowerCase())!;
+    const t = await readTexts(mine.name, [ACCESS_KEYS.key]);
+    const fileKey = openFileKey(t[ACCESS_KEYS.key], p.access.secretKey);
+    const v = await readTexts(sub.name, [docKey("harness.md"), VERSION_KEYS.docList]);
+    console.log("   ", mine.label, "reads:", decryptText(fileKey, v[docKey("harness.md")]).split("\n")[0]);
+    const fund = await serverWallet.sendTransaction({ to: p.wallet.address, value: parseEther("0.003") });
+    await client.waitForTransactionReceipt({ hash: fund });
+    const w = createWalletClient({ account: p.wallet, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
+    const { request } = await client.simulateContract({
+      account: p.wallet, address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "setText",
+      args: [dnsEncode(mine.name), ACCESS_KEYS.vote, "yes:+7000bp"],
+    });
+    const voteTx = await w.writeContract(request);
+    await client.waitForTransactionReceipt({ hash: voteTx });
+    console.log("   ", mine.label, "voted:", explorerTx(voteTx));
+  }
 
-  console.log("5. the verifier writes its vote with its own wallet");
-  const fund = await serverWallet.sendTransaction({ to: verifier.address, value: parseEther("0.003") });
-  await client.waitForTransactionReceipt({ hash: fund });
-  const vWallet = createWalletClient({ account: verifier, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
-  const { request } = await client.simulateContract({
-    account: verifier, address: dep.resolver, abi: PermissionedResolverImplAbi, functionName: "setText",
-    args: [dnsEncode(mine.name), ACCESS_KEYS.vote, "yes:+7000bp"],
-  });
-  const voteTx = await vWallet.writeContract(request);
-  await client.waitForTransactionReceipt({ hash: voteTx });
-  console.log("   vote tx", voteTx);
-  void encodeFunctionData;
-
-  console.log("6. close");
-  const closed = await closeRound(sub.label, sub.round.n, true);
-  console.log("   ", closed.status, "yes", closed.yes, "no", closed.no, "txs", closed.txs.length);
-  const after = await readTexts(mine.name, [ACCESS_KEYS.key]);
-  console.log("   sealed key after close:", after[ACCESS_KEYS.key] === "" ? "gone" : "STILL THERE");
+  console.log("5. close: count, burn the verifiers, move the version");
+  const closed = await closeRound(id, true);
+  console.log("   ", closed.status, "yes", closed.yes, "no", closed.no);
+  console.log("    now at", closed.moved);
+  const after = await readTexts(closed.moved!, ["petri.status", "petri.verifier.1", "petri.verifier.2"]);
+  console.log("   ", after);
 }
 
 main().catch((e) => {

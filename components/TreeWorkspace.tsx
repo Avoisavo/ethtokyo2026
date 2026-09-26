@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
-import { ensNames } from "@/lib/ens/name";
+import { ONCHAIN_TREES, ensNames } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
@@ -24,7 +24,7 @@ interface Props {
   stats: ReactNode;
   /** Which view opens first. `?view=stats` or `?view=compare` sets it. */
   initialView?: View;
-  /** The harness key, e.g. "petri-harness-v1". Names the root in ENS-style names. */
+  /** The tree slug, e.g. "coding--petri-harness-v1--claude-sonnet-5". It names the tree on ENS. */
   harness?: string;
 }
 
@@ -92,7 +92,12 @@ function simulateAccepted(nodes: ExportNode[], targetId: string): ExportNode[] {
   });
 }
 
-export function TreeWorkspace({ nodes: recorded, forest, initial, minVerifications, benchTotal, info, stats, initialView = "tree", harness }: Props) {
+export function TreeWorkspace({ nodes: given, forest, initial, minVerifications, benchTotal, info, stats, initialView = "tree", harness }: Props) {
+  // The root is the baseline: drawn as accepted, because everything is measured against it.
+  const recorded = useMemo(
+    () => given.map((n) => (n.parent === "root" ? { ...n, status: "accepted" as const, statusCode: "BASELINE" } : n)),
+    [given],
+  );
   const [selected, setSelected] = useState(initial);
   const [view, setView] = useState<View>(initialView);
   const [simulatedId, setSimulatedId] = useState<string | null>(null);
@@ -105,8 +110,10 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
   }, [beforeUpdate, simulatedId, recorded]);
 
   const names = useMemo(() => ensNames(nodes, harness), [nodes, harness]);
+  // The version names are read from ENS for the trees that are on chain.
+  const onChain = harness !== undefined && ONCHAIN_TREES.includes(harness);
   // Every version's record, read from its ENS name. A showcase tree is never looked up.
-  const ens = useEnsRecords([...names.values()], !recorded.some((n) => n.showcase));
+  const ens = useEnsRecords([...names.values()], onChain);
 
   // The demo version shows its real status once a new record is written.
   // LiveRefresh announces that, then refreshes the page with the new record.
