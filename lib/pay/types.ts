@@ -48,6 +48,8 @@ export type Outcome =
   | "rejected"
   /** Preview only: the authorization was built and not signed. */
   | "previewed"
+  /** Signed, sent, verified, and the transfer was broadcast but is not confirmed yet. */
+  | "pending"
   /** Signed and sent, and the verifier refused it (for example its payer screen). */
   | "refused"
   /** Something failed that no check decided. Nothing was signed unless `signed` says so. */
