@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getAttempt, publicAttempt, saveAttempt } from "@/lib/world-agent/store";
+import { getAttempt, publicAttempt, saveAttempt } from "@/lib/world/agent/store";
 
 /** Abandon an attempt. A later approval for it is ignored by the poll route. */
 export async function POST(request: Request) {
