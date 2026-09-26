@@ -85,8 +85,12 @@ export function blockedText(cls: string): string {
   return "stopped before scoring";
 }
 
-/** The word shown for a version. A blocked change reads BLOCKED, not PENDING: it will never be scored. */
-export const wordOf = (n: ExportNode): string => STATUS_WORD[n.status];
+/**
+ * The word shown for a version. The root of a tree is the baseline: it has no
+ * parent to be measured against, so the acceptance rule never applies to it,
+ * and PENDING would be wrong. Other keys re-run it when they check its children.
+ */
+export const wordOf = (n: ExportNode): string => (n.parent === "root" ? "BASELINE" : STATUS_WORD[n.status]);
 
 /**
  * The author's claim for a change that was never scored: its parent's score plus the
