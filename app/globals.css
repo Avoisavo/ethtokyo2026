@@ -422,12 +422,18 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-tools button:hover { color: var(--ink); border-color: var(--ink-faint); }
 .cmp-tools button[aria-pressed="true"] { color: var(--pass); border-color: color-mix(in srgb, var(--pass) 45%, var(--rule)); background: var(--pass-soft); }
 
+.cmp-tri-face { fill: var(--sunk); stroke: var(--rule); stroke-width: 1.2; stroke-linejoin: round; }
+.cmp-grid { stroke: var(--rule); stroke-width: 1; }
+.cmp-mid { stroke: var(--ink-faint); stroke-width: 1.2; }
+.cmp-corner { font-size: 13px; font-weight: 600; fill: var(--ink); }
+.cmp-corner-sub { font-size: 11px; fill: var(--ink-faint); }
 .cmp-dot { cursor: pointer; outline: none; }
 .cmp-hit { fill: transparent; }
 .cmp-dot:focus-visible .cmp-hit { stroke: var(--pass); stroke-width: 2; }
 .cmp-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
 .cmp-ring-hover { stroke: var(--ink-faint); stroke-dasharray: 2.5 2.5; }
 .cmp-label { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
 .cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
 .cmp-anchor { fill: var(--ink-faint); }
 .cmp-link { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; opacity: .5; }
