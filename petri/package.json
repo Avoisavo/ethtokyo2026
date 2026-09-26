@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
-    "@hashgraph/sdk": "^2.81.0",
     "commander": "^15.0.0",
     "zod": "^4.6.2"
   },
