@@ -13,7 +13,8 @@
     "demo:full": "bash petri/demo/verify-full.sh",
     "gen:ens-abis": "node scripts/gen-ens-abis.mjs",
     "test:ens": "tsx --test \"app/ens/_lib/**/*.test.ts\" \"lib/**/*.test.ts\"",
-    "ens:publish": "tsx scripts/ens-publish.ts"
+    "ens:publish": "tsx scripts/ens-publish.ts",
+    "world:agentkit": "tsx scripts/world-agentkit.ts"
   },
   "dependencies": {
     "@noble/hashes": "^2.4.0",
