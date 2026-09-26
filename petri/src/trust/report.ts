@@ -51,7 +51,7 @@ export const seedBaseFor = (candidateNodeId: string): string =>
   sha256Hex(`petri/seed/1|${candidateNodeId}`);
 export const reportId = (report: VerificationReport): string => contentId(report);
 
-/** max minus min of one side's per-run scores. This is `spreadBp` on the wire. */
+/** max minus min of one side's per-run scores. This is `spreadBp` in the log message. */
 export function spreadBpOf(side: SideSummary): number {
   if (side.runs.length === 0) throw new Error('spread of an empty run list');
   const scores = side.runs.map((r) => r.scoreBp);
