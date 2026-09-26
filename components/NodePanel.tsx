@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { isBlocked, wordOf } from "@/lib/format";
-import { ensNames } from "@/lib/ens/name";
+import { ensAppUrl, ensNames } from "@/lib/ens/name";
 import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
 import { explorerAddress } from "@/app/ens/_lib/ens/contracts";
 import type { ExportNode } from "@/lib/types";
@@ -69,7 +69,7 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
       <section className="ens-profile" aria-label={`ENS records of ${name}`}>
         <div>
           <p className="ens-kicker">ENS name · Sepolia</p>
-          <h2 className="ens-name np-ens">{name}</h2>
+          <h2 className="ens-name np-ens"><a href={ensAppUrl(name)} target="_blank" rel="noreferrer" title="Open this name in the ENS app">{name} ↗</a></h2>
           <p className="ens-resolver">
             {lookup?.resolver
               ? <>Resolver <a href={explorerAddress(lookup.resolver)} target="_blank" rel="noreferrer" title={lookup.resolver}>{shortAddress(lookup.resolver)}</a></>

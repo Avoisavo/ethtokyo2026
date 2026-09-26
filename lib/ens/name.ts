@@ -26,16 +26,26 @@ export const TREE_NAME = `${TREE_LABEL}.${ENS_SUFFIX}`;
 /** The label of the version at `seq`, counted from 1. */
 export const versionLabel = (index: number): string => `v${index}`;
 
+/**
+ * The tree label of a harness key. The real tree has its fixed label. A
+ * showcase tree takes its harness key, so its names never collide with the
+ * real one: "hermes-agent" → hermes-agent.petri.eth.
+ */
+export const treeLabelOf = (harness?: string): string =>
+  harness === undefined || harness === "petri-harness-v1" ? TREE_LABEL : harness.toLowerCase().replace(/[^a-z0-9-]+/g, "-");
+
 /** The version name for a label: `v3` → `v3.<tree>.petri.eth`. */
-export const versionName = (label: string): string => `${label}.${TREE_NAME}`;
+export const versionName = (label: string, harness?: string): string => `${label}.${treeLabelOf(harness)}.${ENS_SUFFIX}`;
+
+/** Where a name opens in the ENS app, on Sepolia. */
+export const ensAppUrl = (name: string): string => `https://sepolia.app.ens.domains/${name}`;
 
 /**
  * Map from node id to its full ENS name. Versions are numbered in `seq` order,
- * so the numbers are stable as long as the log only grows. The `harness`
- * argument stays for the callers that pass it; every real tree uses TREE_NAME.
+ * so the numbers are stable as long as the log only grows.
  */
-export function ensNames(nodes: ExportNode[], _harness?: string): Map<string, string> {
+export function ensNames(nodes: ExportNode[], harness?: string): Map<string, string> {
   const names = new Map<string, string>();
-  [...nodes].sort((a, b) => a.seq - b.seq).forEach((n, i) => names.set(n.id, versionName(versionLabel(i + 1))));
+  [...nodes].sort((a, b) => a.seq - b.seq).forEach((n, i) => names.set(n.id, versionName(versionLabel(i + 1), harness)));
   return names;
 }
