@@ -82,7 +82,7 @@ other domains could look. Nobody measured them.
 cd petri
 pnpm install
 pnpm typecheck       # no output means it passed
-pnpm test            # 102 tests
+pnpm test            # 100 tests
 pnpm petri tree      # the whole tree, rejected branches included
 pnpm petri digest    # what the next agent reads before it proposes a change
 pnpm petri dead-ends # every rejected version with its reason
@@ -273,5 +273,5 @@ The live path has not been run on this tree yet.
 | `petri/SPEC.md` | The contract for hashing, signing, the acceptance rule and the CLI |
 | `petri/src/consensus/local.ts` | The local log and its hash chain |
 | `petri/src/trust/world.ts` | The World ID check after `petri verify` |
-| `petri/demo/verify-demo.sh` | The stage demo: verify, then World ID (simulated) |
+| `petri/demo/verify-demo.sh` | The stage demo: verify, then a World ID Selfie Check at `/world` |
 | `lib/agentbook/` | World AgentKit helpers for the web side. The web app does not use them yet. |
