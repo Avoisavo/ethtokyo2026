@@ -18,14 +18,14 @@ the next person repeating it.
 3. Rejected nodes are never deleted.
 4. Exactly one canonical JSON encoder and one sha256 helper exist. Never add a second.
 5. The harness must never read the benchmark tests.
-6. It must run with no API key and no Hedera account.
+6. It must run with no API key.
 
 ## How to run it
 
 ```bash
 pnpm install
 pnpm typecheck        # must be silent
-pnpm test             # 102 tests
+pnpm test             # 100 tests
 pnpm petri status     # identity, policy, mode, ledger
 pnpm petri tree       # the whole tree, rejected branches included
 pnpm petri digest     # what an agent reads before proposing
@@ -36,7 +36,7 @@ The web app lives at the repository root: `npm run dev` there, then open http://
 
 ## State as of this handoff
 
-Working: typecheck clean, 102 tests pass, the tree loads. It holds 16 nodes: 3
+Working: typecheck clean, 100 tests pass, the tree loads. It holds 16 nodes: 3
 accepted, 2 rejected and 11 pending. Replay mode needs no API key.
 
 A hostile audit found five defects and all five are fixed:
@@ -55,8 +55,9 @@ Say **two distinct signing keys**, never *two strangers*. One person can hold
 every key on a local ledger. The CLI says this on every command. Do not remove
 that qualifier.
 
-A Hedera topic gives shared order and a timestamp. It does **not** prove a
-verifier actually ran the benchmark. Nothing here does yet.
+The log proves which key signed each record. It does **not** prove a verifier
+actually ran the benchmark, and it proves nothing about time or deletion. Nothing
+here does yet.
 
 ## Next
 
@@ -64,8 +65,7 @@ verifier actually ran the benchmark. Nothing here does yet.
    a new harness, so it is recorded as `not-scored` until then.
 2. Link each World ID wallet to its signing key, then turn the check on.
    The check itself is in `src/trust/world.ts` and is off by default.
-3. Run `petri anchor create` and `petri anchor push` with a funded Hedera account.
-4. x402 pay per verification run, which also limits spam submissions.
+3. x402 pay per verification run, which also limits spam submissions.
 
-This repo's root already holds Hedera HCS and World AgentKit code.
+This repo's root already holds World AgentKit code.
 Call it rather than writing it again.
