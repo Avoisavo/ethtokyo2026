@@ -59,10 +59,6 @@ export interface ConsensusLog {
   close(): Promise<void>;
 }
 
-/** Inside one log, `seq` IS the total order. */
-export const orderKey = (e: LogEntry): string =>
-  `${e.topic}:${String(e.seq).padStart(12, '0')}`;
-
 /** Open the tree's log. This is the ONLY place a log is constructed. */
 export function openLog(
   cfg: PetriConfig,
