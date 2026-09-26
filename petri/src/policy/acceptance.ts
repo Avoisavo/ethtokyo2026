@@ -18,16 +18,6 @@ export type { DecisionCode } from '../core/schema.js';
  * 9.1 Inputs
  * ------------------------------------------------------------------ */
 
-/**
- * Where the evidence lives. It decides how strong the verdict may sound.
- *
- * A local log proves nothing about who holds the keys. One person can hold every
- * key in it, so the verdict must not call two keys "independent" there. A Hedera
- * topic proves order, time and non-deletion to a stranger, so the claim stays
- * strong. This mirrors the trust banner of §8.9, which says the same thing.
- */
-export type LedgerKind = 'hcs' | 'local';
-
 export interface CountedVerification {
   /** The VERIFIER public key, taken from the envelope. NEVER from the body. */
   pub: string;
@@ -73,25 +63,19 @@ const fmtBp = (bp: number): string => `${bp >= 0 ? '+' : ''}${bp}bp`;
 const short = (k: string): string => k.slice(0, 8);
 
 /**
- * The noun for the counted set. Only a public ledger earns the word
- * "independent". See `LedgerKind`.
+ * The noun for the counted set.
+ *
+ * A local log proves nothing about who holds the keys. One person can hold every
+ * key in it, so the verdict never calls two keys "independent". This mirrors the
+ * trust banner of §8.9, which says the same thing.
  */
-const nounFor = (ledger: LedgerKind): string =>
-  ledger === 'hcs' ? 'independent verifications' : 'verifications from distinct keys';
+const NOUN = 'verifications from distinct keys';
 
-/** The sentence that stops a local verdict from reading as proof of independence. */
-const caveatFor = (ledger: LedgerKind): string =>
-  ledger === 'hcs'
-    ? ''
-    : ' The ledger is a local log, so one person can hold every key. Distinct keys'
-      + ' are not proof of distinct people. Run `petri topic create` to publish.';
+/** The sentence that stops a verdict from reading as proof of independence. */
+const CAVEAT = ' The ledger is a local log, so one person can hold every key. Distinct keys'
+  + ' are not proof of distinct people.';
 
-/**
- * `ledger` defaults to 'local', which is the WEAKEST claim. A caller that does
- * not know where the evidence lives can then never overclaim. The CLI knows the
- * ledger and passes it, so a Hedera tree keeps the strong wording.
- */
-export function evaluate(node: NodeFacts, policy: Policy, ledger: LedgerKind = 'local'): Verdict {
+export function evaluate(node: NodeFacts, policy: Policy): Verdict {
   const none = { counted: [], ignored: [], deltaBp: null };
   if (node.withdrawn) {
     return { ...none, status: 'withdrawn', code: 'WITHDRAWN', reason: 'Withdrawn by the author.' };
@@ -147,7 +131,7 @@ export function evaluate(node: NodeFacts, policy: Policy, ledger: LedgerKind = '
   if (counted.length < policy.minVerifications) {
     return {
       status: 'pending', code: 'INSUFFICIENT_VERIFICATIONS', deltaBp: null, counted: keys, ignored,
-      reason: `${counted.length} of ${policy.minVerifications} ${nounFor(ledger)}. `
+      reason: `${counted.length} of ${policy.minVerifications} ${NOUN}. `
         + `The author's own runs never count.`,
     };
   }
@@ -200,20 +184,19 @@ export function evaluate(node: NodeFacts, policy: Policy, ledger: LedgerKind = '
       status: 'accepted', code: isRoot ? 'ROOT_BASELINE' : 'WIN', deltaBp: lo, counted: keys, ignored,
       reason: isRoot
         ? `Root baseline set at ${fmtBp(lo)} over the empty harness, by ${counted.length} `
-          + `${ledger === 'hcs' ? 'independent runners' : 'distinct runner keys'}. `
-          + `Every runner cleared the ${policy.minDeltaBp}bp margin.${caveatFor(ledger)}`
-        : `${counted.length} ${nounFor(ledger)}, every one at or above `
+          + `distinct runner keys. Every runner cleared the ${policy.minDeltaBp}bp margin.${CAVEAT}`
+        : `${counted.length} ${NOUN}, every one at or above `
           + `+${policy.minDeltaBp}bp. Worst delta ${fmtBp(lo)}. This is a real improvement.`
-          + caveatFor(ledger),
+          + CAVEAT,
     };
   }
 
   if (hi <= -policy.minDeltaBp) {
     return {
       status: 'rejected', code: 'REGRESSION', deltaBp: hi, counted: keys, ignored,
-      reason: `${counted.length} ${nounFor(ledger)}, every one at or below `
+      reason: `${counted.length} ${NOUN}, every one at or below `
         + `-${policy.minDeltaBp}bp. Best delta ${fmtBp(hi)}. This is a measured regression. `
-        + `The change makes the harness worse.${caveatFor(ledger)}`,
+        + `The change makes the harness worse.${CAVEAT}`,
     };
   }
 
