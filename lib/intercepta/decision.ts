@@ -27,10 +27,10 @@ export type MessageVerdict = {
 export type Thresholds = { blockScore: number; holdScore: number };
 export const DEFAULT_THRESHOLDS: Thresholds = { blockScore: 80, holdScore: 30 };
 
-/** Traits that stop a payment outright. Every other trait holds it. The names are Intercepta's enum. */
+/** Traits that stop a payment outright, most serious first. Every other trait holds it. The names are Intercepta's enum. */
 export const BLOCK_TRAITS = new Set([
-  "known_scammer",
   "sanction_address",
+  "known_scammer",
   "blacklist",
   "attack_money_target",
   "fake_phishing_transfer",
@@ -150,8 +150,12 @@ export function validityCheck(maxTimeoutSeconds: number, capSeconds: number): Ch
     : check("validity", "petri", "fail", "validity_too_long", `The verifier asked for ${maxTimeoutSeconds} s. Petri signs for at most ${capSeconds} s.`);
 }
 
+/** The most serious trait, for the check code. */
+const topTrait = (v: AddressVerdict) =>
+  [...BLOCK_TRAITS].find((name) => v.traits.some((t) => t.name === name)) ?? v.traits[0]?.name ?? "score";
+
 export function payToCheck(v: AddressVerdict): Check {
-  const top = v.traits.find((t) => BLOCK_TRAITS.has(t.name))?.name ?? v.traits[0]?.name ?? "score";
+  const top = topTrait(v);
   switch (v.level) {
     case "clear":
       return check("payto", "intercepta", "pass", "payto_clear", `Toxic score ${v.score}, no risk traits.`);
@@ -190,7 +194,7 @@ export function messageCheck(v: MessageVerdict): Check {
 
 /** The verifier's side: may it accept money from this payer? Screening explicitly turned off accepts. */
 export function payerCheck(v: AddressVerdict): Check {
-  const top = v.traits.find((t) => BLOCK_TRAITS.has(t.name))?.name ?? v.traits[0]?.name ?? "score";
+  const top = topTrait(v);
   switch (v.level) {
     case "clear":
       return check("payer", "intercepta", "pass", "payer_clear", `Toxic score ${v.score}, no risk traits.`);
