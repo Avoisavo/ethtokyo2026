@@ -1,14 +1,14 @@
 import { type Hex, type PublicClient, createPublicClient, decodeFunctionResult, getAddress, http, size } from "viem";
 import { sepolia } from "viem/chains";
 
-import { UniversalResolverV2Abi } from "../app/ens/_lib/ens/abis/UniversalResolverV2";
-import { UNIVERSAL_RESOLVER_PROXY } from "../app/ens/_lib/ens/contracts";
-import { dnsEncode, namehash, tryNormalize } from "../app/ens/_lib/ens/names";
+import { UniversalResolverV2Abi } from "../../app/ens/_lib/ens/abis/UniversalResolverV2";
+import { UNIVERSAL_RESOLVER_PROXY } from "../../app/ens/_lib/ens/contracts";
+import { dnsEncode, namehash, tryNormalize } from "../../app/ens/_lib/ens/names";
 import {
   decodeMulticall, decodeUrError, encodeMulticall, encodeRecordCall, isZero, resolverProfileAbi, shortError,
-} from "../app/ens/_lib/ens/universal-resolver-v2";
-import { ENS_SUFFIX } from "./ens-name";
-import { ALL_RECORD_KEYS, type EnsLookup } from "./ens-records";
+} from "../../app/ens/_lib/ens/universal-resolver-v2";
+import { ENS_SUFFIX } from "./name";
+import { ALL_RECORD_KEYS, type EnsLookup } from "./records";
 
 /**
  * Reads a version's text records through the ENSv2 Universal Resolver on Sepolia.
@@ -22,7 +22,7 @@ import { ALL_RECORD_KEYS, type EnsLookup } from "./ens-records";
  * fail about half the time, one aggregate does not. Each call still gets its
  * own result or revert data back.
  *
- * Plain module, no "server-only": the /api/ens-records route and the publish
+ * Plain module, no "server-only": the /api/ens/records route and the publish
  * script both import it.
  */
 
