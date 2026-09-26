@@ -1,9 +1,9 @@
 /**
  * `petri init` and `petri config`.
  *
- * §4.3, the offline default: no ANTHROPIC_API_KEY gives `mode: replay`, and no
- * Hedera operator gives `ledger: local`. Both defaults are correct with zero
- * setup, so design rule 6 holds on a fresh clone.
+ * §4.3, the offline default: no ANTHROPIC_API_KEY gives `mode: replay`, and the
+ * ledger is always `local`. Both are correct with zero setup, so design rule 6
+ * holds on a fresh clone.
  */
 import { existsSync } from 'node:fs';
 import { hostname } from 'node:os';
@@ -14,7 +14,6 @@ import type { Command } from 'commander';
 import { loadConfig, PetriConfigSchema, saveConfig, type PetriConfig } from '../config.js';
 import { benchIdOf } from '../core/ids.js';
 import type { BenchSpec, Mode } from '../core/schema.js';
-import { MIRROR_REST, type HederaNetwork } from '../consensus/hedera.js';
 import { createIdentity } from '../trust/identity.js';
 import { configPath, identityPath, petriDir } from '../store/paths.js';
 import { PetriStore } from '../store/store.js';
@@ -28,44 +27,17 @@ interface InitOptions {
   tree?: string;
   bench?: string;
   mode?: string;
-  ledger?: string;
   label?: string;
   force?: boolean;
   genesis?: boolean;
   hypothesis?: string;
 }
 
-const NETWORKS: ReadonlySet<string> = new Set(['testnet', 'mainnet', 'previewnet']);
-
 function defaultMode(): Mode {
   return typeof process.env['ANTHROPIC_API_KEY'] === 'string' &&
     process.env['ANTHROPIC_API_KEY'].length > 0
     ? 'live'
     : 'replay';
-}
-
-type HederaBlock = NonNullable<PetriConfig['hedera']>;
-
-function hederaBlock(): HederaBlock | null {
-  const key = process.env['HEDERA_OPERATOR_KEY'];
-  const operatorId = process.env['HEDERA_OPERATOR_ID'];
-  const topicId = process.env['HEDERA_TOPIC_ID'];
-  const network = process.env['HEDERA_NETWORK'] ?? 'testnet';
-  if (
-    typeof key !== 'string' ||
-    key.length === 0 ||
-    typeof operatorId !== 'string' ||
-    typeof topicId !== 'string'
-  ) {
-    return null;
-  }
-  if (!NETWORKS.has(network)) return null;
-  return {
-    mirrorRest: [MIRROR_REST[network as HederaNetwork]],
-    network: network as HederaNetwork,
-    operatorId,
-    topicId,
-  };
 }
 
 export function registerInit(program: Command): void {
@@ -75,7 +47,6 @@ export function registerInit(program: Command): void {
     .option('--tree <id>', 'tree id', 'petri-main')
     .option('--bench <dir>', 'benchmark directory', 'bench')
     .option('--mode <mode>', 'live or replay. Default: replay with no ANTHROPIC_API_KEY')
-    .option('--ledger <ledger>', 'hcs or local. Default: local with no Hedera operator')
     .option('--label <name>', 'a human name for this machine')
     .option('--force', 'overwrite an existing config', false)
     .option('--no-genesis', 'do not create the genesis node from harness/')
@@ -98,25 +69,6 @@ export function registerInit(program: Command): void {
           : opts.mode === 'live' || opts.mode === 'replay'
             ? opts.mode
             : fail(EXIT.USAGE, `--mode must be live or replay, got ${opts.mode}`);
-
-      const hedera = hederaBlock();
-      let ledger: 'hcs' | 'local';
-      if (opts.ledger === undefined) {
-        ledger = hedera === null ? 'local' : 'hcs';
-      } else if (opts.ledger === 'local') {
-        ledger = 'local';
-      } else if (opts.ledger === 'hcs') {
-        if (hedera === null) {
-          fail(
-            EXIT.ENVIRONMENT,
-            '--ledger hcs needs HEDERA_OPERATOR_KEY, HEDERA_OPERATOR_ID and HEDERA_TOPIC_ID.\n' +
-              '       Run `petri topic create` first, or drop the flag to use the local log.',
-          );
-        }
-        ledger = 'hcs';
-      } else {
-        fail(EXIT.USAGE, `--ledger must be hcs or local, got ${opts.ledger}`);
-      }
 
       const benchArg = opts.bench ?? 'bench';
       const benchDir = isAbsolute(benchArg) ? benchArg : resolve(root, benchArg);
@@ -145,8 +97,7 @@ export function registerInit(program: Command): void {
 
       const config: PetriConfig = {
         bench: { id: benchId, name: spec.id },
-        ...(ledger === 'hcs' && hedera !== null ? { hedera } : {}),
-        ledger,
+        ledger: 'local',
         mode,
         policy: {
           maxRunSpreadBp: 3000,
