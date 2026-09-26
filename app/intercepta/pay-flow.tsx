@@ -4,53 +4,67 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { InterceptaCall, MessageScan, QuickScan } from "@/lib/intercepta/client";
 import { formatUsdc, type Check } from "@/lib/intercepta/decision";
-import type { PayMode, PaymentRecord, VerifierProfile } from "@/lib/pay/types";
+import type { PayMode, PaymentRecord, Product, VerifierProfile } from "@/lib/pay/types";
 
 import { Dot, Row, Section, type Status } from "@/app/world/ui";
 import s from "@/app/world/world.module.css";
 import x from "./intercepta.module.css";
 
 /**
- * The /intercepta page, sections 1–10:
+ * The /intercepta page, sections 1–10. The agent buys one of two things over
+ * x402: a version as a markdown file, or a verification run. The checks are the same.
  *
  *   1.  Setup                 — keys, balances, engine (no Intercepta request spent)
- *   2.  The job               — a version, a verifier, pay or preview
+ *   2.  The job               — what to buy, a version, a seller, pay or preview
  *   3.  HTTP 402              — what the verifier asked for
  *   4.  Petri's limits        — fee cap, asset, authorization lifetime
  *   5.  Quick Scan on payTo   — Intercepta, before the authorization exists
  *   6.  The authorization     — EIP-3009 typed data + Intercepta Scan Message
  *   7.  Decision              — pay, hold or reject; signed or not
- *   8.  The verifier's side   — payer screen, petri verify, Sepolia settlement
+ *   8.  The seller's side     — payer screen, Sepolia settlement, the file or petri verify
  *   9.  Stopped payments      — every held, rejected or refused attempt
  *   10. Record                — petri/.petri/payments.jsonl
  *
  * The browser never sees a key. It renders what /api/intercepta/* decided.
  */
 
-export type VersionOption = { id: string; short: string; label: string; hypothesis: string; status: string; keys: number };
+export type VersionOption = { id: string; short: string; label: string; hypothesis: string; status: string; keys: number; scored: boolean };
 
 type PreCheck = { id: string; label: string; status: "ok" | "blocked" | "warn"; detail: string; fix?: string };
 type Preflight = {
   checks: PreCheck[];
   payer: string | null;
-  verifier: { payTo: string; relayer: string; rogue: string; fee: string; greedyFee: string; screenPayer: boolean } | null;
+  verifier: { payTo: string; relayer: string; rogue: string; fee: string; markdownFee: string; greedyFee: string; screenPayer: boolean } | null;
 };
 
 const EXPLORER = "https://sepolia.etherscan.io";
 const short = (a: string) => (a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 
 const OUTCOME: Record<PaymentRecord["outcome"], { text: string; status: Status }> = {
-  paid: { text: "Paid, verified, settled", status: "pass" },
+  paid: { text: "Paid and settled", status: "pass" },
   held: { text: "Held before signing", status: "info" },
   rejected: { text: "Rejected before signing", status: "fail" },
   previewed: { text: "Preview: built, not signed", status: "info" },
   pending: { text: "Paid, settlement not confirmed yet", status: "info" },
-  refused: { text: "Signed, refused by the verifier", status: "fail" },
+  refused: { text: "Signed, refused by the seller", status: "fail" },
   error: { text: "Error", status: "fail" },
 };
 
 /** Formats atomic USDC from verifier data without trusting its shape: a bad value never crashes the page. */
 const usdc = (atomic: unknown): string => (typeof atomic === "string" && /^\d+$/.test(atomic) ? formatUsdc(BigInt(atomic)) : String(atomic));
+
+const PRODUCTS: { id: Product; name: string; note: string }[] = [
+  { id: "markdown", name: "A version as markdown", note: "What an agent reads before it builds on a version. Buy it as often as you like. About 5 s." },
+  { id: "verification", name: "A verification run", note: "The seller's key re-runs the version and signs a report. Once per key per version. About 25 s." },
+];
+
+/** Saves the bought file in the browser. */
+function download(file: string, markdown: string) {
+  const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown" }));
+  const a = Object.assign(document.createElement("a"), { href: url, download: file });
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const checkStatus = (c: Check | undefined): Status =>
   !c ? "idle" : c.status === "pass" ? "pass" : c.status === "fail" ? "fail" : c.status === "hold" ? "info" : "idle";
@@ -68,6 +82,7 @@ export default function PayFlow({
 }) {
   const [pre, setPre] = useState<Preflight | null>(null);
   const [preBusy, setPreBusy] = useState(false);
+  const [product, setProduct] = useState<Product>("markdown");
   const [versionId, setVersionId] = useState(initialVersion);
   const [verifier, setVerifier] = useState<VerifierProfile>("rogue");
   const [busy, setBusy] = useState<PayMode | null>(null);
@@ -76,6 +91,10 @@ export default function PayFlow({
   const [error, setError] = useState<string | null>(null);
   const [records, setRecords] = useState<PaymentRecord[]>(initialRecords);
   const [current, setCurrent] = useState<PaymentRecord | null>(null);
+
+  // Any version can be bought as markdown. Only a scored one can be verified.
+  const choices = useMemo(() => versions.filter((v) => product === "markdown" || v.scored), [versions, product]);
+  const vid = choices.some((v) => v.id === versionId) ? versionId : (choices[0]?.id ?? "");
 
   const runPreflight = useCallback(async () => {
     setPreBusy(true);
@@ -118,7 +137,7 @@ export default function PayFlow({
         const res = await fetch("/api/intercepta/pay", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ versionId, verifier, mode }),
+          body: JSON.stringify({ versionId: vid, verifier, mode, product }),
         });
         const data = (await res.json()) as { ok: boolean; record?: PaymentRecord; code?: string; detail?: string };
         if (!data.ok || !data.record) {
@@ -134,7 +153,7 @@ export default function PayFlow({
         setBusy(null);
       }
     },
-    [versionId, verifier, runPreflight],
+    [vid, verifier, product, runPreflight],
   );
 
   const r = current;
@@ -180,20 +199,34 @@ export default function PayFlow({
     [5, "Quick Scan: payTo", s5],
     [6, "Authorization", s6],
     [7, "Decision", s7],
-    [8, "Verifier's side", s8],
+    [8, "Seller's side", s8],
     [9, "Stopped payments", s9],
     [10, "Record", records.length ? "pass" : "idle"],
   ];
 
-  const selected = versions.find((v) => v.id === versionId);
+  const selected = versions.find((v) => v.id === vid);
+  const md = product === "markdown";
+  const role = md ? "seller" : "verifier";
   const cards = useMemo(
     () =>
       [
-        { id: "honest" as const, name: "Honest verifier", fee: pre?.verifier?.fee ?? "0.01 USDC", payTo: pre?.verifier?.payTo, note: "A clean wallet. Runs a real petri verify and settles on Sepolia." },
-        { id: "rogue" as const, name: "Rogue verifier", fee: pre?.verifier?.fee ?? "0.01 USDC", payTo: pre?.verifier?.rogue, note: "Its payout wallet is on Intercepta's known-risk list (a sanctioned mainnet address). It never receives funds." },
-        { id: "greedy" as const, name: "Greedy verifier", fee: pre?.verifier?.greedyFee ?? "0.75 USDC", payTo: pre?.verifier?.payTo, note: "Asks more than Petri's per-payment limit." },
+        {
+          id: "honest" as const,
+          name: `Honest ${role}`,
+          fee: (md ? pre?.verifier?.markdownFee : pre?.verifier?.fee) ?? "0.01 USDC",
+          payTo: pre?.verifier?.payTo,
+          note: md ? "A clean wallet. Settles on Sepolia, then sends the file." : "A clean wallet. Runs a real petri verify and settles on Sepolia.",
+        },
+        {
+          id: "rogue" as const,
+          name: `Rogue ${role}`,
+          fee: (md ? pre?.verifier?.markdownFee : pre?.verifier?.fee) ?? "0.01 USDC",
+          payTo: pre?.verifier?.rogue,
+          note: "Its payout wallet is on Intercepta's known-risk list (a sanctioned mainnet address). It never receives funds.",
+        },
+        { id: "greedy" as const, name: `Greedy ${role}`, fee: pre?.verifier?.greedyFee ?? "0.75 USDC", payTo: pre?.verifier?.payTo, note: "Asks more than Petri's per-payment limit." },
       ] satisfies { id: VerifierProfile; name: string; fee: string; payTo?: string; note: string }[],
-    [pre],
+    [pre, md, role],
   );
 
   return (
@@ -249,11 +282,26 @@ export default function PayFlow({
       </Section>
 
       {/* ------------------------------------------------------------ 2 */}
-      <Section n={2} title="The job: pay a verifier to re-run a version" status={r ? OUTCOME[r.outcome].status : "idle"} statusText={r ? OUTCOME[r.outcome].text : "Not run yet"}>
+      <Section n={2} title="The job: what the agent buys" status={r ? OUTCOME[r.outcome].status : "idle"} statusText={r ? OUTCOME[r.outcome].text : "Not run yet"}>
+        <div className={x.cards} role="radiogroup" aria-label="What the agent buys">
+          {PRODUCTS.map((pr) => (
+            <button
+              key={pr.id}
+              type="button"
+              role="radio"
+              aria-checked={product === pr.id}
+              className={`${x.card} ${product === pr.id ? x.cardOn : ""}`}
+              onClick={() => setProduct(pr.id)}
+            >
+              <span className={x.cardName}>{pr.name}</span>
+              <span className="muted">{pr.note}</span>
+            </button>
+          ))}
+        </div>
         <label className={s.select}>
           Version
-          <select value={versionId} onChange={(e) => setVersionId(e.target.value)}>
-            {versions.map((v) => (
+          <select value={vid} onChange={(e) => setVersionId(e.target.value)}>
+            {choices.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.short} · {v.status} · {v.keys} key{v.keys === 1 ? "" : "s"} · {v.label}
               </option>
@@ -261,7 +309,7 @@ export default function PayFlow({
           </select>
         </label>
         {selected ? <p className="muted">{selected.hypothesis}</p> : null}
-        <div className={x.cards} role="radiogroup" aria-label="Verifier">
+        <div className={x.cards} role="radiogroup" aria-label="Seller">
           {cards.map((c) => (
             <button
               key={c.id}
@@ -279,17 +327,17 @@ export default function PayFlow({
           ))}
         </div>
         <div className={s.actions}>
-          <button className="btn btn-primary" onClick={() => pay("screened")} disabled={busy != null || !versionId}>
-            {busy === "screened" ? `Paying… ${Math.round((now - startedAt) / 1000)} s` : "Pay and verify"}
+          <button className="btn btn-primary" onClick={() => pay("screened")} disabled={busy != null || !vid}>
+            {busy === "screened" ? `Paying… ${Math.round((now - startedAt) / 1000)} s` : md ? "Pay and download" : "Pay and verify"}
           </button>
-          <button className="btn" onClick={() => pay("preview")} disabled={busy != null || !versionId}>
+          <button className="btn" onClick={() => pay("preview")} disabled={busy != null || !vid}>
             {busy === "preview" ? "Building…" : "Preview without screening"}
           </button>
         </div>
         <p className="muted">
           <strong>Preview</strong> is the agent before this feature: it takes the 402 and builds the authorization it
-          would sign, with no checks. It never signs. An honest paid run takes about a minute: two Intercepta scans, a
-          real <code>petri verify</code> (~22 s) and a Sepolia transaction.
+          would sign, with no checks. It never signs. An honest paid run makes three Intercepta scans and one Sepolia
+          transaction{md ? "." : <>, plus a real <code>petri verify</code> (~22 s).</>}
         </p>
         {error ? <div className={s.error}>{error}</div> : null}
       </Section>
@@ -413,7 +461,7 @@ export default function PayFlow({
       </Section>
 
       {/* ------------------------------------------------------------ 8 */}
-      <Section n={8} title="The verifier's side: payer screen, petri verify, settlement" status={s8} statusText={{ pass: "Settled", fail: "Refused", info: "", idle: r?.signed ? "" : "Not reached" }[s8]}>
+      <Section n={8} title={`The seller's side: payer screen, settlement, ${(r?.product ?? product) === "markdown" ? "the file" : "petri verify"}`} status={s8} statusText={{ pass: "Settled", fail: "Refused", info: "", idle: r?.signed ? "" : "Not reached" }[s8]}>
         <p>
           The verifier checks the signature with its in-process facilitator, screens the payer with Intercepta in
           x402&apos;s <code>onAfterVerify</code> hook, runs <code>petri verify</code> with its own key, and settles only after
@@ -422,6 +470,17 @@ export default function PayFlow({
         {r?.sent ? (
           <>
             {payerScreen ? <CheckList checks={[payerScreen.check]} /> : null}
+            {r.delivered ? (
+              <>
+                <div className={s.unlocked}>
+                  <strong>Delivered:</strong> <code>{r.delivered.file}</code> ({r.delivered.bytes} bytes){" "}
+                  <button className="btn btn-sm" onClick={() => download(r.delivered!.file, r.delivered!.markdown)}>
+                    Download
+                  </button>
+                </div>
+                <pre className={x.raw}>{r.delivered.markdown}</pre>
+              </>
+            ) : null}
             {r.verifierReply?.verification ? (
               <dl className={s.fields}>
                 <Row k="Report" v={r.verifierReply.verification.report} />
@@ -457,7 +516,7 @@ export default function PayFlow({
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Verifier</th>
+                <th>Seller · product</th>
                 <th>Stopped by</th>
                 <th>Code</th>
                 <th>Signed?</th>
@@ -470,7 +529,7 @@ export default function PayFlow({
                 return (
                   <tr key={p.id} className={p.id === r?.id ? s.chosen : undefined}>
                     <td>
-                      {p.verifier}
+                      {p.verifier} · {(p.product ?? "verification") === "markdown" ? ".md" : "verify"}
                       <div className="muted">{new Date(p.at).toLocaleTimeString()}</div>
                     </td>
                     <td>{p.outcome === "refused" ? "Verifier" : (by?.label ?? "Petri agent")}</td>
@@ -497,7 +556,7 @@ export default function PayFlow({
             <thead>
               <tr>
                 <th>When</th>
-                <th>Verifier</th>
+                <th>Seller · product</th>
                 <th>Version</th>
                 <th>Outcome</th>
                 <th>Intercepta</th>
@@ -509,7 +568,7 @@ export default function PayFlow({
                 <tr key={p.id} className={p.id === r?.id ? s.chosen : undefined} onClick={() => setCurrent(p)} style={{ cursor: "pointer" }}>
                   <td>{new Date(p.at).toLocaleTimeString()}</td>
                   <td>
-                    {p.verifier}
+                    {p.verifier} · {(p.product ?? "verification") === "markdown" ? ".md" : "verify"}
                     {p.mode === "preview" ? <span className="muted"> (preview)</span> : null}
                   </td>
                   <td>
