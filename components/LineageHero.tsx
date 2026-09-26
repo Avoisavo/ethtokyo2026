@@ -4,7 +4,7 @@ import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
 import { changesOf, fmtPct } from "@/lib/metrics";
-import { ensNames } from "@/lib/ens-name";
+import { ensNames } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
 import { ZOOM_STEP, usePanZoom } from "./usePanZoom";
