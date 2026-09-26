@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 
 import { getVerifierConfig } from "@/lib/pay/config";
 import { preflight, runVerify } from "@/lib/pay/petri-verify";
-import { getVerifierServer, nextAdapter, paymentKeyOfHeader, profileOf } from "@/lib/pay/verifier";
+import { sameAddress } from "@/lib/pay/network";
+import { PROFILE_PARAM, getVerifierServer, nextAdapter, offer, paymentKeyOfHeader, profileOf } from "@/lib/pay/verifier";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
   const { versionId } = await ctx.params;
   if (!/^[0-9a-f]{8,64}$/.test(versionId)) return json(400, { ok: false, code: "bad_version_id", detail: "8 to 64 hex characters." });
 
-  const profile = profileOf(req.nextUrl.searchParams.get("verifier"));
+  const profile = profileOf(req.nextUrl.searchParams.get(PROFILE_PARAM.verification));
   const header = req.headers.get("payment-signature") ?? req.headers.get("x-payment") ?? undefined;
 
   // Gate 0: the demo verifiers only ever quote.
@@ -100,6 +101,13 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/verifier/ve
     }
     if (result.type !== "payment-verified") return json(500, { ok: false, code: "route_not_priced" });
     if (nonce) server.usedNonces.add(nonce);
+
+    // Backstop: only a payment to the honest offer, at its price, is ever settled here.
+    const honest = offer(cfg.config, "honest", "verification");
+    if (!sameAddress(result.paymentRequirements.payTo, honest.payTo) || result.paymentRequirements.amount !== honest.amountAtomic.toString()) {
+      await result.cancellationDispatcher.cancel({ reason: "handler_failed", responseStatus: 409 }).catch(() => undefined);
+      return json(409, { ok: false, code: "offer_mismatch", detail: "This payment is not for the honest seller's wallet and price. Not settled." });
+    }
 
     // Gate 4: the paid work, with the verifier's own key. Preflight runs again inside
     // the lock, so a report that could no longer count is never charged for.

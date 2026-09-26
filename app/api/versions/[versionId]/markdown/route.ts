@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 
 import { getVerifierConfig } from "@/lib/pay/config";
 import { versionMarkdown } from "@/lib/pay/markdown-source";
-import { getVerifierServer, nextAdapter, paymentKeyOfHeader, profileOf } from "@/lib/pay/verifier";
+import { sameAddress } from "@/lib/pay/network";
+import { PROFILE_PARAM, getVerifierServer, nextAdapter, offer, paymentKeyOfHeader, profileOf } from "@/lib/pay/verifier";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/versions/[ve
   const { versionId } = await ctx.params;
   if (!/^[0-9a-f]{8,64}$/.test(versionId)) return json(400, { ok: false, code: "bad_version_id", detail: "8 to 64 hex characters." });
 
-  const profile = profileOf(req.nextUrl.searchParams.get("seller"));
+  const profile = profileOf(req.nextUrl.searchParams.get(PROFILE_PARAM.markdown));
   const header = req.headers.get("payment-signature") ?? req.headers.get("x-payment") ?? undefined;
   if (header && profile !== "honest") {
     return json(403, { ok: false, code: "demo_seller_never_accepts_payment", detail: `The ${profile} seller exists to be refused.` });
@@ -69,6 +70,13 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/versions/[ve
     }
     if (result.type !== "payment-verified") return json(500, { ok: false, code: "route_not_priced" });
     if (key) server.usedNonces.add(key);
+
+    // Backstop: only a payment to the honest offer, at its price, is ever settled here.
+    const honest = offer(cfg.config, "honest", "markdown");
+    if (!sameAddress(result.paymentRequirements.payTo, honest.payTo) || result.paymentRequirements.amount !== honest.amountAtomic.toString()) {
+      await result.cancellationDispatcher.cancel({ reason: "handler_failed", responseStatus: 409 }).catch(() => undefined);
+      return json(409, { ok: false, code: "offer_mismatch", detail: "This payment is not for the honest seller's wallet and price. Not settled." });
+    }
 
     let settled;
     try {
