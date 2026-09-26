@@ -98,7 +98,7 @@ export function openCtx(cmd: Command, opts: { banner?: boolean } = {}): Ctx {
     config,
     store,
     benchDir: resolve(g.root, 'bench'),
-    trust: trustLabel(config),
+    trust: trustLabel(),
     identity(): Identity {
       if (identity === null) {
         try {
