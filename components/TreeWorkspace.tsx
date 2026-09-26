@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, wordOf } from "@/lib/format";
 import type { Forest } from "@/lib/layout";
 import type { ExportNode, ExportVerification, HederaTopic } from "@/lib/types";
+import { Compare } from "./Compare";
 import { Glyph } from "./Glyph";
 import { LineageHero } from "./LineageHero";
 import { NodePanel } from "./NodePanel";
@@ -21,13 +22,13 @@ interface Props {
   info: ReactNode;
   /** The Stats view. */
   stats: ReactNode;
-  /** Which view opens first. `?view=stats` sets it. */
+  /** Which view opens first. `?view=stats` or `?view=compare` sets it. */
   initialView?: View;
   /** The Hedera topic that holds a copy of every record. */
   hedera?: HederaTopic | null;
 }
 
-type View = "tree" | "stats";
+type View = "tree" | "stats" | "compare";
 
 /**
  * The version the stage demo accepts live. On every page load it is drawn as it
@@ -255,6 +256,7 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
         <div className="seg" role="group" aria-label="View">
           <button type="button" aria-pressed={view === "tree"} onClick={() => setView("tree")}>Tree</button>
           <button type="button" aria-pressed={view === "stats"} onClick={() => setView("stats")}>Stats</button>
+          <button type="button" aria-pressed={view === "compare"} onClick={() => setView("compare")}>Compare</button>
         </div>
       </div>
 
@@ -279,8 +281,10 @@ export function TreeWorkspace({ nodes: recorded, forest, initial, minVerificatio
             <a href="#record">Full record ↓</a>
           </div>
         </figure>
-      ) : (
+      ) : view === "stats" ? (
         stats
+      ) : (
+        <Compare nodes={nodes} selected={node.id} onSelect={setSelected} benchTotal={benchTotal} />
       )}
 
       <section id="record" className="record">
