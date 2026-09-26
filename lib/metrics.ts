@@ -97,7 +97,7 @@ export const fmtTradeOff = (t: TradeOff): string => `perf ${fmtPct(t.perf)} · t
  * A MOCK trade-off for a change that was never measured, so the tree reads the
  * same everywhere. It is not data: performance is the author's claim on their
  * own direction, and the other two are placeholders from the version id, in
- * the range −15% to +15%. Every place that shows it marks it as an estimate.
+ * the range −15% to +15%. The tree draws it in a dashed box, with "estimate, never measured" on hover, and Stats lists its source.
  */
 export function estimateTradeOff(n: ExportNode, nodes: ExportNode[]): TradeOff {
   const claim = changesOf(n, nodes).local ?? 0;
@@ -110,5 +110,3 @@ export function estimateTradeOff(n: ExportNode, nodes: ExportNode[]): TradeOff {
   };
 }
 
-/** A mocked value: "~+5%". */
-export const fmtEst = (p: number): string => `~${fmtPct(p)}`;

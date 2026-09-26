@@ -1,6 +1,6 @@
 import { claimBp, isBlocked, isRoot, rootRerunBp, signedBp, STATUS_WORD, tasks, tasksOf } from "@/lib/format";
 import { withVersionLabels } from "@/lib/ens/name";
-import { estimateTradeOff, fmtEst, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
 import type { ExportNode, PetriExport } from "@/lib/types";
 
 /** The score a node was measured at by other keys. Falls back to the author claim. */
@@ -155,7 +155,7 @@ export function Stats({ d: given }: { d: PetriExport }) {
                 const measured = tradeOffOf(n, nodes, total);
                 const t = measured ?? estimateTradeOff(n, nodes);
                 const cls = (v: number) => (v > 0.5 ? "up" : v < -0.5 ? "down" : "flat");
-                const cell = (v: number) => <td className={`${cls(v)}${measured ? "" : " est"}`}>{measured ? fmtPct(v) : fmtEst(v)}</td>;
+                const cell = (v: number) => <td className={`${cls(v)}${measured ? "" : " est"}`}>{fmtPct(v)}</td>;
                 return (
                   <tr key={n.id}>
                     <td><code>{n.short}</code></td><td>{STATUS_WORD[n.status]}</td>

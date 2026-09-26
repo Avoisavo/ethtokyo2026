@@ -3,7 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { STATUS_WORD, clip, isBlocked, nodeNumbers, objectiveOf, wordOf } from "@/lib/format";
 import { tidySlots, type Forest } from "@/lib/layout";
-import { changesOf, estimateTradeOff, fmtEst, fmtPct, tradeOffOf } from "@/lib/metrics";
+import { changesOf, estimateTradeOff, fmtPct, tradeOffOf } from "@/lib/metrics";
 import { ensNames, shortLabel } from "@/lib/ens/name";
 import type { ExportNode } from "@/lib/types";
 import { Glyph } from "./Glyph";
@@ -149,14 +149,14 @@ export function LineageHero({ forest, nodes, selected, onSelect, benchTotal, min
             <g key={`o-${n.id}`} className={`objective tradeoff${claimed ? " claimed" : ""}`}>
               <title>{t
                 ? `performance ${fmtPct(t.perf)} · token savings ${fmtPct(t.tokens)} · speed ${fmtPct(t.speed)}, against the parent`
-                : `estimate, never measured: performance ${fmtEst(shown.perf)} · token savings ${fmtEst(shown.tokens)} · speed ${fmtEst(shown.speed)}`}</title>
+                : `estimate, never measured: performance ${fmtPct(shown.perf)} · token savings ${fmtPct(shown.tokens)} · speed ${fmtPct(shown.speed)}`}</title>
               <rect x={x0} y={y0} width={w} height={h} rx={7} />
               {rows.map(([kind, v], i) => {
                 const cy = y0 + 9.5 + i * 13;
                 return (
                   <g key={kind} className={v > 0.5 ? "up" : v < -0.5 ? "down" : "flat"}>
                     <TradeIcon kind={kind} x={x0 + 10} y={cy} />
-                    <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{claimed ? fmtEst(v) : fmtPct(v)}</text>
+                    <text x={x0 + w - 7} y={cy + 3.2} textAnchor="end">{fmtPct(v)}</text>
                   </g>
                 );
               })}
