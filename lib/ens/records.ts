@@ -116,6 +116,63 @@ export function nodeRecords(
   };
 }
 
+/**
+ * The standard `name` key. The ENSv2 explorer lists the keys its indexer saw,
+ * plus 6 standard keys it always reads from the chain. While the indexer is
+ * behind, only those 6 show, so this one carries a one-line summary.
+ */
+export const SUMMARY_KEY = "name";
+
+/** `v2 · accepted · 19/20 · +7000bp · 1141 tokens/task · from v1`. `parent` is the parent's label. */
+export function summaryLine(label: string, r: Record<string, string>, parent?: string): string {
+  return [
+    label,
+    r[RECORD_KEYS.status],
+    r[RECORD_KEYS.score],
+    r[RECORD_KEYS.delta],
+    r[RECORD_KEYS.cost],
+    // The claim without its "what changed" part, which `description` already shows.
+    r["petri.claim"] ? `claim ${r["petri.claim"].split(" · ").slice(0, 3).join(" · ")}` : "",
+    parent ? `from ${parent}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+/**
+ * While the explorer's indexer is stopped, it shows only 6 standard keys. So
+ * `description` carries every record of the name, after the text itself:
+ *
+ *   <the text>
+ *
+ *   — every record —
+ *   petri.status: pending
+ *   …
+ *
+ * `descriptionText` gives the text back. Set FULL_DESCRIPTION to false once
+ * the indexer lists every key again.
+ */
+export const FULL_DESCRIPTION = true;
+const RECORDS_MARK = "\n\n— every record —\n";
+
+export function fullDescription(text: string, records: Record<string, string>): string {
+  if (!FULL_DESCRIPTION) return text;
+  const lines = Object.entries(records)
+    .filter(([k, v]) => k !== RECORD_KEYS.description && k !== SUMMARY_KEY && v !== "" && !k.startsWith("petri.doc."))
+    .map(([k, v]) => `${k}: ${v}`);
+  return lines.length === 0 ? text : `${text}${RECORDS_MARK}${lines.join("\n")}`;
+}
+
+/** The text part of a description, without the records after it. */
+export const descriptionText = (d: string): string => d.split(RECORDS_MARK)[0]!;
+
+/** The records a name holds, with `name` (the summary) and the full `description`. */
+export function withExplorerKeys(records: Record<string, string>, summary: string): Record<string, string> {
+  return {
+    ...records,
+    [SUMMARY_KEY]: summary,
+    [RECORD_KEYS.description]: fullDescription(records[RECORD_KEYS.description] ?? "", records),
+  };
+}
+
 /** One version's name and the records it should hold. */
 export interface PlannedName {
   id: string;
@@ -159,7 +216,7 @@ export function readRecords(texts: Record<string, string | null | undefined>): E
   return {
     id,
     parent: text(texts[RECORD_KEYS.parent]),
-    hypothesis: text(texts[RECORD_KEYS.description]),
+    hypothesis: descriptionText(text(texts[RECORD_KEYS.description])),
     status: status === "baseline" ? "baseline" : (STATUSES as string[]).includes(status) ? (status as NodeStatus) : "pending",
     score: text(texts[RECORD_KEYS.score]),
     delta: text(texts[RECORD_KEYS.delta]),

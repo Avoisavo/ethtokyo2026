@@ -38,7 +38,7 @@ async function main() {
 
   const { TREES, loadTreeEntry } = await import("@/lib/trees");
   const { SEPOLIA_RPC_URL } = await import("@/lib/ens/resolve");
-  const { nodeRecords } = await import("@/lib/ens/records");
+  const { nodeRecords, summaryLine, withExplorerKeys } = await import("@/lib/ens/records");
   const { registerSubname, revokeSubname, setWriteLog, stateOf, writeTexts } = await import("@/lib/market/chain");
   setWriteLog((what, hash) => console.log(`  ${what}: ${explorerTx(hash)}`));
 
@@ -102,7 +102,8 @@ async function main() {
 
     // 5. The version records.
     for (const n of nodes) {
-      await writeTexts(names.get(n.id)!, nodeRecords(n, nodes, tree.data.bench.total, tree.data.policy.minVerifications));
+      const records = nodeRecords(n, nodes, tree.data.bench.total, tree.data.policy.minVerifications);
+      await writeTexts(names.get(n.id)!, withExplorerKeys(records, summaryLine(labels.get(n.id)!, records, labels.get(n.parent))));
     }
     console.log(`  records in place`);
   }
