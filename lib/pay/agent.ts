@@ -26,10 +26,12 @@ import { authorizationProblems, jsonSafe } from "./authorization";
 import type { PayerConfig } from "./config";
 import { SEPOLIA, sameAddress } from "./network";
 import { appendPaymentRecord } from "./record";
-import type { PayMode, PaymentRecord, VerifierProfile, VerifierReply } from "./types";
+import type { PayMode, PaymentRecord, Product, VerifierProfile, VerifierReply } from "./types";
 
 /**
- * The Petri agent paying a verifier over x402, with Intercepta in the payment path.
+ * The Petri agent paying a seller over x402, with Intercepta in the payment path.
+ * It buys a verification run (POST) or a version's markdown file (GET); the
+ * checks are the same for both.
  *
  *   1. POST the verifier. It answers 402 with PAYMENT-REQUIRED: price, token, payTo.
  *   2. Petri's own limits, no network: fee cap, Circle USDC only, authorization lifetime.
@@ -50,6 +52,8 @@ export type PayInput = {
   versionId: string;
   verifier: VerifierProfile;
   mode: PayMode;
+  /** Defaults to a verification run. */
+  product?: Product;
   payer: PayerConfig;
   /** Null when INTERCEPTA_API_KEY is missing: every payment then holds. */
   intercepta: InterceptaConfig | null;
@@ -72,6 +76,7 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
     id: randomUUID(),
     at: t0,
     mode: p.mode,
+    product: p.product ?? "verification",
     versionId: p.versionId,
     verifier: p.verifier,
     url: p.url,
@@ -87,10 +92,11 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
     elapsedMs: 0,
   };
   const checks: Check[] = [];
+  const method = p.product === "markdown" ? "GET" : "POST";
 
   try {
     // 1. Ask for the work. A verifier that can run it answers 402.
-    const r1 = await f(p.url, { method: "POST", headers: { accept: "application/json" }, cache: "no-store" });
+    const r1 = await f(p.url, { method, headers: { accept: "application/json" }, cache: "no-store" });
     const body1 = (await r1.json().catch(() => null)) as Record<string, unknown> | null;
     if (r1.status !== 402) {
       rec.verifierReply = { ok: false, ...(body1 as VerifierReply | null), status: r1.status };
@@ -215,12 +221,17 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
 
     // 6. Pay. The verifier screens the payer, runs the verification, then settles.
     const r2 = await f(p.url, {
-      method: "POST",
+      method,
       headers: { accept: "application/json", ...hc.encodePaymentSignatureHeader(payload) },
       cache: "no-store",
     });
     rec.sent = true;
-    const body2 = (await r2.json().catch(() => null)) as VerifierReply | null;
+    const raw2 = (await r2.json().catch(() => null)) as (VerifierReply & { markdown?: unknown }) | null;
+    // The file goes to `delivered`, once, not into the reply as well.
+    const { markdown, ...body2 } = raw2 ?? {};
+    if (typeof markdown === "string") {
+      rec.delivered = { file: body2.file ?? `petri-${p.versionId.slice(0, 8)}.md`, bytes: Buffer.byteLength(markdown), markdown };
+    }
     rec.verifierReply = { ok: r2.ok, ...body2, status: r2.status };
     // 202 settlement_pending is 2xx too: paid means the verifier itself says ok.
     if (r2.ok && body2?.ok !== false) {
@@ -238,7 +249,7 @@ export async function payForVerification(p: PayInput): Promise<PaymentRecord> {
       rec.outcome = rec.verifierReply.settlement.success ? "paid" : "pending";
     } else {
       rec.outcome = "refused";
-      if (!body2) rec.error = `The verifier failed with HTTP ${r2.status} and settled nothing. The authorization expires unused at its validBefore.`;
+      if (!raw2) rec.error = `The verifier failed with HTTP ${r2.status} and settled nothing. The authorization expires unused at its validBefore.`;
       if (r2.status === 402) {
         try {
           rec.refusedReason = hc.getPaymentRequiredResponse((n) => r2.headers.get(n), body2 ?? undefined).error;
