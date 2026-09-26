@@ -5,8 +5,8 @@ import { PETRI_ROOT } from "@/lib/tree";
 
 export const dynamic = "force-dynamic";
 
-/** Files that change when a version, a verification or a Hedera receipt is written. */
-const WATCHED = ["log.jsonl", "world-checks.jsonl", "anchors.jsonl", "anchor-times.json"];
+/** Files that change when a version or a verification is written. */
+const WATCHED = ["log.jsonl"];
 
 /**
  * A cheap fingerprint of the tree on disk.
