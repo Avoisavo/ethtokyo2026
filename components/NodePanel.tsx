@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OBJECTIVES } from "@/lib/catalog";
 import { isBlocked, wordOf } from "@/lib/format";
-import { ensAppUrl, ensNames } from "@/lib/ens/name";
+import { ensAppUrl, ensNames, shortLabel } from "@/lib/ens/name";
 import { ALL_RECORD_KEYS, RECORD_KEYS, VERDICT_KEYS, nodeRecords, readRecords, type EnsLookup, type RecordKey } from "@/lib/ens/records";
 import { explorerAddress } from "@/app/ens/_lib/ens/contracts";
 import type { ExportNode } from "@/lib/types";
@@ -63,7 +63,7 @@ export function NodePanel({ node, nodes, harness, minVerifications, benchTotal, 
     <aside className="node-panel" aria-live="polite">
       <div className="np-head">
         <svg width="14" height="14" aria-hidden="true"><Glyph status={node.status} cx={7} cy={7} r={5} /></svg>
-        <p className="eyebrow">{wordOf(node)} · {node.short}</p>
+        <p className="eyebrow" title={node.id}>{wordOf(node)} · {shortLabel(name)} · <code>{node.short}</code></p>
       </div>
 
       <section className="ens-profile" aria-label={`ENS records of ${name}`}>

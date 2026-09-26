@@ -1,4 +1,5 @@
 import { claimBp, isBlocked, isRoot, rootRerunBp, signedBp, STATUS_WORD, tasks, tasksOf } from "@/lib/format";
+import { withVersionLabels } from "@/lib/ens/name";
 import { estimateTradeOff, fmtEst, fmtPct, tradeOffOf } from "@/lib/metrics";
 import type { ExportNode, PetriExport } from "@/lib/types";
 
@@ -16,7 +17,9 @@ const RIGHT = 860;
 const T = 46;
 const B = 280;
 
-export function Stats({ d }: { d: PetriExport }) {
+export function Stats({ d: given }: { d: PetriExport }) {
+  // Versions are named by their ENS label (v10), the same as on the tree.
+  const d = { ...given, nodes: withVersionLabels(given.nodes) };
   const total = d.bench.total;
   const nodes = d.nodes;
   const byId = new Map(nodes.map((n) => [n.id, n]));

@@ -80,3 +80,12 @@ export function moveName(name: string, folder: Folder): string {
   const [label, , ...rest] = name.split(".");
   return [label, folder, ...rest].join(".");
 }
+
+/**
+ * The same versions, with `short` replaced by the ENS label (`v10`), for views
+ * that only display it. The real short id stays where a command needs it.
+ */
+export function withVersionLabels<T extends ExportNode>(nodes: T[]): T[] {
+  const labels = versionLabels(nodes);
+  return nodes.map((n) => ({ ...n, short: labels.get(n.id) ?? n.short }));
+}

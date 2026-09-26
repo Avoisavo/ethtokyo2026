@@ -5,6 +5,7 @@ import { compareData, fmtPerf, fmtRating, fmtTokens, fmtWall, lineageOf, treeLin
 import { STATUS_WORD, blockedText, clip, isBlocked } from "@/lib/format";
 import type { ExportNode } from "@/lib/types";
 import { fmtPct, tradeOffOf } from "@/lib/metrics";
+import { withVersionLabels } from "@/lib/ens/name";
 import { Glyph } from "./Glyph";
 
 interface Props {
@@ -258,7 +259,9 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
   );
 }
 
-export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
+export function Compare({ nodes: given, selected, onSelect, benchTotal }: Props) {
+  // Versions are named by their ENS label (v10), the same as on the tree.
+  const nodes = useMemo(() => withVersionLabels(given), [given]);
   const { points, unplotted } = useMemo(() => compareData(nodes, benchTotal), [nodes, benchTotal]);
   const links = useMemo(() => treeLinks(nodes, points), [nodes, points]);
   const lineage = useMemo(() => lineageOf(selected, links, nodes, points), [selected, links, nodes, points]);
