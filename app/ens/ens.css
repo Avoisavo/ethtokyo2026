@@ -41,6 +41,7 @@
   font-size: 1rem;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
   tab-size: 4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -72,7 +73,14 @@
 :where(.ens-app) sup { top: -0.5em; }
 :where(.ens-app) table { text-indent: 0; border-color: inherit; border-collapse: collapse; width: auto; font-size: inherit; }
 :where(.ens-app) :is(th, td) { text-align: inherit; vertical-align: inherit; padding: 0; border-bottom: 0; font-size: inherit; font-weight: inherit; color: inherit; }
-:where(.ens-app) :is(dl, dt, dd, figure, figcaption) { font-size: inherit; font-weight: inherit; color: inherit; }
+:where(.ens-app) :is(dl, dt, dd, figure, figcaption) {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  font-variant-numeric: inherit;
+}
 :where(.ens-app) progress { vertical-align: baseline; }
 :where(.ens-app) summary { display: list-item; }
 :where(.ens-app) :is(ol, ul, menu) { list-style: none; }
@@ -92,7 +100,11 @@
 :where(.ens-app) :where(select:is([multiple], [size])) optgroup { font-weight: bolder; }
 :where(.ens-app) :where(select:is([multiple], [size])) optgroup option { padding-inline-start: 20px; }
 :where(.ens-app) ::file-selector-button { margin-inline-end: 4px; }
-:where(.ens-app) ::placeholder { opacity: 1; color: color-mix(in oklab, currentcolor 50%, transparent); }
+:where(.ens-app) ::placeholder { opacity: 1; }
+/* Only where color-mix() with currentcolor does not crash the page: not iOS Safari 16 (tailwindcss#17194). */
+@supports (not (-webkit-appearance: -apple-pay-button)) or (contain-intrinsic-size: 1px) {
+  :where(.ens-app) ::placeholder { color: color-mix(in oklab, currentcolor 50%, transparent); }
+}
 :where(.ens-app) textarea { resize: vertical; }
 :where(.ens-app) ::-webkit-search-decoration { -webkit-appearance: none; }
 :where(.ens-app) ::-webkit-date-and-time-value { min-height: 1lh; text-align: inherit; }
