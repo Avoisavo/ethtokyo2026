@@ -44,3 +44,6 @@ next-env.d.ts
 
 # local skill cache (a nested git clone, not a submodule)
 .skill-cache/
+
+# The harness market secrets: file keys and counters
+.market/
