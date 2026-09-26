@@ -88,17 +88,58 @@ export async function fastFees(client: { estimateFeesPerGas: () => Promise<{ max
 export let onWrite: (what: string, hash: Hex) => void = () => {};
 export const setWriteLog = (fn: typeof onWrite): void => { onWrite = fn; };
 
-/** Sends one write and waits for it. Throws on a revert. */
-async function send(what: string, tx: { address: Address; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }): Promise<Hex> {
-  const acct = account();
-  const client = publicClient();
-  const wallet = createWalletClient({ account: acct, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
-  const { request } = await client.simulateContract({ ...tx, account: acct } as never);
-  const hash = await wallet.writeContract({ ...(request as object), ...(await fastFees(client)) } as never);
-  const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: 1_000 });
-  if (receipt.status !== "success") throw new Error(`${what} reverted: ${hash}`);
-  onWrite(what, hash);
-  return hash;
+/** One write at a time in this process, so two writes never take the same nonce. */
+let queue: Promise<unknown> = Promise.resolve();
+
+/** A nonce clash: another process (a script, or the web server) sent from the same wallet first. */
+const nonceClash = (e: unknown): boolean =>
+  /replacement transaction underpriced|nonce too low|nonce has already been used|already known/i.test(String((e as Error)?.message ?? e));
+
+/**
+ * Sends one write and waits for it. Throws on a revert. Writes in this process
+ * go one after another. A nonce clash with another process waits a few
+ * seconds and tries again with the next free nonce, up to 5 times.
+ */
+function send(what: string, tx: { address: Address; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }): Promise<Hex> {
+  const run = async (): Promise<Hex> => {
+    const acct = account();
+    const client = publicClient();
+    const wallet = createWalletClient({ account: acct, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const { request } = await client.simulateContract({ ...tx, account: acct } as never);
+        const nonce = await client.getTransactionCount({ address: acct.address, blockTag: "pending" });
+        const hash = await wallet.writeContract({ ...(request as object), nonce, ...(await fastFees(client)) } as never);
+        const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: 1_000 });
+        if (receipt.status !== "success") throw new Error(`${what} reverted: ${hash}`);
+        onWrite(what, hash);
+        return hash;
+      } catch (e) {
+        if (!nonceClash(e) || attempt >= 5) throw e;
+        await new Promise((r) => setTimeout(r, 3_000 * attempt));
+      }
+    }
+  };
+  const next = queue.then(run, run);
+  queue = next.catch(() => {});
+  return next;
+}
+
+/** Sends ETH from the server wallet, for gas. In the same queue as every other write. */
+export function sendEth(to: Address, wei: bigint): Promise<Hex> {
+  const run = async (): Promise<Hex> => {
+    const acct = account();
+    const client = publicClient();
+    const wallet = createWalletClient({ account: acct, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
+    const nonce = await client.getTransactionCount({ address: acct.address, blockTag: "pending" });
+    const hash = await wallet.sendTransaction({ to, value: wei, nonce, ...(await fastFees(client)) } as never);
+    await client.waitForTransactionReceipt({ hash, pollingInterval: 1_000 });
+    onWrite(`send gas to ${to}`, hash);
+    return hash;
+  };
+  const next = queue.then(run, run);
+  queue = next.catch(() => {});
+  return next;
 }
 
 /** About 750 gas per stored byte, so one transaction carries at most this many bytes of values. */
