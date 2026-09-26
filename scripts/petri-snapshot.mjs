@@ -2,7 +2,7 @@
 // Vercel installs only the root package, and petri/.petri/identity.json is never committed,
 // so `petri export` fails there. Run this after the tree changes: npm run petri:snapshot
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -25,8 +25,13 @@ rmSync(tmp, { force: true });
 
 // The export lists the key of the machine that ran it. Drop that row when the key
 // never reported, so the snapshot does not show the builder as a runner.
-const me = JSON.parse(readFileSync(path.join(petriRoot, ".petri", "identity.json"), "utf8")).publicKey;
-data.runners = data.runners.filter((r) => !(r.pub === me && r.reports === 0));
+// The CLI reads the key from PETRI_HOME when it is set, so this does too.
+const home = process.env.PETRI_HOME?.trim();
+const identityFile = home ? path.join(home, "identity.json") : path.join(petriRoot, ".petri", "identity.json");
+if (existsSync(identityFile)) {
+  const me = JSON.parse(readFileSync(identityFile, "utf8")).publicKey;
+  data.runners = data.runners.filter((r) => !(r.pub === me && r.reports === 0));
+}
 
 const digest = petri(["digest"]);
 const start = digest.indexOf("# PETRI DIGEST");
