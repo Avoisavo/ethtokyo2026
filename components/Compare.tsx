@@ -717,7 +717,7 @@ function Triangle({ points, byId, selected, onSelect, links, lineage }: TreeProp
             const isSel = p.n.id === selected;
             const lab = labels.get(p.n.id);
             return (
-              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}`} role="button" tabIndex={0} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}${lineage.has(p.n.id) ? "" : " cmp-off"}`} role="button" tabIndex={0} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)} onKeyDown={(e) => key(e, p.n.id)}
                 onPointerEnter={() => setHover(p.n.id)} onPointerLeave={() => setHover(null)}
@@ -982,7 +982,7 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover, links, line
             const isSel = p.n.id === selected;
             const r = PR * s.f;
             return (
-              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}`} role="button" tabIndex={-1} aria-pressed={isSel}
+              <g key={p.n.id} className={`cmp-dot${p.est ? " cmp-est" : ""}${lineage.has(p.n.id) ? "" : " cmp-off"}`} role="button" tabIndex={-1} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)}
                 onPointerEnter={() => { if (drag.current?.moved !== true) setHover(p.n.id); }}

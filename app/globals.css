@@ -560,3 +560,7 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 
 .cmp-est { opacity: .45; }
 .cmp-est .cmp-ring { opacity: 1; }
+
+/* Points off the selected version's path are greyed out, so the path stands out. */
+.cmp-off { filter: grayscale(1); opacity: .28; }
+.cmp-off:hover { opacity: .7; }
