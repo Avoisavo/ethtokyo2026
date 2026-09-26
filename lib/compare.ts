@@ -10,7 +10,9 @@ export interface ComparePoint {
   tokens: number;
   /** Median wall time of one benchmark run, in ms. Lower is faster. */
   wallMs: number;
-  /** Shares of Performance, Speed and Cost. The three add up to 1. */
+  /** How strong it is on each measure within this tree, FLOOR (weakest) to 1 (best). */
+  rating: { perf: number; speed: number; cost: number };
+  /** The three ratings scaled to add up to 1: where it sits in the trade-off triangle. */
   mix: { perf: number; speed: number; cost: number };
 }
 
@@ -40,7 +42,7 @@ function rootRerunRuns(root: ExportNode, nodes: ExportNode[]): RunRecord[] {
   return [];
 }
 
-function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTotal: number): Omit<ComparePoint, "n" | "mix"> | null {
+function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTotal: number): Omit<ComparePoint, "n" | "rating" | "mix"> | null {
   if (isBlocked(n)) return null;
   const root = isRoot(n, ids);
   const perfBp = root
@@ -61,42 +63,41 @@ function measure(n: ExportNode, nodes: ExportNode[], ids: Set<string>, benchTota
   return { perfBp, tokens, wallMs };
 }
 
-/** The weakest version still pulls a little, so dots sit just inside the edges rather than on them. */
-const FLOOR = 0.05;
+/** The weakest version still shows a little, so its radar shape never collapses to a point. */
+const FLOOR = 0.1;
 
 /**
- * Each value as a strength across this tree: the best version scores 1, the worst
+ * Each value as a rating across this tree: the best version scores 1, the worst
  * FLOOR, the rest in between by their value. Small differences are stretched too,
- * so the dots spread across the triangle; the real numbers stay in the tooltip.
+ * so versions look clearly different; the real numbers are always shown beside.
  */
-function strengths(values: number[], higherIsBetter: boolean): number[] {
+function ratings(values: number[], higherIsBetter: boolean): number[] {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const best = higherIsBetter ? hi : lo;
   return values.map((v) => FLOOR + (1 - FLOOR) * (hi === lo ? 1 : 1 - Math.abs(best - v) / (hi - lo)));
 }
 
-/**
- * Every measured version with its three numbers, and its mix for the triangle.
- *
- * The triangle needs three shares. Each measure becomes a strength across this tree
- * (see strengths), and the three strengths are scaled to add up to 1.
- */
+/** Every measured version with its three numbers, its rating on each within this tree, and its mix. */
 export function compareData(nodes: ExportNode[], benchTotal: number): CompareData {
   const ids = new Set(nodes.map((n) => n.id));
-  const measured: Omit<ComparePoint, "mix">[] = [];
+  const measured: Omit<ComparePoint, "rating" | "mix">[] = [];
   const unplotted: ExportNode[] = [];
   for (const n of nodes) {
     const m = measure(n, nodes, ids, benchTotal);
     if (m === null) unplotted.push(n);
     else measured.push({ n, ...m });
   }
-  const perf = strengths(measured.map((p) => p.perfBp), true);
-  const speed = strengths(measured.map((p) => p.wallMs), false);
-  const cost = strengths(measured.map((p) => p.tokens), false);
+  const perf = ratings(measured.map((p) => p.perfBp), true);
+  const speed = ratings(measured.map((p) => p.wallMs), false);
+  const cost = ratings(measured.map((p) => p.tokens), false);
   const points = measured.map((p, i) => {
     const sum = perf[i]! + speed[i]! + cost[i]!;
-    return { ...p, mix: { perf: perf[i]! / sum, speed: speed[i]! / sum, cost: cost[i]! / sum } };
+    return {
+      ...p,
+      rating: { perf: perf[i]!, speed: speed[i]!, cost: cost[i]! },
+      mix: { perf: perf[i]! / sum, speed: speed[i]! / sum, cost: cost[i]! / sum },
+    };
   });
   return { points, unplotted };
 }
@@ -140,4 +141,5 @@ export function lineageOf(id: string, links: Link[], nodes: ExportNode[], points
 export const fmtPerf = (bp: number): string => `${Math.round(bp / 100)}%`;
 export const fmtTokens = (t: number): string => `${Math.round(t).toLocaleString("en-US")} tokens/task`;
 export const fmtWall = (ms: number): string => (ms >= 10000 ? `${(ms / 1000).toFixed(1)} s` : `${(ms / 1000).toFixed(2)} s`);
-export const fmtShare = (s: number): string => `${Math.round(s * 100)}%`;
+/** A rating as the 0 to 100 number shown on the radar. */
+export const fmtRating = (r: number): string => `${Math.round(r * 100)}`;
