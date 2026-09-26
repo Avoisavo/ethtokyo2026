@@ -170,24 +170,56 @@ are three folders. A version lives in the folder that matches its status, and th
 it when the status changes.
 
 ```
-petri.eth
+petri.eth                                                     the platform · owner 0xF112…0c06
 │
-├─ coding.petri.eth
-│  └─ petri-harness-v1.coding.petri.eth
-│     └─ claude-sonnet-5.petri-harness-v1.coding.petri.eth         the tree
-│        │   petri.v1 … petri.v18 = the version ids
+├─ coding.petri.eth                                           the domain
+│  └─ petri-harness-v1.coding.petri.eth                       the harness
+│     └─ claude-sonnet-5.petri-harness-v1.coding.petri.eth    the tree · petri.v1 … petri.v18 = version ids
 │        │
-│        ├─ accepted.…    v1 (baseline)  v2  v8  v13  v15
-│        ├─ rejected.…    v3  v14
-│        └─ pending.…     v4  v5  v6  v7  v9  v10  v11  v12  v16  v17  v18
+│        ├─ accepted.…                                        the versions that passed, and the baseline
+│        │  ├─ v1.accepted.…                                  baseline · 5/20
+│        │  ├─ v2.accepted.…                                  19/20 · +7000bp · 2 verifiers · 1141 tokens/task
+│        │  │  ├─ buyer1.v2.accepted.…                        owned by the buyer · sealed file key · 30 days
+│        │  │  └─ buyer2.v2.accepted.…                        a second purchase · its own 30 days
+│        │  ├─ v8.accepted.…
+│        │  ├─ v13.accepted.…
+│        │  └─ v15.accepted.…
+│        │
+│        ├─ rejected.…                                        the versions that failed, kept forever
+│        │  ├─ v3.rejected.…                                  5/20 · −7000bp
+│        │  └─ v14.rejected.…
+│        │
+│        └─ pending.…                                         the versions still waiting
+│           ├─ v4 … v7, v9 … v12, v16, v17                    one name each
+│           └─ v18.pending.…                                  1 of 2 keys · encrypted files after a submit
+│              └─ round.v18.pending.…                         only while checked · open 5 minutes · pool · seed
+│                 ├─ verifier1.round.v18.pending.…            owned by the verifier · sealed key · petri.vote · 10 minutes
+│                 └─ verifier2.round.v18.pending.…
 │
 └─ research.petri.eth
    └─ hermes-agent.research.petri.eth
-      └─ claude-sonnet-5.hermes-agent.research.petri.eth           the tree (example data)
+      └─ claude-sonnet-5.hermes-agent.research.petri.eth       the tree (example data)
          ├─ accepted.…    v1 (baseline)  v2  v3  v5  v8  v10
          ├─ rejected.…    v4  v6  v7  v11  v13
          └─ pending.…     v9  v12
 ```
+
+Each level is a real ENSv2 subname, in a `UserRegistry` of its own. The registry of a name holds its
+children, so the chain of registries is the same as the chain of names:
+
+```
+ETHRegistry ──▶ petri.eth registry ──▶ coding registry ──▶ petri-harness-v1 registry ──▶ tree registry
+                                                                                           │
+                                          accepted / rejected / pending registries ◀───────┘
+                                                        │
+                            version registry (v2, v18 …) ──▶ round registry ──▶ the verifiers
+                                                        └──▶ the buyers
+```
+
+One resolver, `0x599F…17eC`, holds the records of every name. When a version's status changes, the
+platform burns its name in the old folder and registers it in the new one with the same records:
+`v18.pending.…` becomes `v18.accepted.…` or `v18.rejected.…`, and its round and verifiers go with the
+old name.
 
 `v<n>` counts versions in log order, so a number never changes. The tree name holds
 `petri.v<n>` = the version id, so anyone can look a number up. The baseline `v1` sits in
