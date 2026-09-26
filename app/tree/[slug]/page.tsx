@@ -75,7 +75,7 @@ export default async function TreePage({ params, searchParams }: {
                 minDeltaBp={d.policy.minDeltaBp}
                 benchTotal={d.bench.total}
                 hedera={d.hedera ?? null}
-                initialView={view === "stats" ? "stats" : "tree"}
+                initialView={view === "stats" || view === "compare" ? view : "tree"}
                 stats={<Stats d={d} />}
                 info={<Panels panels={buildPanels(d, load.digest)} />}
               />
