@@ -1,4 +1,4 @@
-// lib/agentbook.ts — server/CLI-side. Register an agent's EVM address in World AgentBook via the
+// lib/agentbook/agentbook.ts — server/CLI-side. Register an agent's EVM address in World AgentBook via the
 // @worldcoin/agentkit-cli; return the verification link (render it as a QR), then poll until registered.
 import { spawn } from "child_process";
 import { checkAgentHuman } from "./world-agentkit";
