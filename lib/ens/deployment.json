@@ -1,0 +1,12 @@
+{
+  "chainId": 11155111,
+  "owner": "0xF1122BbDb1970aF6eb04a5B43e3864193f050c06",
+  "resolver": "0x599F57D68C77911060B0A64118C5ac9781f117eC",
+  "registry": "0x484fa8c8F4D8aFB5aA45d46c60F90284FD0e729A",
+  "tree": {
+    "name": "petriharnessv1-claudesonnet5-coding.petri.eth",
+    "label": "petriharnessv1-claudesonnet5-coding",
+    "registry": "0x9355cDa50f60F40acE6068B5f0181284efB227D6"
+  },
+  "setupAt": "2026-09-26T16:27:16.654Z"
+}

@@ -6,7 +6,7 @@ import { type Hex, decodeFunctionData, encodeErrorResult, encodeFunctionResult }
 import { UniversalResolverV2Abi } from "../../app/ens/_lib/ens/abis/UniversalResolverV2";
 import { dnsEncode } from "../../app/ens/_lib/ens/names";
 import { resolverProfileAbi } from "../../app/ens/_lib/ens/universal-resolver-v2";
-import { ENS_SUFFIX, ensNames } from "./name";
+import { ENS_SUFFIX, TREE_NAME, ensNames } from "./name";
 import {
   ALL_RECORD_KEYS, RECORD_KEYS, changedKeys, displayScore, nodeRecords, parseChecks, readRecords, treePlan,
 } from "./records";
@@ -151,14 +151,14 @@ test("treePlan names every version once, the same names the page shows", () => {
   }
   const seqs = plan.names.map((p) => data.nodes.find((n) => n.id === p.id)!.seq);
   assert.deepEqual(seqs, [...seqs].sort((a, b) => a - b), "in proposal order");
-  assert.equal(plan.names[0].name, `petriharnessv1.${ENS_SUFFIX}`);
+  assert.equal(plan.names[0].name, `v1.${TREE_NAME}`);
 });
 
 test("parseNamesParam accepts names under petri.eth only", () => {
   assert.deepEqual(parseNamesParam("petri.eth"), { ok: true, names: ["petri.eth"] });
   assert.deepEqual(
-    parseNamesParam(" addsigs.petriharnessv1.petri.eth, petriharnessv1.petri.eth,,ADDSIGS.petriharnessv1.petri.eth "),
-    { ok: true, names: ["addsigs.petriharnessv1.petri.eth", "petriharnessv1.petri.eth"] },
+    parseNamesParam(" v2.petriharnessv1-claudesonnet5-coding.petri.eth, v1.petriharnessv1-claudesonnet5-coding.petri.eth,,V2.petriharnessv1-claudesonnet5-coding.petri.eth "),
+    { ok: true, names: ["v2.petriharnessv1-claudesonnet5-coding.petri.eth", "v1.petriharnessv1-claudesonnet5-coding.petri.eth"] },
   );
   const max = Array.from({ length: 64 }, (_, i) => `v${i}.petri.eth`).join(",");
   assert.equal(parseNamesParam(max).ok, true);
@@ -212,7 +212,7 @@ function fakeUr(answer: (dnsName: Hex, call: Hex) => Hex) {
 }
 
 test("resolveRecords: no resolver on the path reads as unpublished, not as an error", async () => {
-  const name = "addsigs.petriharnessv1.petri.eth";
+  const name = "v2.petriharnessv1-claudesonnet5-coding.petri.eth";
   const ur = fakeUr((dns) => {
     throw reverted(encodeErrorResult({ abi: UniversalResolverV2Abi, errorName: "ResolverNotFound", args: [dns] }));
   });
