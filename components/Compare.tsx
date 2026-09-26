@@ -306,7 +306,6 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
         <div className="plate compare-plate">
           <Radar byId={byId} nodes={nodes} selected={selected} onSelect={onSelect} />
           <Axes3D {...shared} links={links} lineage={lineage} />
-          <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
         </div>
         <div className="legend">
           <span><svg width="14" height="14" aria-hidden="true"><Glyph status="accepted" cx={7} cy={7} r={5} /></svg>Accepted</span>
@@ -326,8 +325,8 @@ export function Compare({ nodes, selected, onSelect, benchTotal }: Props) {
           Performance is the benchmark score, re-run by other keys where it was. Cost is the median tokens per task. Speed is the median time of one benchmark run.
           Both charts stretch each measure across this tree, from the weakest version to the best, so even small differences show.
           On the radar, the tip of each spoke is the best version in this tree (100) and the weakest sits near the centre (10); the real value is printed under each rating.
-          The 3D axes, the tooltips and the table show real values. In the 3D plot and the triangle, arrows join each version to its parent.
-          In the triangle, a dot sits closer to the corners where its version is strongest: its three ratings, scaled to add up to 100%.
+          The 3D axes, the tooltips and the table show real values. In the 3D plot, arrows join each version to its parent.
+          The trade-off triangle is on the Tree tab, beside the tree.
           {unplotted.length > 0 && ` ${unplotted.length} ${unplotted.length === 1 ? "version was" : "versions were"} never measured and ${unplotted.length === 1 ? "is" : "are"} not plotted.`}
         </figcaption>
         <details className="table-view">
@@ -565,6 +564,32 @@ function Radar({ byId, nodes, selected, onSelect }: { byId: Map<string, CompareP
         {p && parent && <span>▲ better than its parent · ▼ worse</span>}
       </div>
     </div>
+  );
+}
+
+/**
+ * The trade-off triangle on its own, for the Tree tab. It follows the version
+ * selected in the tree, and picking a dot selects that version there.
+ */
+export function TradeOffTriangle({ nodes, selected, onSelect, benchTotal }: Props) {
+  const { points } = useMemo(() => compareData(nodes, benchTotal), [nodes, benchTotal]);
+  const links = useMemo(() => treeLinks(nodes, points), [nodes, points]);
+  const lineage = useMemo(() => lineageOf(selected, links, nodes, points), [selected, links, nodes, points]);
+  const byId = useMemo(() => new Map(points.map((p) => [p.n.id, p])), [points]);
+
+  if (points.length === 0) {
+    return <p className="muted tri-empty">No version has a score, a token count and a time yet.</p>;
+  }
+  const sel = byId.get(selected);
+  return (
+    <>
+      <Triangle points={points} byId={byId} selected={selected} onSelect={onSelect} links={links} lineage={lineage} />
+      <p className="tri-selected">
+        {sel
+          ? <>{sel.n.short}: {fmtPerf(sel.perfBp)} · {fmtTokens(sel.tokens)} · {fmtWall(sel.wallMs)}</>
+          : "The selected version was never measured, so it is not in the triangle."}
+      </p>
+    </>
   );
 }
 
