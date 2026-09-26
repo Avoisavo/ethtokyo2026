@@ -186,14 +186,18 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
         <button type="button" className="ghost" disabled={!!step || low || !isConnected || chainId !== CHAIN_ID} onClick={() => void buy()}>Buy again · 1 USDC</button>
         {flow}
         {error && <p className="err">{error}</p>}
-        <div className="buy-files">
-          {Object.entries(owned.files).map(([f, text]) => (
-            <details key={f}>
-              <summary>{f}</summary>
-              <pre>{text}</pre>
-            </details>
-          ))}
-        </div>
+        {/* The files stay folded under one line, and out of the way while a buy runs. */}
+        {stage === null || stage >= 5 ? (
+          <details className="buy-files">
+            <summary>Show the {Object.keys(owned.files).length} files</summary>
+            {Object.entries(owned.files).map(([f, text]) => (
+              <details key={f}>
+                <summary>{f}</summary>
+                <pre>{text}</pre>
+              </details>
+            ))}
+          </details>
+        ) : null}
       </section>
     );
   }
