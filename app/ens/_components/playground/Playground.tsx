@@ -10,6 +10,7 @@ import { AccessControlCard } from "./AccessControlCard";
 import { LookupCard } from "./LookupCard";
 import { ManageNameCard } from "./ManageNameCard";
 import { PrimaryNameCard } from "./PrimaryNameCard";
+import { PublishTreeCard } from "./PublishTreeCard";
 import { RegisterCard } from "./RegisterCard";
 import { SetupCard } from "./SetupCard";
 import { SubnamesCard } from "./SubnamesCard";
@@ -38,6 +39,7 @@ export function Playground() {
       <AccessControlCard name={name} />
       <PrimaryNameCard name={name} />
       <LookupCard />
+      <PublishTreeCard onSelect={setNameInput} />
     </div>
   );
 }
