@@ -112,10 +112,16 @@ export function BuyPanel({ id, name, onOwned }: { id: string; name: string; onOw
       const signature = await sign({ message: accessMessage(key.publicKey) });
 
       setStage(1);
-      const hash = await write({ address: USDC, abi: erc20Abi, functionName: "transfer", args: [PLATFORM, PRICE], chainId: CHAIN_ID });
+      // A high tip, so the payment lands in the next block.
+      const est = await client.estimateFeesPerGas();
+      const tip = est.maxPriorityFeePerGas * 3n > 3_000_000_000n ? est.maxPriorityFeePerGas * 3n : 3_000_000_000n;
+      const hash = await write({
+        address: USDC, abi: erc20Abi, functionName: "transfer", args: [PLATFORM, PRICE], chainId: CHAIN_ID,
+        maxPriorityFeePerGas: tip, maxFeePerGas: est.maxFeePerGas * 2n + tip,
+      });
       setPayTx(hash);
       setStage(2);
-      await client.waitForTransactionReceipt({ hash });
+      await client.waitForTransactionReceipt({ hash, pollingInterval: 1_000 });
 
       setStage(3);
       const res = await fetch("/api/market/buy", {

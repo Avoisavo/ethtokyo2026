@@ -72,6 +72,18 @@ function account() {
 
 const publicClient = () => createPublicClient({ chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
 
+/**
+ * Fees that get a transaction into the next block: the network's estimate, with
+ * the tip raised to at least 3 gwei and the cap at twice the base fee plus the
+ * tip. On Sepolia this costs a fraction of a cent more and saves several blocks.
+ */
+export async function fastFees(client: { estimateFeesPerGas: () => Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> }) {
+  const est = await client.estimateFeesPerGas();
+  const tip = est.maxPriorityFeePerGas * 3n > 3_000_000_000n ? est.maxPriorityFeePerGas * 3n : 3_000_000_000n;
+  const cap = est.maxFeePerGas * 2n + tip;
+  return { maxPriorityFeePerGas: tip, maxFeePerGas: cap };
+}
+
 /** Called after every write, with what happened. The scripts print it. */
 export let onWrite: (what: string, hash: Hex) => void = () => {};
 export const setWriteLog = (fn: typeof onWrite): void => { onWrite = fn; };
@@ -82,8 +94,8 @@ async function send(what: string, tx: { address: Address; abi: readonly unknown[
   const client = publicClient();
   const wallet = createWalletClient({ account: acct, chain: sepolia, transport: http(SEPOLIA_RPC_URL) });
   const { request } = await client.simulateContract({ ...tx, account: acct } as never);
-  const hash = await wallet.writeContract(request as never);
-  const receipt = await client.waitForTransactionReceipt({ hash });
+  const hash = await wallet.writeContract({ ...(request as object), ...(await fastFees(client)) } as never);
+  const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: 1_000 });
   if (receipt.status !== "success") throw new Error(`${what} reverted: ${hash}`);
   onWrite(what, hash);
   return hash;
