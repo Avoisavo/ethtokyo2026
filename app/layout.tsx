@@ -20,6 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="brand"><span className="brand-mark" aria-hidden="true" />Petri</Link>
             <nav className="topnav" aria-label="Main">
               <Link href="/">Trees</Link>
+              <Link href="/world">World ID</Link>
               <a href="https://github.com/Avoisavo/ethonline2026/tree/petri">GitHub</a>
             </nav>
           </div>
