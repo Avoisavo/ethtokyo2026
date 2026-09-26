@@ -50,6 +50,7 @@ const PCY = 206;
 const SCALE = 96;
 const CAM = 7;
 const PR = 6;
+const PGAP = 4;
 
 interface View { yaw: number; pitch: number }
 const HOME: View = { yaw: -0.62, pitch: 0.38 };
@@ -113,6 +114,112 @@ function neighbours(at: Map<string, Pt>, id: string, within: number): string[] {
   return out;
 }
 
+interface Spot { id: string; at: Pt; r: number }
+/** Where a dot is drawn, and the way it was fanned out, if it was. */
+interface Placed { at: Pt; dir: Pt | null }
+
+/**
+ * Pull dots apart so none hides another. Dots within `same` of each other share a
+ * spot: they spread on a small ring around it, in the order given. Then any dots still
+ * touching push each other apart until `gap` separates them, each only as far as needed.
+ */
+function separate(spots: Spot[], gap: number, same: number): Map<string, Placed> {
+  const pos: Pt[] = spots.map((s) => [...s.at]);
+  const dir: (Pt | null)[] = spots.map(() => null);
+  const apart = (i: number, j: number) => spots[i]!.r + spots[j]!.r + gap;
+
+  // Each group is measured from its first dot, so close neighbours never chain into one ring.
+  const groups: number[][] = [];
+  spots.forEach((s, i) => {
+    const g = groups.find((x) => Math.hypot(spots[x[0]!]!.at[0] - s.at[0], spots[x[0]!]!.at[1] - s.at[1]) <= same);
+    if (g) g.push(i);
+    else groups.push([i]);
+  });
+  for (const ids of groups) {
+    if (ids.length < 2) continue;
+    const cx = ids.reduce((t, i) => t + spots[i]!.at[0], 0) / ids.length;
+    const cy = ids.reduce((t, i) => t + spots[i]!.at[1], 0) / ids.length;
+    const step = Math.max(...ids.map((i) => spots[i]!.r)) * 2 + gap;
+    const ring = step / (2 * Math.sin(PI / ids.length));
+    ids.forEach((i, k) => {
+      const a = -PI / 2 + (2 * PI * k) / ids.length;
+      dir[i] = [Math.cos(a), Math.sin(a)];
+      pos[i] = [cx + ring * Math.cos(a), cy + ring * Math.sin(a)];
+    });
+  }
+
+  for (let round = 0; round < 60; round++) {
+    let moved = false;
+    for (let i = 0; i < spots.length; i++) {
+      for (let j = i + 1; j < spots.length; j++) {
+        const dx = pos[j]![0] - pos[i]![0];
+        const dy = pos[j]![1] - pos[i]![1];
+        const d = Math.hypot(dx, dy);
+        const need = apart(i, j);
+        if (d >= need) continue;
+        // Exactly on top of each other: a fixed direction, so every frame agrees.
+        const a = i * 2.39996 + j * 0.7;
+        const [ux, uy] = d < 1e-6 ? [Math.cos(a), Math.sin(a)] : [dx / d, dy / d];
+        const push = (need - d) / 2 + 0.01;
+        pos[i] = [pos[i]![0] - ux * push, pos[i]![1] - uy * push];
+        pos[j] = [pos[j]![0] + ux * push, pos[j]![1] + uy * push];
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return new Map(spots.map((s, i) => [s.id, { at: pos[i]!, dir: dir[i] ?? null }]));
+}
+
+interface LabelWant { id: string; at: Pt; r: number; text: string; dir: Pt | null; size: number; must: boolean }
+interface Rect { x: number; y: number; w: number; h: number }
+
+/**
+ * Put each label beside its dot where it covers no other dot or label. A fanned dot
+ * tries the side it was fanned to first. A label with no free side is left out; its
+ * dot still names itself on hover. `must` labels (the selected one) always show.
+ */
+function placeLabels(wants: LabelWant[], dots: Spot[], w: number, h: number): Map<string, { x: number; y: number }> {
+  const taken: Rect[] = [];
+  const out = new Map<string, { x: number; y: number }>();
+  const hits = (a: Rect, b: Rect) => a.x < b.x + b.w + 2 && b.x < a.x + a.w + 2 && a.y < b.y + b.h + 1 && b.y < a.y + a.h + 1;
+  const covers = (a: Rect, c: Spot) => {
+    const nx = clamp(c.at[0], a.x, a.x + a.w);
+    const ny = clamp(c.at[1], a.y, a.y + a.h);
+    return Math.hypot(c.at[0] - nx, c.at[1] - ny) < c.r + 1.5;
+  };
+  for (const l of [...wants].sort((a, b) => Number(b.must) - Number(a.must))) {
+    const tw = l.text.length * l.size * 0.6;
+    const th = l.size;
+    const [x, y] = l.at;
+    const pad = l.r + 3;
+    const d = pad * 0.72;
+    const sides: { rect: Rect; toward: Pt }[] = [
+      { rect: { x: x + pad, y: y - th / 2, w: tw, h: th }, toward: [1, 0] },
+      { rect: { x: x - pad - tw, y: y - th / 2, w: tw, h: th }, toward: [-1, 0] },
+      { rect: { x: x - tw / 2, y: y - pad - th, w: tw, h: th }, toward: [0, -1] },
+      { rect: { x: x - tw / 2, y: y + pad, w: tw, h: th }, toward: [0, 1] },
+      { rect: { x: x + d, y: y - d - th, w: tw, h: th }, toward: [0.7, -0.7] },
+      { rect: { x: x + d, y: y + d, w: tw, h: th }, toward: [0.7, 0.7] },
+      { rect: { x: x - d - tw, y: y - d - th, w: tw, h: th }, toward: [-0.7, -0.7] },
+      { rect: { x: x - d - tw, y: y + d, w: tw, h: th }, toward: [-0.7, 0.7] },
+    ];
+    if (l.dir) {
+      const [ux, uy] = l.dir;
+      sides.sort((a, b) => (b.toward[0] * ux + b.toward[1] * uy) - (a.toward[0] * ux + a.toward[1] * uy));
+    }
+    const free = sides.find(({ rect }) =>
+      rect.x >= 2 && rect.y >= 2 && rect.x + rect.w <= w - 2 && rect.y + rect.h <= h - 2
+      && !taken.some((t) => hits(rect, t))
+      && !dots.some((c) => c.id !== l.id && covers(rect, c)));
+    const pick = free ?? (l.must ? sides[0] : undefined);
+    if (!pick) continue;
+    taken.push(pick.rect);
+    out.set(l.id, { x: pick.rect.x, y: pick.rect.y + th * 0.8 });
+  }
+  return out;
+}
+
 function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: number; w: number; h: number; also: string[]; byId: Map<string, ComparePoint> }) {
   return (
     <div className={`cmp-tip${y < h * 0.3 ? " below" : ""}`} role="presentation"
@@ -122,7 +229,7 @@ function Tip({ p, x, y, w, h, also, byId }: { p: ComparePoint; x: number; y: num
       <span className="cmp-tip-nums">{fmtPerf(p.perfBp)} · {fmtTokens(p.tokens)} · {fmtWall(p.wallMs)}</span>
       <span className="cmp-tip-mix">Mix {fmtShare(p.mix.perf)} performance · {fmtShare(p.mix.speed)} speed · {fmtShare(p.mix.cost)} cost</span>
       {also.length > 0 && (
-        <span className="cmp-tip-also">Same spot: {also.slice(0, 5).map((id) => byId.get(id)?.n.short ?? id).join(", ")}{also.length > 5 ? ` +${also.length - 5}` : ""}</span>
+        <span className="cmp-tip-also">Shares its spot with {also.slice(0, 5).map((id) => byId.get(id)?.n.short ?? id).join(", ")}{also.length > 5 ? ` +${also.length - 5}` : ""}</span>
       )}
     </div>
   );
@@ -230,17 +337,20 @@ interface ChartProps {
   setHover: (h: Hover) => void;
 }
 
+const TGAP = 6;
+
 function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartProps) {
   const at = new Map<string, Pt>(points.map((p) => [p.n.id, tri(p.mix.perf, p.mix.speed, p.mix.cost)]));
-
-  // Versions with the same numbers land on the same spot. Count each stack once.
-  const stacks: { at: Pt; ids: string[] }[] = [];
-  for (const p of points) {
-    const q = at.get(p.n.id)!;
-    const s = stacks.find((x) => Math.hypot(x.at[0] - q[0], x.at[1] - q[1]) <= 4);
-    if (s) s.ids.push(p.n.id);
-    else stacks.push({ at: q, ids: [p.n.id] });
-  }
+  // Versions with near-equal numbers share a spot. They fan out around it, accepted
+  // first at the top, then the fastest, so each one can be seen and picked.
+  const fanOrder = [...points].sort((a, b) => rankOf(b) - rankOf(a) || a.wallMs - b.wallMs);
+  const drawn = separate(fanOrder.map((p) => ({ id: p.n.id, at: at.get(p.n.id)!, r: TR })), TGAP, 5);
+  const dots: Spot[] = points.map((p) => ({ id: p.n.id, at: drawn.get(p.n.id)!.at, r: TR }));
+  const labels = placeLabels(fanOrder.map((p) => {
+    const isSel = p.n.id === selected;
+    const d = drawn.get(p.n.id)!;
+    return { id: p.n.id, at: d.at, r: isSel ? TR + 4 : TR, text: p.n.short, dir: d.dir, size: isSel ? 11 : 10, must: isSel };
+  }), dots, TW, TH);
 
   const grid: ReactNode[] = [];
   for (const k of [0.2, 0.4, 0.6, 0.8]) {
@@ -254,7 +364,6 @@ function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartPr
   const mid = tri(1 / 3, 1 / 3, 1 / 3);
   const order = [...points].sort((a, b) => Number(a.n.id === selected) - Number(b.n.id === selected) || rankOf(a) - rankOf(b));
   const hp = hover?.from === "tri" ? byId.get(hover.id) : undefined;
-  const sel = at.get(selected);
 
   const key = (e: KeyboardEvent, id: string) => {
     if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(id); }
@@ -279,34 +388,43 @@ function Triangle({ points, byId, selected, onSelect, hover, setHover }: ChartPr
           <text className="cmp-corner" x={RIGHT[0]} y={RIGHT[1] + 24} textAnchor="middle">Cost</text>
           <text className="cmp-corner-sub" x={RIGHT[0]} y={RIGHT[1] + 39} textAnchor="middle">fewer tokens</text>
 
+          {/* A thin line from where a moved dot really sits to where it is drawn. */}
+          <g aria-hidden="true">
+            {points.map((p) => {
+              const [tx, ty] = at.get(p.n.id)!;
+              const [x, y] = drawn.get(p.n.id)!.at;
+              if (Math.hypot(x - tx, y - ty) < 1.5) return null;
+              return <line key={`s-${p.n.id}`} className="cmp-spoke" x1={tx} y1={ty} x2={x} y2={y} />;
+            })}
+            {points.map((p) => {
+              const [tx, ty] = at.get(p.n.id)!;
+              const [x, y] = drawn.get(p.n.id)!.at;
+              return Math.hypot(x - tx, y - ty) < 1.5 ? null : <circle key={`a-${p.n.id}`} className="cmp-anchor" cx={tx} cy={ty} r={2} />;
+            })}
+          </g>
+
           {order.map((p) => {
-            const [x, y] = at.get(p.n.id)!;
+            const d = drawn.get(p.n.id)!;
+            const [x, y] = d.at;
             const isSel = p.n.id === selected;
+            const lab = labels.get(p.n.id);
             return (
               <g key={p.n.id} className="cmp-dot" role="button" tabIndex={0} aria-pressed={isSel}
                 aria-label={`${STATUS_WORD[p.n.status]} ${p.n.short}: ${fmtPerf(p.perfBp)}, ${fmtTokens(p.tokens)}, ${fmtWall(p.wallMs)}`}
                 onClick={() => onSelect(p.n.id)} onKeyDown={(e) => key(e, p.n.id)}
                 onPointerEnter={() => setHover({ id: p.n.id, from: "tri" })} onPointerLeave={() => setHover(null)}
                 onFocus={() => setHover({ id: p.n.id, from: "tri" })} onBlur={() => setHover(null)}>
-                <circle className="cmp-hit" cx={x} cy={y} r={TR + 5} />
-                {hover?.id === p.n.id && !isSel && <circle className="cmp-ring cmp-ring-hover" cx={x} cy={y} r={TR + 4} />}
+                <circle className="cmp-hit" cx={x} cy={y} r={TR + TGAP / 2} />
+                {(isSel || hover?.id === p.n.id) && <circle className={isSel ? "cmp-ring" : "cmp-ring cmp-ring-hover"} cx={x} cy={y} r={TR + 4} />}
                 <Glyph status={p.n.status} cx={x} cy={y} r={TR} />
+                {lab && <text className={isSel ? "cmp-label" : "cmp-label cmp-label-quiet"} x={lab.x} y={lab.y} aria-hidden="true">{p.n.short}</text>}
               </g>
             );
           })}
-          {sel && (
-            <g className="cmp-sel" aria-hidden="true">
-              <circle className="cmp-ring" cx={sel[0]} cy={sel[1]} r={TR + 4} />
-              <text className="cmp-label" x={sel[0] + TR + 8} y={sel[1] + 4}>{byId.get(selected)!.n.short}</text>
-            </g>
-          )}
-          {stacks.filter((s) => s.ids.length > 1).map((s) => (
-            <text key={`n-${s.ids[0]}`} className="cmp-count" x={s.at[0] - TR - 5} y={s.at[1] - TR - 3} textAnchor="end" aria-hidden="true">×{s.ids.length}</text>
-          ))}
         </svg>
         {hp && (() => {
-          const [x, y] = at.get(hp.n.id)!;
-          return <Tip p={hp} x={x} y={y} w={TW} h={TH} also={neighbours(at, hp.n.id, 4)} byId={byId} />;
+          const [x, y] = drawn.get(hp.n.id)!.at;
+          return <Tip p={hp} x={x} y={y} w={TW} h={TH} also={neighbours(at, hp.n.id, 2 * TR + TGAP)} byId={byId} />;
         })()}
       </div>
     </div>
@@ -435,14 +553,22 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
     ...time.ticks.filter((t) => t !== time.hi).map((t) => ({ k: `z-${t}`, at: [-1 - OFF, -1 - OFF, Z(t)] as Vec, text: fmtWall(t) })),
   ];
 
-  const placed = points.map((p) => {
+  const projected = points.map((p) => {
     const v: Vec = [X(p.perfBp), Y(p.tokens), Z(p.wallMs)];
-    return { p, v, s: P(v), floor: P([v[0], -1, v[2]]) };
+    return { p, s: P(v), floor: P([v[0], -1, v[2]]) };
   }).sort((a, b) => a.s.depth - b.s.depth || rankOf(a.p) - rankOf(b.p));
+  // From this angle some dots land on each other. Push them apart on screen, every
+  // frame, so each stays visible while the plot turns; a thin line marks the true spot.
+  const apart = separate(projected.map((q) => ({ id: q.p.n.id, at: [q.s.x, q.s.y], r: PR * q.s.f })), PGAP, 0);
+  const placed = projected.map((q) => ({ ...q, d: apart.get(q.p.n.id)!.at }));
+  const sel = placed.find((q) => q.p.n.id === selected);
+  const selLabel = sel && placeLabels(
+    [{ id: sel.p.n.id, at: sel.d, r: PR * sel.s.f + 4, text: sel.p.n.short, dir: null, size: 11, must: true }],
+    placed.map((q) => ({ id: q.p.n.id, at: q.d, r: PR * q.s.f })), PW, PH,
+  ).get(sel.p.n.id);
   const at2d = new Map<string, Pt>(placed.map((q) => [q.p.n.id, [q.s.x, q.s.y]]));
   const ideal = P([1, 1, 1]);
   const hp = hover?.from === "3d" ? placed.find((q) => q.p.n.id === hover.id) : undefined;
-  const sel = placed.find((q) => q.p.n.id === selected);
 
   const onKey = (e: KeyboardEvent) => {
     const step = 0.12;
@@ -522,13 +648,19 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
             <text className="cmp-ideal-label" x={ideal.x + 10} y={ideal.y + 4}>best on all three</text>
           </g>
 
-          {placed.map(({ p, s, floor }) => (
+          {placed.map(({ p, s, floor, d }) => (
             <g key={`d-${p.n.id}`} aria-hidden="true">
               <line className="cmp-drop" x1={floor.x} y1={floor.y} x2={s.x} y2={s.y} />
               <ellipse className="cmp-shadow" cx={floor.x} cy={floor.y} rx={3.2 * floor.f} ry={1.6 * floor.f} />
+              {Math.hypot(d[0] - s.x, d[1] - s.y) >= 1.5 && (
+                <>
+                  <line className="cmp-spoke" x1={s.x} y1={s.y} x2={d[0]} y2={d[1]} />
+                  <circle className="cmp-anchor" cx={s.x} cy={s.y} r={2} />
+                </>
+              )}
             </g>
           ))}
-          {placed.map(({ p, s }) => {
+          {placed.map(({ p, s, d: [x, y] }) => {
             const isSel = p.n.id === selected;
             const r = PR * s.f;
             return (
@@ -537,15 +669,15 @@ function Axes3D({ points, byId, selected, onSelect, hover, setHover }: ChartProp
                 onClick={() => onSelect(p.n.id)}
                 onPointerEnter={() => { if (drag.current?.moved !== true) setHover({ id: p.n.id, from: "3d" }); }}
                 onPointerLeave={() => setHover(null)}>
-                <circle className="cmp-hit" cx={s.x} cy={s.y} r={r + 5} />
-                {(isSel || hover?.id === p.n.id) && <circle className={isSel ? "cmp-ring" : "cmp-ring cmp-ring-hover"} cx={s.x} cy={s.y} r={r + 4} />}
-                <Glyph status={p.n.status} cx={s.x} cy={s.y} r={r} />
+                <circle className="cmp-hit" cx={x} cy={y} r={r + PGAP / 2} />
+                {(isSel || hover?.id === p.n.id) && <circle className={isSel ? "cmp-ring" : "cmp-ring cmp-ring-hover"} cx={x} cy={y} r={r + 4} />}
+                <Glyph status={p.n.status} cx={x} cy={y} r={r} />
               </g>
             );
           })}
-          {sel && <text className="cmp-label" x={sel.s.x + PR * sel.s.f + 8} y={sel.s.y + 4} aria-hidden="true">{sel.p.n.short}</text>}
+          {sel && selLabel && <text className="cmp-label" x={selLabel.x} y={selLabel.y} aria-hidden="true">{sel.p.n.short}</text>}
         </svg>
-        {hp && <Tip p={hp.p} x={hp.s.x} y={hp.s.y} w={PW} h={PH} also={neighbours(at2d, hp.p.n.id, 4)} byId={byId} />}
+        {hp && <Tip p={hp.p} x={hp.d[0]} y={hp.d[1]} w={PW} h={PH} also={neighbours(at2d, hp.p.n.id, 2 * PR)} byId={byId} />}
       </div>
     </div>
   );

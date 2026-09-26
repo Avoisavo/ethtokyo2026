@@ -434,7 +434,9 @@ pre.digest-error { color: var(--fail); white-space: pre-wrap; }
 .cmp-ring { fill: none; stroke: var(--ink); stroke-width: 1.6; }
 .cmp-ring-hover { stroke: var(--ink-faint); stroke-dasharray: 2.5 2.5; }
 .cmp-label { font-family: var(--f-mono), monospace; font-size: 11px; font-weight: 500; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
-.cmp-count { font-family: var(--f-mono), monospace; font-size: 10.5px; fill: var(--ink-mid); paint-order: stroke; stroke: var(--sunk); stroke-width: 3px; pointer-events: none; }
+.cmp-label-quiet { font-size: 10px; font-weight: 400; fill: var(--ink-mid); }
+.cmp-spoke { stroke: var(--ink-faint); stroke-width: 1; opacity: .7; }
+.cmp-anchor { fill: var(--ink-faint); }
 
 .cmp-plane { fill: var(--sunk); stroke: var(--rule); stroke-width: 1; stroke-linejoin: round; }
 .cmp-plane-grid { stroke: var(--rule); stroke-width: .8; }
