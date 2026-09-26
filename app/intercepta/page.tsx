@@ -18,11 +18,11 @@ export default async function InterceptaPage({ searchParams }: PageProps<"/inter
   const { version } = await searchParams;
   const tree = await loadTree();
 
-  // A version a guard or the typecheck stopped was never scored, so nobody can verify it.
+  // Every version can be bought as markdown. Only a scored one can be verified:
+  // a version a guard or the typecheck stopped was never measured.
   const versions: VersionOption[] = tree.ok
-    ? tree.data.nodes
-        .filter((n) => !n.detail.mechanical || n.detail.mechanical.cls === "ok")
-        .map((n) => ({
+    ? tree.data.nodes.map((n) => ({
+          scored: !n.detail.mechanical || n.detail.mechanical.cls === "ok",
           id: n.id,
           short: n.short,
           label: n.label,
